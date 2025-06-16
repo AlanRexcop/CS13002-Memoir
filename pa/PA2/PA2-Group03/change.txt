@@ -1,0 +1,8 @@
+Project Plan:
+- Add Risk Management
+- Update project plan
+- Update project schedule
+- Update Role and Responsibility for better flexibility
+
+Project Vision:
+change in 5.Product feature, add more feature to make the app more complete.

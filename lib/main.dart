@@ -13,9 +13,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Memoir',
-      theme: ThemeData.dark(useMaterial3: true).copyWith(
-        scaffoldBackgroundColor: const Color(0xFF1e1e1e),
-        cardColor: const Color(0xFF2d2d2d),
+      theme: ThemeData.light(useMaterial3: true).copyWith(
+        scaffoldBackgroundColor: const Color.fromARGB(255, 231, 231, 231),
+        cardColor: const Color.fromARGB(255, 200, 200, 200),
       ),
       home: const HomeWrapper(),
     );

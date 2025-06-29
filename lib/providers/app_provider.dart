@@ -149,8 +149,6 @@ class AppNotifier extends StateNotifier<AppState> {
   Future<bool> deletePerson(Person person) async {
     try {
       await _localStorageService.deletePerson(person.path);
-      // To update the UI, we simply remove the person from the current state list.
-      // This is much faster than reloading everything from disk.
       state = state.copyWith(
         persons: state.persons.where((p) => p.path != person.path).toList(),
       );
@@ -165,8 +163,6 @@ class AppNotifier extends StateNotifier<AppState> {
     if (state.storagePath == null) return false;
     try {
       await _localStorageService.deleteNote(note.path);
-      // After a note is deleted, the parent Person object has changed.
-      // The simplest way to reflect this is to reload everything.
       await _loadAllPersons(state.storagePath!);
       return true;
     } catch (e) {

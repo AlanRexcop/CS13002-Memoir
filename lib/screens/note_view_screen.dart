@@ -37,7 +37,7 @@ class _NoteViewScreenState extends ConsumerState<NoteViewScreen> {
             onPressed: () {
               // Use pushReplacement so the user doesn't build up a stack
               // of view/edit pages by toggling back and forth.
-              Navigator.of(context).pushReplacement(
+              Navigator.of(context).push(
                 MaterialPageRoute(builder: (context) => NoteEditorScreen(notePath: widget.note.path)),
               );
             },

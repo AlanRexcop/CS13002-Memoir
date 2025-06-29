@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:memoir/models/note_model.dart';
 import 'package:memoir/models/person_model.dart';
 import 'package:memoir/providers/app_provider.dart';
@@ -12,11 +13,11 @@ class PersonDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch the provider to get the most up-to-date version of the person,
-    // which is important after a note is deleted.
+    // To see updates immediately, we watch the provider to get the latest
+    // version of our person after an action (like delete or create).
     final updatedPerson = ref.watch(appProvider).persons.firstWhere(
           (p) => p.path == person.path,
-          orElse: () => person, // Fallback if the person was just deleted
+          orElse: () => person, // Fallback to the initial person object
         );
     final allNotes = [updatedPerson.info, ...updatedPerson.notes];
 
@@ -32,7 +33,6 @@ class PersonDetailScreen extends ConsumerWidget {
 
           return Dismissible(
             key: ValueKey(note.path),
-            // IMPORTANT: Prevent the main info.md note from being deleted.
             direction: isInfoNote ? DismissDirection.none : DismissDirection.endToStart,
             background: Container(
               color: Colors.red[800],
@@ -41,12 +41,12 @@ class PersonDetailScreen extends ConsumerWidget {
               child: const Icon(Icons.delete, color: Colors.white),
             ),
             confirmDismiss: (direction) async {
-              return await showDialog<bool>(
+              return await showDialog(
                 context: context,
                 builder: (BuildContext context) {
                   return AlertDialog(
                     title: const Text("Confirm Deletion"),
-                    content: Text("Are you sure you want to delete the note '${note.title}'?"),
+                    content: Text("Are you sure you want to delete ${note.title}?"),
                     actions: <Widget>[
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(false),
@@ -59,25 +59,37 @@ class PersonDetailScreen extends ConsumerWidget {
                     ],
                   );
                 },
-              ) ?? false;
+              );
             },
             onDismissed: (direction) async {
-              final success = await ref.read(appProvider.notifier).deleteNote(note);
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(success ? "Deleted ${note.title}" : "Failed to delete note."),
-                    backgroundColor: success ? Colors.green[700] : Colors.red[700],
-                  ),
-                );
-              }
+              await ref.read(appProvider.notifier).deleteNote(note);
             },
             child: Card(
               margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: ListTile(
-                leading: Icon(isInfoNote ? Icons.info_outline : Icons.description_outlined),
-                title: Text(note.title),
-                subtitle: Text('Last modified: ${note.lastModified.toLocal()}'),
+                leading: Icon(isInfoNote ? Icons.info_outline : Icons.description_outlined, size: 40),
+                title: Text(note.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Modified: ${DateFormat('yyyy-MM-dd HH:mm').format(note.lastModified.toLocal())}',
+                    ),
+                    const SizedBox(height: 4),
+                    // Only show the Wrap widget if there are tags.
+                    if (note.tags.isNotEmpty)
+                      Wrap(
+                        spacing: 4.0,
+                        runSpacing: 4.0,
+                        children: note.tags.map((tag) => Chip(
+                          label: Text(tag),
+                          padding: EdgeInsets.zero,
+                          visualDensity: VisualDensity.compact,
+                          labelStyle: const TextStyle(fontSize: 10),
+                        )).toList(),
+                      ),
+                  ],
+                ),
                 trailing: isInfoNote ? const Chip(label: Text('Info'), visualDensity: VisualDensity.compact) : null,
                 onTap: () {
                   Navigator.of(context).push(
@@ -107,7 +119,7 @@ class PersonDetailScreen extends ConsumerWidget {
           content: TextField(
             controller: nameController,
             autofocus: true,
-            decoration: const InputDecoration(hintText: "Note Title (e.g., 'Meeting Notes')"),
+            decoration: const InputDecoration(hintText: "Note Title"),
           ),
           actions: [
             TextButton(
@@ -120,7 +132,6 @@ class PersonDetailScreen extends ConsumerWidget {
                 if (name.isEmpty) return;
 
                 Navigator.of(context).pop();
-
                 final success = await ref.read(appProvider.notifier).createNewNoteForPerson(currentPerson, name);
 
                 if (context.mounted) {

@@ -79,7 +79,7 @@ class LocalStorageService {
     }
 
     final analysis = analyzeMarkdown(noteMainContent);
-
+    print(file.path);
     return Note(
       path: file.path, 
       title: noteTitle,

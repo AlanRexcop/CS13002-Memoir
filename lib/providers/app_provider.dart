@@ -1,3 +1,5 @@
+// C:\dev\memoir\lib\providers\app_provider.dart
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/models/person_model.dart';
@@ -84,13 +86,14 @@ class AppNotifier extends StateNotifier<AppState> {
   Future<void> _loadInitialPath() async {
     final path = await _persistenceService.getLocalStoragePath();
     if (path != null) {
-      await _loadAllPersons(path);
+      await loadAllPersons(path);
     } else {
       state = state.copyWith(isLoading: false);
     }
   }
 
-  Future<void> _loadAllPersons(String path) async {
+  // This is now public to be used by the refresh logic
+  Future<void> loadAllPersons(String path) async {
     state = state.copyWith(isLoading: true, storagePath: path);
     try {
       final persons = await _localStorageService.readAllPersonsFromDirectory(path);
@@ -103,11 +106,20 @@ class AppNotifier extends StateNotifier<AppState> {
     }
   }
 
+  /// --- NEW ---
+  /// Provides a clean public API for the UI to trigger a full vault reload.
+  Future<void> refreshVault() async {
+    if (state.storagePath != null) {
+      // Re-run the loading logic with the existing path.
+      await loadAllPersons(state.storagePath!);
+    }
+  }
+  
   Future<void> selectAndSetStorage() async {
     final path = await _localStorageService.pickDirectory();
     if (path != null) {
       await _persistenceService.saveLocalStoragePath(path);
-      await _loadAllPersons(path);
+      await loadAllPersons(path);
     }
   }
 
@@ -123,7 +135,7 @@ class AppNotifier extends StateNotifier<AppState> {
         parentPath: state.storagePath!,
         personName: name,
       );
-      await _loadAllPersons(state.storagePath!);
+      await loadAllPersons(state.storagePath!);
       return true;
     } catch (e) {
       print("Failed to create person: $e");
@@ -138,7 +150,7 @@ class AppNotifier extends StateNotifier<AppState> {
         personPath: person.path,
         noteName: noteName,
       );
-      await _loadAllPersons(state.storagePath!);
+      await loadAllPersons(state.storagePath!);
       return true;
     } catch (e) {
       print("Failed to create note: $e");
@@ -159,15 +171,61 @@ class AppNotifier extends StateNotifier<AppState> {
     }
   }
 
-  Future<bool> deleteNote(Note note) async {
+  Future<void> updateNote(String notePath) async {
+    try {
+      final updatedNote = await _localStorageService.readNoteFromFile(File(notePath));
+
+      final newPersonsList = state.persons.map((person) {
+        if (person.info.path == notePath) {
+          return Person(path: person.path, info: updatedNote, notes: person.notes);
+        }
+
+        final noteIndex = person.notes.indexWhere((n) => n.path == notePath);
+        if (noteIndex != -1) {
+          final newNotesForPerson = List<Note>.from(person.notes);
+          newNotesForPerson[noteIndex] = updatedNote;
+          return Person(path: person.path, info: person.info, notes: newNotesForPerson);
+        }
+
+        return person;
+      }).toList();
+
+      state = state.copyWith(persons: newPersonsList);
+
+    } catch (e) {
+      print("Failed to update note in state: $e");
+    }
+  }
+
+  Future<bool> deleteNote(Note noteToDelete) async {
     if (state.storagePath == null) return false;
     try {
-      await _localStorageService.deleteNote(note.path);
-      await _loadAllPersons(state.storagePath!);
+      await _localStorageService.deleteNote(noteToDelete.path);
+      
+      final newPersonsList = state.persons.map((person) {
+        if (person.notes.any((n) => n.path == noteToDelete.path)) {
+          final newNotesForPerson = person.notes.where((n) => n.path != noteToDelete.path).toList();
+          return Person(path: person.path, info: person.info, notes: newNotesForPerson);
+        }
+        return person;
+      }).toList();
+      
+      state = state.copyWith(persons: newPersonsList);
       return true;
     } catch (e) {
       print("Failed to delete note: $e");
       return false;
     }
+  }
+
+  Future<void> changeStorageLocation() async {
+    await _persistenceService.clearLocalStoragePath();
+
+    state = state.copyWith(
+      storagePath: null,
+      persons: [],
+      isLoading: false,
+      clearStoragePath: true,
+    );
   }
 }

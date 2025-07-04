@@ -1,3 +1,4 @@
+// C:\dev\memoir\lib\screens\note_editor_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,8 +20,6 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   String _lastSavedStatus = "Loading...";
   bool _isContentLoaded = false;
   
-  // This will hold the content of the last successful save.
-  // It's our source of truth for checking if changes have been made.
   String _lastKnownSavedContent = '';
 
   @override
@@ -29,8 +28,6 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     _controller = TextEditingController();
   }
 
-  /// This method is called by the TextField's `onChanged` callback.
-  /// It debounces the input to trigger an auto-save.
   void _onNoteTextChanged(String currentText) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(seconds: 1), _autoSaveNote);
@@ -42,15 +39,12 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     }
   }
 
-  /// This is for the debounced auto-save. It checks for changes before saving.
   Future<void> _autoSaveNote() async {
-    // Only auto-save if the content has actually changed.
     if (_controller.text != _lastKnownSavedContent) {
       await _performSave();
     }
   }
 
-  /// This is the core save logic, callable from multiple places.
   Future<void> _performSave() async {
     if (_isSaving) return;
     
@@ -62,11 +56,15 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       final service = ref.read(localStorageServiceProvider);
       await service.writeNoteToFile(widget.notePath, textToSave);
       
-      // After a successful save, update our source of truth.
       _lastKnownSavedContent = textToSave;
       
-      // Invalidate providers so other screens get the fresh data.
-      ref.invalidate(appProvider);
+      // --- OPTIMIZATION ---
+      // Instead of invalidating the whole app, we now call the targeted update method.
+      // This is much more performant.
+      await ref.read(appProvider.notifier).updateNote(widget.notePath);
+      
+      // We still invalidate the raw content provider so this screen and the
+      // view screen will get the fresh text content if they need it.
       ref.invalidate(rawNoteContentProvider(widget.notePath));
       
       if (mounted) {
@@ -85,33 +83,25 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
   @override
   void dispose() {
-    // The dispose method is now clean and synchronous.
-    // It only cleans up controllers and timers.
     _debounce?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
-  /// This is the clean "save-on-exit" handler, called by WillPopScope.
   Future<bool> _onWillPop() async {
-    // Cancel any pending auto-save since we are doing a final save now.
     _debounce?.cancel();
     
-    // Only perform the final save if there are unsaved changes.
     if (_controller.text != _lastKnownSavedContent) {
        await _performSave();
     }
     
-    // Return true to allow the screen to be popped by the navigator.
     return true;
   }
 
   @override
   Widget build(BuildContext context) {
-    // Watch the provider to get the initial content for the note.
     final asyncContent = ref.watch(rawNoteContentProvider(widget.notePath));
     
-    // Wrap the entire Scaffold in WillPopScope to intercept back navigation.
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
@@ -127,12 +117,10 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
             Expanded(
               child: asyncContent.when(
                 data: (initialContent) {
-                  // This flag ensures we only populate the controller once.
                   if (!_isContentLoaded) {
                     _controller.text = initialContent;
-                    _lastKnownSavedContent = initialContent; // Store the initial state
+                    _lastKnownSavedContent = initialContent;
                     _isContentLoaded = true;
-                    // Update the UI status after the first build frame.
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (mounted) setState(() => _lastSavedStatus = "All changes saved");
                     });
@@ -157,7 +145,6 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                 error: (err, stack) => Center(child: Text('Error: $err')),
               ),
             ),
-            // Status bar at the bottom for user feedback.
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               color: Theme.of(context).bottomAppBarTheme.color,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_map_marker_popup/flutter_map_marker_popup.dart';
+import 'package:intl/intl.dart';
 
 import 'package:memoir/models/location_model.dart';
 import 'package:memoir/models/note_model.dart';
@@ -17,30 +18,28 @@ class MapLocationEntry {
   MapLocationEntry(this.location, this.parentNote);
 }
 
-// 1. Change from ConsumerWidget to ConsumerStatefulWidget
+// Convert to a ConsumerStatefulWidget to manage the controller's lifecycle.
 class MapScreen extends ConsumerStatefulWidget {
-  // 2. The constructor can now be properly const because it has no fields.
   const MapScreen({super.key});
 
   @override
   ConsumerState<MapScreen> createState() => _MapScreenState();
 }
 
-// 3. Create the accompanying State class.
 class _MapScreenState extends ConsumerState<MapScreen> {
-  // 4. Declare the controller here. It's not final because it's initialized in initState.
+  // Declare the controller here. It will be initialized in initState.
   late final PopupController _popupLayerController;
 
   @override
   void initState() {
     super.initState();
-    // 5. Initialize the controller when the widget is first created.
+    // Initialize the controller when the widget is first created.
     _popupLayerController = PopupController();
   }
 
   @override
   void dispose() {
-    // 6. It's crucial to dispose of the controller to prevent memory leaks.
+    // It's crucial to dispose of the controller to prevent memory leaks.
     _popupLayerController.dispose();
     super.dispose();
   }
@@ -58,20 +57,41 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       }
     }
 
-    final LatLng initialCenter = allLocations.isNotEmpty
-        ? LatLng(allLocations.first.location.lat, allLocations.first.location.lng)
-        : const LatLng(51.509865, -0.118092);
+    // This logic calculates the correct map view.
+    late final MapOptions mapOptions;
+
+    if (allLocations.isEmpty) {
+      // If there are no locations, use a default centered view.
+      mapOptions = MapOptions(
+        initialCenter: const LatLng(51.509865, -0.118092), // Default to London
+        initialZoom: 4.0,
+        onTap: (_, __) => _popupLayerController.hideAllPopups(),
+      );
+    } else {
+      // If locations exist, calculate the bounds to fit them all.
+      final points = allLocations.map((entry) => LatLng(entry.location.lat, entry.location.lng)).toList();
+      final bounds = LatLngBounds.fromPoints(points);
+
+      // Create a CameraFit object using the bounds. This is the correct API.
+      final cameraFit = CameraFit.bounds(
+        bounds: bounds,
+        padding: const EdgeInsets.all(50.0), // Add padding so markers aren't on the edge
+      );
+      
+      // Create MapOptions using the `initialCameraFit` property.
+      mapOptions = MapOptions(
+        initialCameraFit: cameraFit,
+        onTap: (_, __) => _popupLayerController.hideAllPopups(),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Locations Map'),
       ),
+      // Pass our dynamically created mapOptions to the FlutterMap widget.
       body: FlutterMap(
-        options: MapOptions(
-          initialCenter: initialCenter,
-          initialZoom: allLocations.isNotEmpty ? 13.0 : 4.0,
-          onTap: (_, __) => _popupLayerController.hideAllPopups(),
-        ),
+        options: mapOptions,
         children: [
           TileLayer(
             urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -97,6 +117,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   // Helper methods now belong to the State class.
+  
   List<Marker> _buildMarkers(List<MapLocationEntry> entries) {
     return entries.map((entry) {
       return Marker(
@@ -113,42 +134,62 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   Widget _buildPopupWidget(BuildContext context, MapLocationEntry entry) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 250),
+      child: Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
                 children: [
-                  Text(
-                    entry.location.info,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  Expanded(
+                    child: Text(
+                      entry.location.info,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
                   ),
-                  Text(
-                    'In: "${entry.parentNote.title}"',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.arrow_forward_ios, size: 16),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    tooltip: 'Go to Note',
+                    onPressed: () {
+                      _popupLayerController.hideAllPopups();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => NoteViewScreen(note: entry.parentNote),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
-            ),
-            const SizedBox(width: 12),
-            IconButton(
-              icon: const Icon(Icons.arrow_forward_ios, size: 16),
-              tooltip: 'Go to Note',
-              onPressed: () {
-                _popupLayerController.hideAllPopups();
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => NoteViewScreen(note: entry.parentNote),
-                  ),
-                );
-              },
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                'In: "${entry.parentNote.title}"',
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 8),
+              if (entry.parentNote.tags.isNotEmpty)
+                Wrap(
+                  spacing: 4.0,
+                  runSpacing: 4.0,
+                  children: entry.parentNote.tags.map((tag) => Chip(
+                    label: Text(tag),
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                    labelStyle: const TextStyle(fontSize: 10),
+                  )).toList(),
+                ),
+            ],
+          ),
         ),
       ),
     );

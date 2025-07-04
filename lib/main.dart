@@ -17,6 +17,7 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color.fromARGB(255, 231, 231, 231),
         cardColor: const Color.fromARGB(255, 200, 200, 200),
       ),
+      debugShowCheckedModeBanner: false,
       home: const HomeWrapper(),
     );
   }

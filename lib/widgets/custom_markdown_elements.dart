@@ -3,15 +3,14 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:markdown/markdown.dart' as m;
 import 'package:markdown_widget/markdown_widget.dart';
+import 'package:memoir/models/location_model.dart';
 import 'package:memoir/models/note_model.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/screens/calendar_screen.dart';
 import 'package:memoir/screens/map_screen.dart';
 import 'package:memoir/screens/note_view_screen.dart';
 
-// A helper class to bundle context needed for navigation.
 class MarkdownBuildContext {
   final BuildContext context;
   final WidgetRef ref;
@@ -37,7 +36,6 @@ class MentionNode extends SpanNode {
       ),
       recognizer: TapGestureRecognizer()
         ..onTap = () {
-          // Find the note from the provider and navigate to it.
           final allPersons = buildContext.ref.read(appProvider).persons;
           Note? targetNote;
           for (var person in allPersons) {
@@ -64,24 +62,26 @@ class MentionNode extends SpanNode {
 // --- LOCATION WIDGET ---
 
 class LocationNode extends SpanNode {
-  final String text;
+  // --- NEW: Hold the full Location object ---
+  final Location location;
   final MarkdownBuildContext buildContext;
   
-  LocationNode(this.text, this.buildContext);
+  LocationNode(this.location, this.buildContext);
 
   @override
   InlineSpan build() {
     return WidgetSpan(
       alignment: PlaceholderAlignment.middle,
       child: GestureDetector(
+        // --- NEW: Pass the location object on tap ---
         onTap: () {
           Navigator.of(buildContext.context).push(
-            MaterialPageRoute(builder: (context) => const MapScreen()),
+            MaterialPageRoute(builder: (context) => MapScreen(initialLocation: location)),
           );
         },
         child: Chip(
           avatar: const Icon(Icons.location_on_outlined, size: 16),
-          label: Text(text),
+          label: Text(location.info), // Use info from the location object
           visualDensity: VisualDensity.compact,
         ),
       ),
@@ -103,9 +103,10 @@ class EventNode extends SpanNode {
     return WidgetSpan(
       alignment: PlaceholderAlignment.middle,
       child: GestureDetector(
+        // --- NEW: Pass the date object on tap ---
         onTap: () {
           Navigator.of(buildContext.context).push(
-            MaterialPageRoute(builder: (context) => const CalendarScreen()),
+            MaterialPageRoute(builder: (context) => CalendarScreen(initialDate: time)),
           );
         },
         child: Chip(
@@ -135,10 +136,16 @@ SpanNodeGeneratorWithTag mentionGenerator(MarkdownBuildContext buildContext) {
 SpanNodeGeneratorWithTag locationGenerator(MarkdownBuildContext buildContext) {
   return SpanNodeGeneratorWithTag(
     tag: 'mlocation',
-    generator: (e, config, visitor) => LocationNode(
-      e.attributes['data-text']!,
-      buildContext,
-    ),
+    generator: (e, config, visitor) {
+      // --- NEW: Parse the attributes to create a Location object ---
+      final text = e.attributes['data-text']!;
+      final value = e.attributes['data-value']!;
+      final parts = value.split(',');
+      final lat = double.parse(parts[0].trim());
+      final lng = double.parse(parts[1].trim());
+      final location = Location(info: text, lat: lat, lng: lng);
+      return LocationNode(location, buildContext);
+    },
   );
 }
 

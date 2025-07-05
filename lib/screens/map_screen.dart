@@ -1,16 +1,15 @@
+// C:\dev\memoir\lib\screens\map_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_map_marker_popup/flutter_map_marker_popup.dart';
-import 'package:intl/intl.dart';
 
 import 'package:memoir/models/location_model.dart';
 import 'package:memoir/models/note_model.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/screens/note_view_screen.dart';
 
-// Helper class to link a Location to its source Note.
 class MapLocationEntry {
   final Location location;
   final Note parentNote;
@@ -18,35 +17,33 @@ class MapLocationEntry {
   MapLocationEntry(this.location, this.parentNote);
 }
 
-// Convert to a ConsumerStatefulWidget to manage the controller's lifecycle.
 class MapScreen extends ConsumerStatefulWidget {
-  const MapScreen({super.key});
+  // --- NEW: Optional parameter to focus on a specific location ---
+  final Location? initialLocation;
+
+  const MapScreen({super.key, this.initialLocation});
 
   @override
   ConsumerState<MapScreen> createState() => _MapScreenState();
 }
 
 class _MapScreenState extends ConsumerState<MapScreen> {
-  // Declare the controller here. It will be initialized in initState.
   late final PopupController _popupLayerController;
 
   @override
   void initState() {
     super.initState();
-    // Initialize the controller when the widget is first created.
     _popupLayerController = PopupController();
   }
 
   @override
   void dispose() {
-    // It's crucial to dispose of the controller to prevent memory leaks.
     _popupLayerController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // The ref is available on the state object in a ConsumerStatefulWidget.
     final allPersons = ref.watch(appProvider).persons;
     final List<MapLocationEntry> allLocations = [];
     for (var person in allPersons) {
@@ -57,28 +54,31 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       }
     }
 
-    // This logic calculates the correct map view.
     late final MapOptions mapOptions;
 
-    if (allLocations.isEmpty) {
-      // If there are no locations, use a default centered view.
+    // --- NEW: Conditional logic for map view ---
+    if (widget.initialLocation != null) {
+      // If an initial location is provided, center and zoom on it.
       mapOptions = MapOptions(
-        initialCenter: const LatLng(51.509865, -0.118092), // Default to London
+        initialCenter: LatLng(widget.initialLocation!.lat, widget.initialLocation!.lng),
+        initialZoom: 15.0, // A nice close-up zoom level
+        onTap: (_, __) => _popupLayerController.hideAllPopups(),
+      );
+    } else if (allLocations.isEmpty) {
+      // Default view if no locations exist at all
+      mapOptions = MapOptions(
+        initialCenter: const LatLng(51.509865, -0.118092),
         initialZoom: 4.0,
         onTap: (_, __) => _popupLayerController.hideAllPopups(),
       );
     } else {
-      // If locations exist, calculate the bounds to fit them all.
+      // Original logic to fit all locations in bounds
       final points = allLocations.map((entry) => LatLng(entry.location.lat, entry.location.lng)).toList();
       final bounds = LatLngBounds.fromPoints(points);
-
-      // Create a CameraFit object using the bounds. This is the correct API.
       final cameraFit = CameraFit.bounds(
         bounds: bounds,
-        padding: const EdgeInsets.all(50.0), // Add padding so markers aren't on the edge
+        padding: const EdgeInsets.all(50.0),
       );
-      
-      // Create MapOptions using the `initialCameraFit` property.
       mapOptions = MapOptions(
         initialCameraFit: cameraFit,
         onTap: (_, __) => _popupLayerController.hideAllPopups(),
@@ -89,7 +89,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       appBar: AppBar(
         title: const Text('Locations Map'),
       ),
-      // Pass our dynamically created mapOptions to the FlutterMap widget.
       body: FlutterMap(
         options: mapOptions,
         children: [
@@ -116,8 +115,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
-  // Helper methods now belong to the State class.
-  
   List<Marker> _buildMarkers(List<MapLocationEntry> entries) {
     return entries.map((entry) {
       return Marker(

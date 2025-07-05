@@ -9,82 +9,117 @@ import 'package:memoir/screens/person_detail_screen.dart';
 import 'package:memoir/screens/graph_view_screen.dart';
 import 'package:memoir/screens/settings_screen.dart';
 
-class PersonListScreen extends ConsumerWidget {
+class PersonListScreen extends ConsumerStatefulWidget {
   const PersonListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PersonListScreen> createState() => _PersonListScreenState();
+}
+
+class _PersonListScreenState extends ConsumerState<PersonListScreen> {
+  final _tagController = TextEditingController();
+  final List<String> _searchTags = [];
+
+  void _updateSearch({String? text, List<String>? tags}) {
+    final currentQuery = ref.read(appProvider).searchQuery;
+    ref.read(appProvider.notifier).setSearchQuery(
+      (
+        text: text ?? currentQuery.text,
+        tags: tags ?? currentQuery.tags,
+      )
+    );
+  }
+
+  @override
+  void dispose() {
+    _tagController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final appState = ref.watch(appProvider);
-    // Use the filteredPersons getter from the provider for search functionality.
     final filteredPersons = appState.filteredPersons;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Persons'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.hub_outlined),
-            tooltip: 'View Graph',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const GraphViewScreen()),
-              );
-            },
-          ),
-          // Button to navigate to the Map Screen
-          IconButton(
-            icon: const Icon(Icons.map_outlined),
-            tooltip: 'View Map',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const MapScreen()),
-              );
-            },
-          ),
-          // Button to navigate to the Calendar Screen
-          IconButton(
-            icon: const Icon(Icons.calendar_month),
-            tooltip: 'View Calendar',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const CalendarScreen()),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: 'Settings',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const SettingsScreen()),
-              );
-            },
-          ),
+          IconButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const GraphViewScreen())), icon: const Icon(Icons.hub_outlined), tooltip: 'View Graph'),
+          IconButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MapScreen())), icon: const Icon(Icons.map_outlined), tooltip: 'View Map'),
+          IconButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CalendarScreen())), icon: const Icon(Icons.calendar_month), tooltip: 'View Calendar'),
+          IconButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SettingsScreen())), icon: const Icon(Icons.settings_outlined), tooltip: 'Settings'),
         ],
       ),
-      // --- NEW: Wrap body with RefreshIndicator ---
       body: RefreshIndicator(
         onRefresh: () => ref.read(appProvider.notifier).refreshVault(),
         child: Column(
           children: [
-            // Search Bar
             Padding(
-              padding: const EdgeInsets.all(8.0),
+              padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 0),
               child: TextField(
                 decoration: const InputDecoration(
-                  hintText: 'Search by name or tag...',
+                  hintText: 'Search by name...',
                   prefixIcon: Icon(Icons.search),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(12.0)),
-                  ),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12.0))),
                 ),
-                onChanged: (value) => ref.read(appProvider.notifier).setSearchTerm(value),
+                onChanged: (value) => _updateSearch(text: value),
               ),
             ),
-            // List of Persons
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Theme.of(context).dividerColor),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.label_outline, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Wrap(
+                        spacing: 8.0,
+                        runSpacing: 4.0,
+                        children: [
+                          ..._searchTags.map((tag) => Chip(
+                                label: Text(tag),
+                                onDeleted: () {
+                                  setState(() => _searchTags.remove(tag));
+                                  _updateSearch(tags: _searchTags);
+                                },
+                                visualDensity: VisualDensity.compact,
+                              )),
+                          SizedBox(
+                            width: 150,
+                            child: TextField(
+                              controller: _tagController,
+                              decoration: const InputDecoration(
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(vertical: 8.0),
+                                border: InputBorder.none,
+                                hintText: 'Filter by tag...',
+                              ),
+                              onSubmitted: (tag) {
+                                tag = tag.trim();
+                                if (tag.isNotEmpty && !_searchTags.contains(tag)) {
+                                  setState(() => _searchTags.add(tag));
+                                  _tagController.clear();
+                                  _updateSearch(tags: _searchTags);
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             Expanded(
               child: ListView.builder(
-                // This allows the pull-to-refresh to work even when the list is short.
                 physics: const AlwaysScrollableScrollPhysics(),
                 itemCount: filteredPersons.length,
                 itemBuilder: (context, index) {
@@ -106,14 +141,8 @@ class PersonListScreen extends ConsumerWidget {
                             title: const Text("Confirm Deletion"),
                             content: Text("Are you sure you want to delete ${person.info.title}? This action cannot be undone."),
                             actions: <Widget>[
-                              TextButton(
-                                onPressed: () => Navigator.of(context).pop(false),
-                                child: const Text("Cancel"),
-                              ),
-                              TextButton(
-                                onPressed: () => Navigator.of(context).pop(true),
-                                child: const Text("Delete", style: TextStyle(color: Colors.red)),
-                              ),
+                              TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text("Cancel")),
+                              TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text("Delete", style: TextStyle(color: Colors.red))),
                             ],
                           );
                         },
@@ -153,7 +182,9 @@ class PersonListScreen extends ConsumerWidget {
                               ),
                           ],
                         ),
+                        // --- FIX: Reset the provider state before navigating ---
                         onTap: () {
+                          ref.read(detailSearchProvider.notifier).state = (text: '', tags: const []);
                           Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (context) => PersonDetailScreen(person: person),
@@ -198,11 +229,8 @@ class PersonListScreen extends ConsumerWidget {
               onPressed: () async {
                 final name = nameController.text.trim();
                 if (name.isEmpty) return;
-
                 Navigator.of(context).pop();
-
                 final success = await ref.read(appProvider.notifier).createNewPerson(name);
-
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(

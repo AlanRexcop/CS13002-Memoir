@@ -8,8 +8,6 @@ import 'package:memoir/models/note_model.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/screens/note_view_screen.dart';
 
-// A simple helper class to link an event to its source note,
-// giving us all the context we need for navigation and display.
 class CalendarEventEntry {
   final Event event;
   final Note parentNote;
@@ -18,40 +16,39 @@ class CalendarEventEntry {
 }
 
 class CalendarScreen extends ConsumerStatefulWidget {
-  const CalendarScreen({super.key});
+  // --- NEW: Optional parameter to set the initial date ---
+  final DateTime? initialDate;
+
+  const CalendarScreen({super.key, this.initialDate});
 
   @override
   ConsumerState<CalendarScreen> createState() => _CalendarScreenState();
 }
 
 class _CalendarScreenState extends ConsumerState<CalendarScreen> {
-  // We only need to manage the currently focused/selected day in the local state.
   CalendarFormat _calendarFormat = CalendarFormat.month;
-  DateTime _focusedDay = DateTime.now();
-  DateTime? _selectedDay;
+  late DateTime _focusedDay;
+  late DateTime? _selectedDay;
 
   @override
   void initState() {
     super.initState();
-    // Initialize the selected day when the screen is first built.
-    _selectedDay = _focusedDay;
+    // --- NEW: Use the initialDate if provided, otherwise default to now ---
+    final initial = widget.initialDate ?? DateTime.now();
+    _focusedDay = initial;
+    _selectedDay = initial;
   }
 
-  // The dispose method is now simpler as we don't have a ValueNotifier.
   @override
   void dispose() {
     super.dispose();
   }
 
-  // Helper function to get the list of entries for a given day from the main source map.
   List<CalendarEventEntry> _getEventsForDay(DateTime day, Map<DateTime, List<CalendarEventEntry>> source) {
-    // The key for the map is a UTC date with time set to zero.
     return source[DateTime.utc(day.year, day.month, day.day)] ?? [];
   }
 
-  // Callback for when the user taps a day on the calendar.
   void _onDaySelected(DateTime selectedDay, DateTime focusedDay) {
-    // We only call setState if the selected day has actually changed.
     if (!isSameDay(_selectedDay, selectedDay)) {
       setState(() {
         _selectedDay = selectedDay;
@@ -62,25 +59,19 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Watch the main app provider. Whenever it changes (e.g., after a note is
-    // edited), this entire build method will re-run, ensuring all data is fresh.
     final allPersons = ref.watch(appProvider).persons;
     
-    // Build the event source map from scratch on every build. This guarantees it's up-to-date.
     final Map<DateTime, List<CalendarEventEntry>> eventsSource = {};
     for (var person in allPersons) {
       for (var note in [person.info, ...person.notes]) {
         for (var event in note.events) {
           final dayKey = DateTime.utc(event.time.year, event.time.month, event.time.day);
           if (eventsSource[dayKey] == null) eventsSource[dayKey] = [];
-          // When we add an event, we wrap it with its parent note for context.
           eventsSource[dayKey]!.add(CalendarEventEntry(event, note));
         }
       }
     }
     
-    // Calculate the list for the selected day directly in the build method.
-    // This is the key to fixing the state bug.
     final selectedDayEvents = _getEventsForDay(_selectedDay!, eventsSource);
 
     return Scaffold(
@@ -94,7 +85,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
             calendarFormat: _calendarFormat,
             eventLoader: (day) => _getEventsForDay(day, eventsSource),
-            // --- NEW: Custom builders to change marker appearance ---
             calendarBuilders: CalendarBuilders(
               markerBuilder: (context, day, events) {
                 if (events.isEmpty) return null;
@@ -122,7 +112,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 );
               },
             ),
-            // --- END NEW ---
             onDaySelected: _onDaySelected,
             onFormatChanged: (format) {
               if (_calendarFormat != format) setState(() => _calendarFormat = format);
@@ -134,8 +123,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           const SizedBox(height: 8.0),
           const Divider(),
           Expanded(
-            // We no longer need a ValueListenableBuilder. A simple ListView is sufficient
-            // because the `selectedDayEvents` list is recalculated on every build.
             child: ListView.builder(
               itemCount: selectedDayEvents.length,
               itemBuilder: (context, index) {
@@ -165,7 +152,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                       ],
                     ),
                     onTap: () {
-                      // Navigation is simple because we have the full parentNote object.
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (context) => NoteViewScreen(note: entry.parentNote),

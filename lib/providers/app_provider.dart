@@ -7,6 +7,8 @@ import 'package:memoir/services/local_storage_service.dart';
 import 'package:memoir/services/persistence_service.dart';
 import 'package:memoir/models/note_model.dart';
 
+// --- REMOVED: This function is no longer needed. ---
+// The UI will now construct the search record directly.
 
 // --- State Class ---
 @immutable
@@ -14,27 +16,30 @@ class AppState {
   final String? storagePath;
   final List<Person> persons;
   final bool isLoading;
-  final String searchTerm;
+  final ({String text, List<String> tags}) searchQuery;
 
   const AppState({
     this.storagePath,
     this.persons = const [],
-    this.isLoading = true, // Start in loading state
-    this.searchTerm = '',
+    this.isLoading = true,
+    this.searchQuery = (text: '', tags: const []),
   });
 
   bool get isStorageSet => storagePath != null;
 
-  // Filtered list of persons based on the search term
   List<Person> get filteredPersons {
-    if (searchTerm.isEmpty) {
+    if (searchQuery.text.isEmpty && searchQuery.tags.isEmpty) {
       return persons;
     }
-    final lowerCaseSearch = searchTerm.toLowerCase();
+    
     return persons.where((person) {
-      final nameMatch = person.info.title.toLowerCase().contains(lowerCaseSearch);
-      final tagMatch = person.info.tags.any((tag) => tag.toLowerCase().contains(lowerCaseSearch));
-      return nameMatch || tagMatch;
+      final lowerCaseTitle = person.info.title.toLowerCase();
+      final lowerCaseTags = person.info.tags.map((t) => t.toLowerCase()).toList();
+
+      final textMatch = searchQuery.text.isEmpty || lowerCaseTitle.contains(searchQuery.text.toLowerCase());
+      final tagsMatch = searchQuery.tags.isEmpty || searchQuery.tags.every((searchTag) => lowerCaseTags.contains(searchTag.toLowerCase()));
+      
+      return textMatch && tagsMatch;
     }).toList();
   }
 
@@ -42,14 +47,14 @@ class AppState {
     String? storagePath,
     List<Person>? persons,
     bool? isLoading,
-    String? searchTerm,
+    ({String text, List<String> tags})? searchQuery,
     bool clearStoragePath = false,
   }) {
     return AppState(
       storagePath: clearStoragePath ? null : storagePath ?? this.storagePath,
       persons: persons ?? this.persons,
       isLoading: isLoading ?? this.isLoading,
-      searchTerm: searchTerm ?? this.searchTerm,
+      searchQuery: searchQuery ?? this.searchQuery,
     );
   }
 }
@@ -69,10 +74,15 @@ final rawNoteContentProvider = FutureProvider.family<String, String>((ref, path)
   final service = ref.read(localStorageServiceProvider);
   return service.readRawFileContent(path);
 });
+
+final detailSearchProvider = StateProvider<({String text, List<String> tags})>((ref) => (text: '', tags: const []));
+
 // --- StateNotifier Class ---
 class AppNotifier extends StateNotifier<AppState> {
   final PersistenceService _persistenceService;
   final LocalStorageService _localStorageService;
+
+  late final Future<void> initializationComplete;
 
   AppNotifier({
     required PersistenceService persistenceService,
@@ -80,8 +90,10 @@ class AppNotifier extends StateNotifier<AppState> {
   })  : _persistenceService = persistenceService,
         _localStorageService = localStorageService,
         super(const AppState()) {
-    _loadInitialPath();
+    initializationComplete = _loadInitialPath();
   }
+
+  // ... (rest of the class is unchanged)
 
   Future<void> _loadInitialPath() async {
     final path = await _persistenceService.getLocalStoragePath();
@@ -92,12 +104,10 @@ class AppNotifier extends StateNotifier<AppState> {
     }
   }
 
-  // This is now public to be used by the refresh logic
   Future<void> loadAllPersons(String path) async {
     state = state.copyWith(isLoading: true, storagePath: path);
     try {
       final persons = await _localStorageService.readAllPersonsFromDirectory(path);
-      // Sort persons alphabetically by title
       persons.sort((a, b) => a.info.title.compareTo(b.info.title));
       state = state.copyWith(persons: persons, isLoading: false);
     } catch (e) {
@@ -106,11 +116,8 @@ class AppNotifier extends StateNotifier<AppState> {
     }
   }
 
-  /// --- NEW ---
-  /// Provides a clean public API for the UI to trigger a full vault reload.
   Future<void> refreshVault() async {
     if (state.storagePath != null) {
-      // Re-run the loading logic with the existing path.
       await loadAllPersons(state.storagePath!);
     }
   }
@@ -123,13 +130,12 @@ class AppNotifier extends StateNotifier<AppState> {
     }
   }
 
-  void setSearchTerm(String term) {
-    state = state.copyWith(searchTerm: term);
+  void setSearchQuery(({String text, List<String> tags}) query) {
+    state = state.copyWith(searchQuery: query);
   }
 
   Future<bool> createNewPerson(String name) async {
     if (state.storagePath == null) return false;
-
     try {
       await _localStorageService.createPerson(
         parentPath: state.storagePath!,
@@ -174,24 +180,19 @@ class AppNotifier extends StateNotifier<AppState> {
   Future<void> updateNote(String notePath) async {
     try {
       final updatedNote = await _localStorageService.readNoteFromFile(File(notePath));
-
       final newPersonsList = state.persons.map((person) {
         if (person.info.path == notePath) {
           return Person(path: person.path, info: updatedNote, notes: person.notes);
         }
-
         final noteIndex = person.notes.indexWhere((n) => n.path == notePath);
         if (noteIndex != -1) {
           final newNotesForPerson = List<Note>.from(person.notes);
           newNotesForPerson[noteIndex] = updatedNote;
           return Person(path: person.path, info: person.info, notes: newNotesForPerson);
         }
-
         return person;
       }).toList();
-
       state = state.copyWith(persons: newPersonsList);
-
     } catch (e) {
       print("Failed to update note in state: $e");
     }
@@ -201,7 +202,6 @@ class AppNotifier extends StateNotifier<AppState> {
     if (state.storagePath == null) return false;
     try {
       await _localStorageService.deleteNote(noteToDelete.path);
-      
       final newPersonsList = state.persons.map((person) {
         if (person.notes.any((n) => n.path == noteToDelete.path)) {
           final newNotesForPerson = person.notes.where((n) => n.path != noteToDelete.path).toList();
@@ -209,7 +209,6 @@ class AppNotifier extends StateNotifier<AppState> {
         }
         return person;
       }).toList();
-      
       state = state.copyWith(persons: newPersonsList);
       return true;
     } catch (e) {
@@ -220,7 +219,6 @@ class AppNotifier extends StateNotifier<AppState> {
 
   Future<void> changeStorageLocation() async {
     await _persistenceService.clearLocalStoragePath();
-
     state = state.copyWith(
       storagePath: null,
       persons: [],

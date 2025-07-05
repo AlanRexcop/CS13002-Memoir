@@ -69,8 +69,6 @@ class _GraphViewScreenState extends ConsumerState<GraphViewScreen> {
         final localGraphNotePaths = <String>{};
         localGraphNotePaths.add(rootNote.path);
         
-        // --- NEW: Handle Person-to-Notes relationship ---
-        // If the root node is a Person's main info file, add all their notes.
         if (p.basename(rootNote.path) == 'info.md') {
           try {
             final person = allPersons.firstWhere((p) => p.info.path == rootNote.path);
@@ -79,9 +77,7 @@ class _GraphViewScreenState extends ConsumerState<GraphViewScreen> {
             }
           } catch (e) { /* Person not found, do nothing. */ }
         }
-        // --- END NEW ---
 
-        // Find all notes that mention or are mentioned by the root note
         for (final note in allNotesByPath.values) {
           if (note.mentions.any((m) => m.path == rootNote.path)) {
             localGraphNotePaths.add(note.path);
@@ -143,7 +139,6 @@ class _GraphViewScreenState extends ConsumerState<GraphViewScreen> {
             }
         }
     }
-
 
     const customConfig = GraphConfig(length: 200.0);
     final graph = ForceDirectedGraph<String>(config: customConfig);
@@ -213,9 +208,10 @@ class _GraphViewScreenState extends ConsumerState<GraphViewScreen> {
                 final note = _notesByPath[path];
                 if (note == null) return const SizedBox.shrink();
 
-                final isInfoNode = p.basename(note.path) == 'info.md';
-                final double nodeSize = isInfoNode ? 60 : 40;
-                final Color nodeColor = isInfoNode ? Colors.purple[800]! : Colors.blueGrey[600]!;
+                // --- FIX: Standardized variable name ---
+                final isInfoNote = p.basename(note.path) == 'info.md';
+                final double nodeSize = isInfoNote ? 60 : 40;
+                final Color nodeColor = isInfoNote ? Colors.amber[800]! : Colors.blueGrey[600]!;
                 
                 final bool isRootNode = path == widget.rootNotePath;
                 final double borderWidth = isRootNode ? 4.0 : 2.0;
@@ -229,9 +225,9 @@ class _GraphViewScreenState extends ConsumerState<GraphViewScreen> {
                     children: [
                       Center(
                         child: Icon(
-                          isInfoNode ? Icons.person_pin_circle_outlined : Icons.description_outlined,
+                          isInfoNote ? Icons.person_pin_circle_outlined : Icons.description_outlined,
                           color: Colors.white,
-                          size: isInfoNode ? 24 : 18,
+                          size: isInfoNote ? 24 : 18,
                         ),
                       ),
                       Positioned(
@@ -290,7 +286,7 @@ class _GraphViewScreenState extends ConsumerState<GraphViewScreen> {
                   width: distance,
                   height: isHighlighted ? 2.0 : 1.0,
                   color: isHighlighted 
-                      ? Colors.purple.withOpacity(0.8) 
+                      ? Colors.amber.withOpacity(0.8) 
                       : Theme.of(context).colorScheme.outline,
                 );
               },

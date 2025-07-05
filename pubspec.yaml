@@ -52,6 +52,7 @@ dependencies:
   latlong2: ^0.9.1
   flutter_map_marker_popup: ^8.0.1
   flutter_force_directed_graph: ^1.0.7
+  yaml_writer: ^2.1.0
 
 dev_dependencies:
   flutter_test:

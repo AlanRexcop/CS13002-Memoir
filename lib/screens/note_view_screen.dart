@@ -6,8 +6,9 @@ import 'package:memoir/models/note_model.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/screens/graph_view_screen.dart';
 import 'package:memoir/screens/note_editor_screen.dart';
-import 'package:memoir/services/markdown_analyzer_service.dart'; // Import custom syntax
-import 'package:memoir/widgets/custom_markdown_elements.dart'; // Import custom elements
+import 'package:memoir/services/markdown_analyzer_service.dart';
+import 'package:memoir/widgets/custom_markdown_elements.dart';
+import 'package:memoir/widgets/note_metadata_card.dart'; // Import the new widget
 
 class NoteViewScreen extends ConsumerStatefulWidget {
   final Note note;
@@ -29,9 +30,22 @@ class _NoteViewScreenState extends ConsumerState<NoteViewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // --- NEW: Watch the provider to get the most up-to-date note object ---
+    // This ensures that when we come back from editing, the metadata card is also updated.
+    final latestNote = ref.watch(appProvider.select((state) {
+      for (final person in state.persons) {
+        if (person.info.path == widget.note.path) return person.info;
+        try {
+          return person.notes.firstWhere((n) => n.path == widget.note.path);
+        } catch (e) { /* not in this person */ }
+      }
+      return widget.note; // Fallback
+    }));
+
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.note.title),
+        title: Text(latestNote.title), // Use latestNote title
         actions: [
           IconButton(
             icon: const Icon(Icons.hub_outlined),
@@ -39,7 +53,7 @@ class _NoteViewScreenState extends ConsumerState<NoteViewScreen> {
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (context) => GraphViewScreen(rootNotePath: widget.note.path),
+                  builder: (context) => GraphViewScreen(rootNotePath: latestNote.path),
                 ),
               );
             },
@@ -49,72 +63,76 @@ class _NoteViewScreenState extends ConsumerState<NoteViewScreen> {
             tooltip: 'Edit Note',
             onPressed: () {
               Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => NoteEditorScreen(notePath: widget.note.path)),
+                MaterialPageRoute(builder: (context) => NoteEditorScreen(notePath: latestNote.path)),
               );
             },
           )
         ],
       ),
-      body: Consumer(
-        builder: (context, ref, child) {
-          final asyncContent = ref.watch(rawNoteContentProvider(widget.note.path));
-          
-          return asyncContent.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, stack) => Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text('Error loading note content:\n$err'),
-              ),
-            ),
-            data: (content) {
-              // --- NEW: Configure the MarkdownGenerator ---
-              final markdownBuildContext = MarkdownBuildContext(context, ref);
-              final generator = MarkdownGenerator(
-                // 1. Tell the parser to recognize our custom syntax
-                inlineSyntaxList: [
-                  MentionSyntax(),
-                  LocationSyntax(),
-                  CalendarSyntax(),
-                ],
-                // 2. Tell the renderer how to build widgets for our custom tags
-                generators: [
-                  mentionGenerator(markdownBuildContext),
-                  locationGenerator(markdownBuildContext),
-                  eventGenerator(markdownBuildContext),
-                ],
-              );
-              // --- END NEW ---
+      // --- UPDATED BODY STRUCTURE ---
+      // We use a SingleChildScrollView with a Column to place our widgets.
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 1. The beautiful metadata card
+            NoteMetadataCard(note: latestNote),
 
-              return MarkdownWidget(
-                data: content,
-                tocController: tocController,
-                padding: const EdgeInsets.all(16.0),
-                // Pass our custom generator to the widget
-                markdownGenerator: generator,
-              );
-            },
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          showModalBottomSheet(
-            context: context,
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.7,
+            // 2. The markdown content
+            Consumer(
+              builder: (context, ref, child) {
+                final asyncContent = ref.watch(rawNoteContentProvider(latestNote.path));
+                
+                return asyncContent.when(
+                  loading: () => const Center(child: Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: CircularProgressIndicator(),
+                  )),
+                  error: (err, stack) => Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text('Error loading note content:\n$err'),
+                    ),
+                  ),
+                  data: (content) {
+                    final markdownBuildContext = MarkdownBuildContext(context, ref);
+                    final generator = MarkdownGenerator(
+                      inlineSyntaxList: [
+                        MentionSyntax(),
+                        LocationSyntax(),
+                        CalendarSyntax(),
+                      ],
+
+                      generators: [
+                        mentionGenerator(markdownBuildContext),
+                        locationGenerator(markdownBuildContext),
+                        eventGenerator(markdownBuildContext),
+                      ],
+                    );
+                    
+                    // We need to pass the raw content to the MarkdownWidget
+                    final mainContent = content.startsWith('---') 
+                      ? content.split('---').sublist(2).join('---').trim() 
+                      : content;
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      // We can no longer use the main TocController here because the
+                      // MarkdownWidget is inside another scroll view. But this layout is
+                      // much cleaner. For simplicity, we remove the TOC for now.
+                      child: MarkdownWidget(
+                        data: mainContent,
+                        shrinkWrap: true, // Important for nesting
+                        physics: const NeverScrollableScrollPhysics(), // Important for nesting
+                        markdownGenerator: generator,
+                      ),
+                    );
+                  },
+                );
+              },
             ),
-            isScrollControlled: true,
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-            ),
-            builder: (context) {
-              return TocWidget(controller: tocController);
-            },
-          );
-        },
-        tooltip: 'Table of Contents',
-        child: const Icon(Icons.list_alt_outlined),
+          ],
+        ),
       ),
     );
   }

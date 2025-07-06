@@ -1,3 +1,4 @@
+// C:\dev\memoir\lib\services\markdown_analyzer_service.dart
 import 'package:markdown/markdown.dart' as md;
 import 'package:memoir/models/location_model.dart';
 import 'package:memoir/models/event_model.dart';

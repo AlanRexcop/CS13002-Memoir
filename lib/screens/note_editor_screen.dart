@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/models/note_model.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/widgets/tag_editor.dart';
+import 'package:path/path.dart' as p; // Add path package import
 
 final noteProvider = FutureProvider.family<Note, String>((ref, path) {
   final appState = ref.watch(appProvider);
@@ -80,6 +81,13 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   Future<void> _performSave() async {
     if (_isSaving || !_isContentLoaded) return;
 
+    // --- ADDED: Get the vault root from the provider ---
+    final vaultRoot = ref.read(appProvider).storagePath;
+    if (vaultRoot == null) {
+      if (mounted) setState(() => _lastSavedStatus = "Error: Storage path not found.");
+      return;
+    }
+
     if (mounted) setState(() => _isSaving = true);
     
     final originalNoteAsync = ref.read(noteProvider(widget.notePath));
@@ -95,8 +103,10 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
           tags: _currentTags,
         );
 
+        // --- MODIFIED: Construct absolute path for writing ---
+        final absolutePath = p.join(vaultRoot, widget.notePath);
         await service.writeNote(
-          path: widget.notePath, 
+          path: absolutePath, 
           note: updatedNote, 
           markdownBody: _bodyController.text
         );

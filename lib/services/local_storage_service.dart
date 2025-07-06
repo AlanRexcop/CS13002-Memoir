@@ -1,5 +1,6 @@
 // C:\dev\memoir\lib\services\local_storage_service.dart
 import 'dart:io';
+import 'dart:math'; // Added for ID generation
 import 'package:file_picker/file_picker.dart';
 import 'package:memoir/models/person_model.dart';
 import 'package:path/path.dart' as p;
@@ -9,6 +10,14 @@ import 'package:memoir/models/note_model.dart';
 import 'package:yaml_writer/yaml_writer.dart'; // A helper for writing YAML
 
 class LocalStorageService {
+  // --- Helper to generate a unique, human-friendly ID ---
+  String _generateFriendlyId() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    // Generates a random number up to 16,777,215 for added uniqueness
+    final random = Random().nextInt(0xffffff); 
+    return '${now.toRadixString(36)}${random.toRadixString(36)}';
+  }
+
   Future<String?> pickDirectory() async {
     return await FilePicker.platform.getDirectoryPath(
       dialogTitle: 'Please select your local storage directory',
@@ -23,13 +32,10 @@ class LocalStorageService {
     throw FileSystemException("Directory not found", path);
   }
 
-  // --- REPLACED: This method is now obsolete ---
-  // Future<void> writeNoteToFile(String path, String content) async { ... }
-
-  // --- NEW: Smart note writer ---
+  // This method now expects an ABSOLUTE path for writing.
   Future<void> writeNote({
     required String path,
-    required Note note,
+    required Note note, // Note object should contain relative paths
     required String markdownBody,
   }) async {
     try {
@@ -57,9 +63,11 @@ class LocalStorageService {
     }
   }
 
-  Future<Note> readNoteFromFile(File file) async {
+  // Receives an absolute file and the vault root to produce a Note with relative paths.
+  Future<Note> readNoteFromFile(File file, String vaultRoot) async {
     final stats = await file.stat();
     final fileContent = await file.readAsString();
+    // The fallback title is now the file's ID, but will be overwritten by YAML `Name`
     String noteTitle = p.basenameWithoutExtension(file.path);
     DateTime creationDate = stats.changed;
     DateTime lastModified = stats.modified;
@@ -98,7 +106,7 @@ class LocalStorageService {
 
     final analysis = analyzeMarkdown(noteMainContent);
     return Note(
-      path: file.path, 
+      path: p.relative(file.path, from: vaultRoot), 
       title: noteTitle,
       creationDate: creationDate, 
       lastModified: lastModified,
@@ -108,7 +116,8 @@ class LocalStorageService {
       locations: analysis.locations);
   }
 
-  Future<Person> readPersonFromDirectory(Directory directory) async {
+  // Receives an absolute directory path and the vault root.
+  Future<Person> readPersonFromDirectory(Directory directory, String vaultRoot) async {
     final infoFilePath = p.join(directory.path, 'info.md');
     final infoFile = File(infoFilePath);
 
@@ -118,8 +127,8 @@ class LocalStorageService {
         directory.path,
       );
     }
-
-    final Note infoNote = await readNoteFromFile(infoFile);
+    
+    final Note infoNote = await readNoteFromFile(infoFile, vaultRoot);
 
     List<Note> personNotes = [];
     final notesDirPath = p.join(directory.path, 'notes');
@@ -132,34 +141,35 @@ class LocalStorageService {
           .where((file) => p.extension(file.path) == '.md');
 
       if (mdFiles.isNotEmpty) {
-        final noteFutures = mdFiles.map((file) => readNoteFromFile(file));
+        final noteFutures = mdFiles.map((file) => readNoteFromFile(file, vaultRoot));
         personNotes = await Future.wait(noteFutures);
       }
     }
 
     return Person(
-      path: directory.path,
+      path: p.relative(directory.path, from: vaultRoot),
       info: infoNote,
       notes: personNotes,
     );
   }
 
+  // The parentPath is the vault root.
   Future<List<Person>> readAllPersonsFromDirectory(String parentPath) async {
-    final parentDir = Directory(parentPath);
-    if (!await parentDir.exists()) {
-      throw FileSystemException("Parent directory not found", parentPath);
+    final peopleDir = Directory(p.join(parentPath, 'people'));
+    if (!await peopleDir.exists()) {
+      return []; // No people directory, so no persons.
     }
 
-    final entities = await parentDir.list().toList();
+    final entities = await peopleDir.list().toList();
     final personDirectories = entities.whereType<Directory>();
 
     if (personDirectories.isEmpty) {
       return [];
     }
-
+    
     final personFutures = personDirectories.map((dir) async {
       try {
-        return await readPersonFromDirectory(dir);
+        return await readPersonFromDirectory(dir, parentPath);
       } catch (e) {
         print("Skipping directory '${dir.path}' due to an error: $e");
         return null;
@@ -171,77 +181,87 @@ class LocalStorageService {
     return allPersons.whereType<Person>().toList();
   }
 
-  Future<String> readRawFileContent(String path) async {
+  // Receives vaultRoot and a relativePath
+  Future<String> readRawFileContent(String vaultRoot, String relativePath) async {
     try {
-      final file = File(path);
+      final absolutePath = p.join(vaultRoot, relativePath);
+      final file = File(absolutePath);
       if (await file.exists()) {
         return await file.readAsString();
       } else {
-        throw FileSystemException("File not found", path);
+        throw FileSystemException("File not found", absolutePath);
       }
     } catch (e) {
-      print("Error reading raw file content from $path: $e");
+      print("Error reading raw file content from $relativePath: $e");
       rethrow;
     }
   }
 
+  // parentPath is the vault root
   Future<void> createPerson({
     required String parentPath,
     required String personName,
   }) async {
-    final saneName = personName.replaceAll(RegExp(r'[^\w\s-]'), '').trim();
-    if (saneName.isEmpty) {
-      throw Exception("Person name is invalid or empty after sanitization.");
-    }
-
-    final personDir = Directory(p.join(parentPath, saneName));
-    if (await personDir.exists()) {
-      throw FileSystemException("A person with this name already exists.", personDir.path);
-    }
-
+    // --- MODIFIED: Add collision check for generated ID ---
+    String id;
+    Directory personDir;
+    do {
+      id = _generateFriendlyId();
+      personDir = Directory(p.join(parentPath, 'people', id));
+    } while (await personDir.exists()); // Loop until a unique ID is found
+    
+    // Create the main person directory and its 'notes' subdirectory
     await Directory(p.join(personDir.path, 'notes')).create(recursive: true);
 
-    final infoFilePath = p.join(personDir.path, 'info.md');
-    // For new persons, creation and modified are the same.
+    final infoFileAbsolutePath = p.join(personDir.path, 'info.md');
     final now = DateTime.now();
+
+    // The note's title is the human-readable name, but its path is based on the generated ID.
     final newPersonNote = Note(
-        path: infoFilePath,
-        title: saneName,
+        path: p.relative(infoFileAbsolutePath, from: parentPath),
+        title: personName.trim(), 
         creationDate: now,
         lastModified: now,
-        tags: ['new']);
+        tags: const ['new']);
 
-    await writeNote(path: infoFilePath, note: newPersonNote, markdownBody: "# $saneName\n\nThis is the main information file for $saneName.");
+    await writeNote(
+        path: infoFileAbsolutePath, 
+        note: newPersonNote, 
+        markdownBody: "# ${personName.trim()}\n\nThis is the main information file for ${personName.trim()}.");
   }
 
   Future<void> createNote({
-    required String personPath,
+    required String vaultRoot, 
+    required String personPath, // This will be relative
     required String noteName,
   }) async {
-    String saneName = noteName.replaceAll(RegExp(r'[^\w\s-]'), '').trim();
-    if (saneName.isEmpty) {
-      throw Exception("Note name is invalid or empty after sanitization.");
-    }
-    
-    final noteFile = File(p.join(personPath, 'notes', '$saneName.md'));
-    if (await noteFile.exists()) {
-      throw FileSystemException("A note with this name already exists.", noteFile.path);
-    }
+    final personAbsolutePath = p.join(vaultRoot, personPath);
+
+    // --- MODIFIED: Add collision check for generated ID ---
+    String id;
+    File noteFileAbsolutePath;
+    do {
+      id = _generateFriendlyId();
+      final noteFileName = '$id.md';
+      noteFileAbsolutePath = File(p.join(personAbsolutePath, 'notes', noteFileName));
+    } while (await noteFileAbsolutePath.exists()); // Loop until a unique ID is found
     
     final now = DateTime.now();
     final newNote = Note(
-      path: noteFile.path, 
-      title: saneName, 
+      path: p.relative(noteFileAbsolutePath.path, from: vaultRoot), 
+      title: noteName.trim(), 
       creationDate: now, 
       lastModified: now
     );
     
-    await writeNote(path: noteFile.path, note: newNote, markdownBody: '# $saneName');
+    await writeNote(path: noteFileAbsolutePath.path, note: newNote, markdownBody: '# ${noteName.trim()}');
   }
 
-  Future<void> deletePerson(String personPath) async {
+  // Receives a relative path
+  Future<void> deletePerson(String vaultRoot, String personPath) async {
     try {
-      final dir = Directory(personPath);
+      final absolutePath = p.join(vaultRoot, personPath);
+      final dir = Directory(absolutePath);
       if (await dir.exists()) {
         await dir.delete(recursive: true);
       }
@@ -251,9 +271,11 @@ class LocalStorageService {
     }
   }
 
-  Future<void> deleteNote(String notePath) async {
+  // Receives a relative path
+  Future<void> deleteNote(String vaultRoot, String notePath) async {
     try {
-      final file = File(notePath);
+      final absolutePath = p.join(vaultRoot, notePath);
+      final file = File(absolutePath);
       if (await file.exists()) {
         await file.delete();
       }

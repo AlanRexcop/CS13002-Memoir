@@ -6,11 +6,14 @@ import 'package:memoir/models/note_model.dart';
 import 'package:memoir/models/person_model.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/screens/note_view_screen.dart';
+import 'package:memoir/screens/person_list_screen.dart'; // Import for the enum
 
 class PersonDetailScreen extends ConsumerStatefulWidget {
   final Person person;
+  // --- NEW: Parameter to determine the screen's behavior ---
+  final ScreenPurpose purpose;
 
-  const PersonDetailScreen({super.key, required this.person});
+  const PersonDetailScreen({super.key, required this.person, this.purpose = ScreenPurpose.view});
 
   @override
   ConsumerState<PersonDetailScreen> createState() => _PersonDetailScreenState();
@@ -28,11 +31,52 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
     );
   }
 
+  // --- NEW: Helper method to show the final dialog and pop with a result ---
+  Future<void> _showMentionInfoDialog(BuildContext context, Note selectedNote) async {
+    final textController = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Mention Note'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('You are mentioning:\n"${selectedNote.title}"', style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: textController,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Display Text',
+                hintText: 'e.g., "this related document"',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(textController.text.trim()),
+            child: const Text('Insert Mention'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && context.mounted) {
+      final displayText = result.isEmpty ? selectedNote.title : result;
+      Navigator.of(context).pop({
+        'text': displayText,
+        'path': selectedNote.path,
+      });
+    }
+  }
+
+
   @override
   void dispose() {
     _tagController.dispose();
-    // --- FIX: Removed the line that was causing the error ---
-    // The provider is now reset in the PersonListScreen before navigation.
     super.dispose();
   }
 
@@ -59,7 +103,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(updatedPerson.info.title),
+        title: Text(widget.purpose == ScreenPurpose.select ? 'Select Note' : updatedPerson.info.title),
       ),
       body: Column(
         children: [
@@ -135,7 +179,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
 
                 return Dismissible(
                   key: ValueKey(note.path),
-                  direction: isInfoNote ? DismissDirection.none : DismissDirection.endToStart,
+                  direction: widget.purpose == ScreenPurpose.view && !isInfoNote ? DismissDirection.endToStart : DismissDirection.none,
                   background: Container(
                     color: Colors.red[800],
                     alignment: Alignment.centerRight,
@@ -186,7 +230,14 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
                         ],
                       ),
                       trailing: isInfoNote ? const Chip(label: Text('Info'), visualDensity: VisualDensity.compact) : null,
-                      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => NoteViewScreen(note: note))),
+                      onTap: () {
+                        // --- MODIFIED: On tap behavior depends on the purpose ---
+                        if (widget.purpose == ScreenPurpose.select) {
+                          _showMentionInfoDialog(context, note);
+                        } else {
+                          Navigator.of(context).push(MaterialPageRoute(builder: (context) => NoteViewScreen(note: note)));
+                        }
+                      },
                     ),
                   ),
                 );
@@ -195,11 +246,11 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: widget.purpose == ScreenPurpose.view ? FloatingActionButton(
         onPressed: () => _showCreateNoteDialog(context, ref, updatedPerson),
         tooltip: 'Add Note',
         child: const Icon(Icons.note_add),
-      ),
+      ) : null,
     );
   }
 

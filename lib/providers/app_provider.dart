@@ -66,6 +66,7 @@ final localStorageServiceProvider = Provider((ref) => LocalStorageService());
 
 final appProvider = StateNotifierProvider<AppNotifier, AppState>((ref) {
   return AppNotifier(
+    // --- FIX: Removed ref from constructor ---
     persistenceService: ref.read(persistenceServiceProvider),
     localStorageService: ref.read(localStorageServiceProvider),
   );
@@ -83,6 +84,16 @@ final rawNoteContentProvider = FutureProvider.family<String, String>((ref, relat
 });
 
 final detailSearchProvider = StateProvider<({String text, List<String> tags})>((ref) => (text: '', tags: const []));
+
+// --- NEW: Provider for listing images in the vault ---
+final vaultImagesProvider = FutureProvider<List<File>>((ref) async {
+  final storagePath = ref.watch(appProvider.select((s) => s.storagePath));
+  if (storagePath == null) return [];
+  
+  final service = ref.read(localStorageServiceProvider);
+  return service.listImages(storagePath);
+});
+
 
 // --- StateNotifier Class ---
 class AppNotifier extends StateNotifier<AppState> {
@@ -243,5 +254,16 @@ class AppNotifier extends StateNotifier<AppState> {
       isLoading: false,
       clearStoragePath: true,
     );
+  }
+
+  // --- NEW: Method to save an image and refresh the provider ---
+  Future<String> saveImageToVault(File imageFile) async {
+    if (state.storagePath == null) {
+      throw Exception("Storage path is not set");
+    }
+    final relativePath = await _localStorageService.saveImage(state.storagePath!, imageFile);
+    // --- FIX: Removed the line causing the circular dependency ---
+    // _ref.refresh(vaultImagesProvider); 
+    return relativePath;
   }
 }

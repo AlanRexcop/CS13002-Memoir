@@ -10,6 +10,7 @@ import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/screens/calendar_screen.dart';
 import 'package:memoir/screens/map_screen.dart';
 import 'package:memoir/screens/note_view_screen.dart';
+import 'package:path/path.dart' as p;
 
 class MarkdownBuildContext {
   final BuildContext context;
@@ -36,10 +37,14 @@ class MentionNode extends SpanNode {
       ),
       recognizer: TapGestureRecognizer()
         ..onTap = () {
+          // --- FIX: Decode the URL-encoded path before normalizing and using it ---
+          final decodedPath = Uri.decodeFull(path);
+          final normalizedPath = p.joinAll(decodedPath.split('/'));
+
           final allPersons = buildContext.ref.read(appProvider).persons;
           Note? targetNote;
           for (var person in allPersons) {
-            final found = [person.info, ...person.notes].where((note) => note.path == path);
+            final found = [person.info, ...person.notes].where((note) => note.path == normalizedPath);
             if (found.isNotEmpty) {
               targetNote = found.first;
               break;
@@ -59,10 +64,10 @@ class MentionNode extends SpanNode {
   }
 }
 
+// ... rest of the file is unchanged
 // --- LOCATION WIDGET ---
 
 class LocationNode extends SpanNode {
-  // --- NEW: Hold the full Location object ---
   final Location location;
   final MarkdownBuildContext buildContext;
   
@@ -73,7 +78,6 @@ class LocationNode extends SpanNode {
     return WidgetSpan(
       alignment: PlaceholderAlignment.middle,
       child: GestureDetector(
-        // --- NEW: Pass the location object on tap ---
         onTap: () {
           Navigator.of(buildContext.context).push(
             MaterialPageRoute(builder: (context) => MapScreen(initialLocation: location)),
@@ -81,7 +85,7 @@ class LocationNode extends SpanNode {
         },
         child: Chip(
           avatar: const Icon(Icons.location_on_outlined, size: 16),
-          label: Text(location.info), // Use info from the location object
+          label: Text(location.info),
           visualDensity: VisualDensity.compact,
         ),
       ),
@@ -103,7 +107,6 @@ class EventNode extends SpanNode {
     return WidgetSpan(
       alignment: PlaceholderAlignment.middle,
       child: GestureDetector(
-        // --- NEW: Pass the date object on tap ---
         onTap: () {
           Navigator.of(buildContext.context).push(
             MaterialPageRoute(builder: (context) => CalendarScreen(initialDate: time)),
@@ -137,7 +140,6 @@ SpanNodeGeneratorWithTag locationGenerator(MarkdownBuildContext buildContext) {
   return SpanNodeGeneratorWithTag(
     tag: 'mlocation',
     generator: (e, config, visitor) {
-      // --- NEW: Parse the attributes to create a Location object ---
       final text = e.attributes['data-text']!;
       final value = e.attributes['data-value']!;
       final parts = value.split(',');

@@ -1,5 +1,9 @@
 // C:\dev\memoir\lib\screens\note_view_screen.dart
+import 'dart:collection';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:markdown_widget/markdown_widget.dart';
 import 'package:memoir/models/note_model.dart';
@@ -8,7 +12,10 @@ import 'package:memoir/screens/graph_view_screen.dart';
 import 'package:memoir/screens/note_editor_screen.dart';
 import 'package:memoir/services/markdown_analyzer_service.dart';
 import 'package:memoir/widgets/custom_markdown_elements.dart';
-import 'package:memoir/widgets/note_metadata_card.dart'; // Import the new widget
+import 'package:memoir/widgets/note_metadata_card.dart';
+import 'package:path/path.dart' as p;
+import 'package:scroll_to_index/scroll_to_index.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
 class NoteViewScreen extends ConsumerStatefulWidget {
   final Note note;
@@ -21,17 +28,84 @@ class NoteViewScreen extends ConsumerStatefulWidget {
 
 class _NoteViewScreenState extends ConsumerState<NoteViewScreen> {
   final TocController tocController = TocController();
+  final AutoScrollController scrollController = AutoScrollController();
+  
+  final indexTreeSet = SplayTreeSet<int>((a, b) => a - b);
+  bool isForward = true;
+
+  @override
+  void initState() {
+    super.initState();
+    tocController.jumpToIndexCallback = (index) {
+      scrollController.scrollToIndex(index, preferPosition: AutoScrollPosition.begin);
+    };
+  }
 
   @override
   void dispose() {
     tocController.dispose();
+    scrollController.dispose();
     super.dispose();
+  }
+
+  Widget _imageBuilder(String url, Map<String, String> attributes) {
+    final vaultPath = ref.read(appProvider).storagePath;
+
+    if (vaultPath != null && !url.startsWith('http')) {
+      try {
+        final decodedUrl = Uri.decodeFull(url);
+        final file = File(p.join(vaultPath, decodedUrl));
+        
+        if (file.existsSync()) {
+          final imageWidget = Image.file(file);
+          
+          return Center(
+            child: InkWell(
+              onTap: () => _showImage(context, imageWidget),
+              child: Hero(
+                tag: imageWidget.hashCode,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8.0),
+                  child: imageWidget,
+                ),
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        print("Error loading local image: $e");
+      }
+    }
+    
+    if (url.startsWith('http')) {
+      final imageWidget = Image.network(url);
+
+      return Center(
+        child: InkWell(
+          onTap: () => _showImage(context, imageWidget),
+          child: Hero(
+            tag: imageWidget.hashCode,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8.0),
+              child: imageWidget,
+            ),
+          ),
+        ),
+      );
+    }
+    
+    return const Icon(Icons.broken_image, color: Colors.grey);
+  }
+
+  void _showImage(BuildContext context, Widget child) {
+    Navigator.of(context).push(PageRouteBuilder(
+      opaque: false,
+      pageBuilder: (_, __, ___) => ImageViewer(child: child),
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
-    // --- NEW: Watch the provider to get the most up-to-date note object ---
-    // This ensures that when we come back from editing, the metadata card is also updated.
     final latestNote = ref.watch(appProvider.select((state) {
       for (final person in state.persons) {
         if (person.info.path == widget.note.path) return person.info;
@@ -45,7 +119,7 @@ class _NoteViewScreenState extends ConsumerState<NoteViewScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(latestNote.title), // Use latestNote title
+        title: Text(latestNote.title),
         actions: [
           IconButton(
             icon: const Icon(Icons.hub_outlined),
@@ -69,70 +143,101 @@ class _NoteViewScreenState extends ConsumerState<NoteViewScreen> {
           )
         ],
       ),
-      // --- UPDATED BODY STRUCTURE ---
-      // We use a SingleChildScrollView with a Column to place our widgets.
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 1. The beautiful metadata card
-            NoteMetadataCard(note: latestNote),
-
-            // 2. The markdown content
-            Consumer(
-              builder: (context, ref, child) {
-                final asyncContent = ref.watch(rawNoteContentProvider(latestNote.path));
-                
-                return asyncContent.when(
-                  loading: () => const Center(child: Padding(
-                    padding: EdgeInsets.all(32.0),
-                    child: CircularProgressIndicator(),
-                  )),
-                  error: (err, stack) => Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Text('Error loading note content:\n$err'),
-                    ),
-                  ),
-                  data: (content) {
-                    final markdownBuildContext = MarkdownBuildContext(context, ref);
-                    final generator = MarkdownGenerator(
-                      inlineSyntaxList: [
-                        MentionSyntax(),
-                        LocationSyntax(),
-                        CalendarSyntax(),
-                      ],
-
-                      generators: [
-                        mentionGenerator(markdownBuildContext),
-                        locationGenerator(markdownBuildContext),
-                        eventGenerator(markdownBuildContext),
-                      ],
-                    );
-                    
-                    // We need to pass the raw content to the MarkdownWidget
-                    final mainContent = content.startsWith('---') 
-                      ? content.split('---').sublist(2).join('---').trim() 
-                      : content;
-
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      // We can no longer use the main TocController here because the
-                      // MarkdownWidget is inside another scroll view. But this layout is
-                      // much cleaner. For simplicity, we remove the TOC for now.
-                      child: MarkdownWidget(
-                        data: mainContent,
-                        shrinkWrap: true, // Important for nesting
-                        physics: const NeverScrollableScrollPhysics(), // Important for nesting
-                        markdownGenerator: generator,
-                      ),
-                    );
-                  },
-                );
-              },
+      body: Consumer(
+        builder: (context, ref, child) {
+          final asyncContent = ref.watch(rawNoteContentProvider(latestNote.path));
+          
+          return asyncContent.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, stack) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text('Error loading note content:\n$err'),
+              ),
             ),
-          ],
-        ),
+            data: (content) {
+              final markdownBuildContext = MarkdownBuildContext(context, ref);
+              
+              final generator = MarkdownGenerator(
+                inlineSyntaxList: [ MentionSyntax(), LocationSyntax(), CalendarSyntax() ],
+                generators: [ mentionGenerator(markdownBuildContext), locationGenerator(markdownBuildContext), eventGenerator(markdownBuildContext) ],
+              );
+              
+              final imgConfig = ImgConfig(builder: _imageBuilder);
+              final markdownConfig = MarkdownConfig.defaultConfig.copy(configs: [imgConfig]);
+              
+              final mainContent = content.startsWith('---') 
+                ? content.split('---').sublist(2).join('---').trim() 
+                : content;
+              
+              final markdownWidgets = generator.buildWidgets(
+                mainContent,
+                config: markdownConfig,
+                onTocList: (tocList) => tocController.setTocList(tocList),
+              );
+              
+              return NotificationListener<UserScrollNotification>(
+                onNotification: (notification) {
+                  final ScrollDirection direction = notification.direction;
+                  isForward = direction == ScrollDirection.forward;
+                  return true;
+                },
+                child: CustomScrollView(
+                  controller: scrollController,
+                  slivers: [
+                    SliverPadding(
+                      padding: const EdgeInsets.all(16).copyWith(bottom: 8),
+                      sliver: SliverToBoxAdapter(child: NoteMetadataCard(note: latestNote)),
+                    ),
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            return VisibilityDetector(
+                              key: ValueKey(index.toString()),
+                              onVisibilityChanged: (VisibilityInfo info) {
+                                final visibleFraction = info.visibleFraction;
+                                if (isForward) {
+                                  visibleFraction == 0 ? indexTreeSet.remove(index) : indexTreeSet.add(index);
+                                } else {
+                                  visibleFraction == 1.0 ? indexTreeSet.add(index) : indexTreeSet.remove(index);
+                                }
+                                if (indexTreeSet.isNotEmpty) {
+                                  tocController.onIndexChanged(indexTreeSet.first);
+                                }
+                              },
+                              child: AutoScrollTag(
+                                key: Key(index.toString()),
+                                controller: scrollController,
+                                index: index,
+                                child: markdownWidgets[index],
+                              ),
+                            );
+                          },
+                          childCount: markdownWidgets.length,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          showModalBottomSheet(
+            context: context,
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
+            isScrollControlled: true,
+            shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+            builder: (context) => TocWidget(controller: tocController),
+          );
+        },
+        tooltip: 'Table of Contents',
+        child: const Icon(Icons.list_alt_outlined),
       ),
     );
   }

@@ -18,6 +18,13 @@ class LocalStorageService {
     return '${now.toRadixString(36)}${random.toRadixString(36)}';
   }
 
+  // --- NEW: Helper to generate a unique filename for images ---
+  String _generateUniqueFilename(String originalPath) {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final extension = p.extension(originalPath);
+    return '$timestamp$extension';
+  }
+
   Future<String?> pickDirectory() async {
     return await FilePicker.platform.getDirectoryPath(
       dialogTitle: 'Please select your local storage directory',
@@ -283,5 +290,31 @@ class LocalStorageService {
       print("Error deleting note file at $notePath: $e");
       rethrow;
     }
+  }
+
+  // --- NEW: Methods for handling images ---
+
+  Future<List<File>> listImages(String vaultRoot) async {
+    final imagesDir = Directory(p.join(vaultRoot, 'images'));
+    if (!await imagesDir.exists()) {
+      return [];
+    }
+    // --- FIX: Awaited toList() on the stream before filtering ---
+    final entities = await imagesDir.list().toList();
+    return entities.whereType<File>().toList();
+  }
+
+  Future<String> saveImage(String vaultRoot, File imageFile) async {
+    final imagesDir = Directory(p.join(vaultRoot, 'images'));
+    if (!await imagesDir.exists()) {
+      await imagesDir.create(recursive: true);
+    }
+    
+    final uniqueFilename = _generateUniqueFilename(imageFile.path);
+    final newPath = p.join(imagesDir.path, uniqueFilename);
+    await imageFile.copy(newPath);
+    
+    // Return the relative path for use in Markdown
+    return p.join('images', uniqueFilename);
   }
 }

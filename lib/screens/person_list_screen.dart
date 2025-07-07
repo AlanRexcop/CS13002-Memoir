@@ -9,8 +9,14 @@ import 'package:memoir/screens/person_detail_screen.dart';
 import 'package:memoir/screens/graph_view_screen.dart';
 import 'package:memoir/screens/settings_screen.dart';
 
+// --- NEW: Enum to define the screen's purpose ---
+enum ScreenPurpose { view, select }
+
 class PersonListScreen extends ConsumerStatefulWidget {
-  const PersonListScreen({super.key});
+  // --- NEW: Parameter to determine the screen's behavior ---
+  final ScreenPurpose purpose;
+
+  const PersonListScreen({super.key, this.purpose = ScreenPurpose.view});
 
   @override
   ConsumerState<PersonListScreen> createState() => _PersonListScreenState();
@@ -43,13 +49,13 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Persons'),
-        actions: [
+        title: Text(widget.purpose == ScreenPurpose.select ? 'Select Person' : 'Persons'),
+        actions: widget.purpose == ScreenPurpose.view ? [ // Only show actions in view mode
           IconButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const GraphViewScreen())), icon: const Icon(Icons.hub_outlined), tooltip: 'View Graph'),
           IconButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MapScreen())), icon: const Icon(Icons.map_outlined), tooltip: 'View Map'),
           IconButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CalendarScreen())), icon: const Icon(Icons.calendar_month), tooltip: 'View Calendar'),
           IconButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SettingsScreen())), icon: const Icon(Icons.settings_outlined), tooltip: 'Settings'),
-        ],
+        ] : [],
       ),
       body: RefreshIndicator(
         onRefresh: () => ref.read(appProvider.notifier).refreshVault(),
@@ -126,7 +132,7 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
                   final person = filteredPersons[index];
                   return Dismissible(
                     key: ValueKey(person.path),
-                    direction: DismissDirection.endToStart,
+                    direction: widget.purpose == ScreenPurpose.view ? DismissDirection.endToStart : DismissDirection.none,
                     background: Container(
                       color: Colors.red[800],
                       alignment: Alignment.centerRight,
@@ -182,14 +188,28 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
                               ),
                           ],
                         ),
-                        // --- FIX: Reset the provider state before navigating ---
-                        onTap: () {
-                          ref.read(detailSearchProvider.notifier).state = (text: '', tags: const []);
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => PersonDetailScreen(person: person),
-                            ),
-                          );
+                        onTap: () async {
+                          // --- MODIFIED: On tap behavior depends on the purpose ---
+                          if (widget.purpose == ScreenPurpose.select) {
+                            final result = await Navigator.of(context).push<Map<String, String>>(
+                              MaterialPageRoute(
+                                builder: (context) => PersonDetailScreen(
+                                  person: person,
+                                  purpose: ScreenPurpose.select, // Pass the purpose down
+                                ),
+                              ),
+                            );
+                            if (result != null && context.mounted) {
+                              Navigator.of(context).pop(result); // Pass the result up
+                            }
+                          } else {
+                            ref.read(detailSearchProvider.notifier).state = (text: '', tags: const []);
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => PersonDetailScreen(person: person),
+                              ),
+                            );
+                          }
                         },
                       ),
                     ),
@@ -200,11 +220,11 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: widget.purpose == ScreenPurpose.view ? FloatingActionButton(
         onPressed: () => _showCreatePersonDialog(context, ref),
         tooltip: 'Add Person',
         child: const Icon(Icons.add),
-      ),
+      ) : null,
     );
   }
   

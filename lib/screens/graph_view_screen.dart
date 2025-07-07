@@ -79,10 +79,11 @@ class _GraphViewScreenState extends ConsumerState<GraphViewScreen> {
         }
 
         for (final note in allNotesByPath.values) {
-          if (note.mentions.any((m) => m.path == rootNote.path)) {
+          // --- FIX: Decode and normalize mention paths before comparison ---
+          if (note.mentions.any((m) => p.joinAll(Uri.decodeFull(m.path).split('/')) == rootNote.path)) {
             localGraphNotePaths.add(note.path);
           }
-          if (rootNote.mentions.any((m) => m.path == note.path)) {
+          if (rootNote.mentions.any((m) => p.joinAll(Uri.decodeFull(m.path).split('/')) == note.path)) {
             localGraphNotePaths.add(note.path);
           }
         }
@@ -123,7 +124,10 @@ class _GraphViewScreenState extends ConsumerState<GraphViewScreen> {
       if (sourceNode == null) continue;
       
       for (final mention in sourceNote.mentions) {
-        final destinationNode = nodeMap[mention.path];
+        // --- FIX: Decode and normalize mention path before using it as a map key ---
+        final decodedPath = Uri.decodeFull(mention.path);
+        final normalizedPath = p.joinAll(decodedPath.split('/'));
+        final destinationNode = nodeMap[normalizedPath];
         if (destinationNode != null && sourceNode != destinationNode) {
           edgesToDisplay.add(Edge(sourceNode, destinationNode));
         }
@@ -164,7 +168,8 @@ class _GraphViewScreenState extends ConsumerState<GraphViewScreen> {
       }
     });
   }
-
+  
+  // ... rest of the file is unchanged
   @override
   void dispose() {
     _controller.dispose();
@@ -208,7 +213,6 @@ class _GraphViewScreenState extends ConsumerState<GraphViewScreen> {
                 final note = _notesByPath[path];
                 if (note == null) return const SizedBox.shrink();
 
-                // --- FIX: Standardized variable name ---
                 final isInfoNote = p.basename(note.path) == 'info.md';
                 final double nodeSize = isInfoNote ? 60 : 40;
                 final Color nodeColor = isInfoNote ? Colors.amber[800]! : Colors.blueGrey[600]!;

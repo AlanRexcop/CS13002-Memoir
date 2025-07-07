@@ -5,8 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/models/note_model.dart';
 import 'package:memoir/providers/app_provider.dart';
+import 'package:memoir/screens/person_list_screen.dart';
+import 'package:memoir/widgets/image_selection_dialog.dart';
+import 'package:memoir/widgets/markdown_toolbar.dart';
 import 'package:memoir/widgets/tag_editor.dart';
-import 'package:path/path.dart' as p; // Add path package import
+import 'package:path/path.dart' as p;
 
 final noteProvider = FutureProvider.family<Note, String>((ref, path) {
   final appState = ref.watch(appProvider);
@@ -34,6 +37,7 @@ class NoteEditorScreen extends ConsumerStatefulWidget {
 class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   late final TextEditingController _titleController;
   late final TextEditingController _bodyController;
+  late final FocusNode _bodyFocusNode;
   Timer? _debounce;
   bool _isSaving = false;
   String _lastSavedStatus = "Loading...";
@@ -50,6 +54,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     super.initState();
     _titleController = TextEditingController();
     _bodyController = TextEditingController();
+    _bodyFocusNode = FocusNode();
     _currentTags = [];
     _initialTags = [];
   }
@@ -72,6 +77,143 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     _debounce = Timer(const Duration(seconds: 2), _autoSaveNote);
   }
 
+  void _wrapSelectionWithSyntax({required String prefix, String suffix = ''}) {
+    _bodyFocusNode.requestFocus();
+    final currentText = _bodyController.text;
+    final selection = _bodyController.selection;
+    
+    if (selection.isCollapsed) {
+      final newText = currentText.substring(0, selection.start) +
+                    prefix +
+                    suffix +
+                    currentText.substring(selection.end);
+      _bodyController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: selection.start + prefix.length),
+      );
+    } else {
+      final selectedText = currentText.substring(selection.start, selection.end);
+      final newText = currentText.substring(0, selection.start) +
+                    prefix +
+                    selectedText +
+                    suffix +
+                    currentText.substring(selection.end);
+      _bodyController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.fromPosition(TextPosition(offset: selection.start + prefix.length + selectedText.length + suffix.length)),
+      );
+    }
+    _onNoteContentChanged();
+  }
+  
+  void _insertBlockSyntax(String block) {
+    _bodyFocusNode.requestFocus();
+    final currentText = _bodyController.text;
+    final selection = _bodyController.selection;
+    
+    final prefix = (selection.start == 0 || currentText.isEmpty || currentText[selection.start - 1] == '\n') ? '' : '\n\n';
+    final suffix = '\n';
+    final textToInsert = prefix + block + suffix;
+
+    final newText = currentText.replaceRange(selection.start, selection.end, textToInsert);
+    
+    _bodyController.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: selection.start + textToInsert.length),
+    );
+    _onNoteContentChanged();
+  }
+
+  void _prefixSelectionWithSyntax(String prefix) {
+    _bodyFocusNode.requestFocus();
+    final currentText = _bodyController.text;
+    final selection = _bodyController.selection;
+
+    if (selection.isCollapsed) {
+        final needsNewline = selection.start > 0 && currentText[selection.start - 1] != '\n';
+        final textToInsert = (needsNewline ? '\n' : '') + prefix;
+        final newText = currentText.substring(0, selection.start) + textToInsert + currentText.substring(selection.end);
+        _bodyController.value = TextEditingValue(
+            text: newText,
+            selection: TextSelection.collapsed(offset: selection.start + textToInsert.length),
+        );
+    } else {
+        final selectedText = currentText.substring(selection.start, selection.end);
+        final lines = selectedText.split('\n');
+        final prefixedLines = lines.map((line) => line.isEmpty ? '' : prefix + line).join('\n');
+        
+        final newText = currentText.substring(0, selection.start) + prefixedLines + currentText.substring(selection.end);
+        _bodyController.value = TextEditingValue(
+            text: newText,
+            selection: TextSelection(baseOffset: selection.start, extentOffset: selection.start + prefixedLines.length),
+        );
+    }
+    _onNoteContentChanged();
+  }
+
+  void _onImageSelectedForInsertion(String relativePath) {
+    final altText = p.basenameWithoutExtension(relativePath);
+    final encodedPath = Uri.encodeFull(relativePath.replaceAll(r'\', '/'));
+    final textToInsert = '![$altText]($encodedPath)';
+    _insertBlockSyntax(textToInsert);
+  }
+
+  Future<void> _showLinkDialog() async {
+      _bodyFocusNode.requestFocus();
+      final selection = _bodyController.selection;
+      final selectedText = selection.isCollapsed ? '' : _bodyController.text.substring(selection.start, selection.end);
+
+      final urlController = TextEditingController();
+      final url = await showDialog<String>(
+          context: context,
+          builder: (context) => AlertDialog(
+              title: const Text('Insert Link'),
+              content: TextField(
+                  controller: urlController,
+                  autofocus: true,
+                  decoration: const InputDecoration(labelText: 'URL'),
+              ),
+              actions: [
+                  TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+                  FilledButton(
+                      onPressed: () => Navigator.of(context).pop(urlController.text),
+                      child: const Text('Insert'),
+                  ),
+              ],
+          ),
+      );
+
+      if (url != null && url.isNotEmpty) {
+          final linkText = selectedText.isEmpty ? 'link text' : selectedText;
+          final textToInsert = '[$linkText]($url)';
+          
+          final newText = _bodyController.text.replaceRange(selection.start, selection.end, textToInsert);
+          _bodyController.value = TextEditingValue(
+            text: newText,
+            selection: TextSelection.collapsed(offset: selection.start + textToInsert.length),
+          );
+          _onNoteContentChanged();
+      }
+  }
+
+  Future<void> _showMentionFlow() async {
+    final result = await Navigator.of(context).push<Map<String, String>>(
+      MaterialPageRoute(
+        builder: (context) => const PersonListScreen(purpose: ScreenPurpose.select),
+      ),
+    );
+
+    if (result != null && result['text'] != null && result['path'] != null) {
+      final displayText = result['text']!;
+      // --- FIX: URL-encode the path to handle spaces ---
+      final notePath = result['path']!.replaceAll(r'\', '/');
+      final encodedPath = Uri.encodeFull(notePath);
+      final textToInsert = ' {mention}[$displayText]($encodedPath) ';
+      _wrapSelectionWithSyntax(prefix: textToInsert);
+    }
+  }
+
+  // ... rest of the file is unchanged
   Future<void> _autoSaveNote() async {
     if (_hasUnsavedChanges) {
       await _performSave();
@@ -81,7 +223,6 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   Future<void> _performSave() async {
     if (_isSaving || !_isContentLoaded) return;
 
-    // --- ADDED: Get the vault root from the provider ---
     final vaultRoot = ref.read(appProvider).storagePath;
     if (vaultRoot == null) {
       if (mounted) setState(() => _lastSavedStatus = "Error: Storage path not found.");
@@ -103,7 +244,6 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
           tags: _currentTags,
         );
 
-        // --- MODIFIED: Construct absolute path for writing ---
         final absolutePath = p.join(vaultRoot, widget.notePath);
         await service.writeNote(
           path: absolutePath, 
@@ -140,6 +280,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     _debounce?.cancel();
     _titleController.dispose();
     _bodyController.dispose();
+    _bodyFocusNode.dispose();
     super.dispose();
   }
 
@@ -149,6 +290,89 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
        await _performSave();
     }
     return true;
+  }
+
+  void _showImageSelectionDialog() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => FractionallySizedBox(
+        heightFactor: 0.7,
+        child: ImageSelectionDialog(
+          onImageSelected: _onImageSelectedForInsertion,
+        ),
+      ),
+    );
+  }
+
+  void _handleMarkdownAction(MarkdownAction action) {
+    const tableTemplate = '| Header 1 | Header 2 |\n'
+                        '| :--- | :--- |\n'
+                        '| Cell 1   | Cell 2   |\n'
+                        '| Cell 3   | Cell 4   |';
+    
+    switch (action) {
+      case MarkdownAction.bold:
+        _wrapSelectionWithSyntax(prefix: '**', suffix: '**');
+        break;
+      case MarkdownAction.italic:
+        _wrapSelectionWithSyntax(prefix: '*', suffix: '*');
+        break;
+      case MarkdownAction.strikethrough:
+        _wrapSelectionWithSyntax(prefix: '~~', suffix: '~~');
+        break;
+      case MarkdownAction.inlineCode:
+        _wrapSelectionWithSyntax(prefix: '`', suffix: '`');
+        break;
+      case MarkdownAction.codeBlock:
+        _wrapSelectionWithSyntax(prefix: '\n```\n', suffix: '\n```');
+        break;
+      case MarkdownAction.h1:
+        _prefixSelectionWithSyntax('# ');
+        break;
+      case MarkdownAction.h2:
+        _prefixSelectionWithSyntax('## ');
+        break;
+      case MarkdownAction.h3:
+        _prefixSelectionWithSyntax('### ');
+        break;
+      case MarkdownAction.ul:
+        _prefixSelectionWithSyntax('- ');
+        break;
+      case MarkdownAction.ol:
+        _prefixSelectionWithSyntax('1. ');
+        break;
+      case MarkdownAction.checkbox:
+        _prefixSelectionWithSyntax('- [ ] ');
+        break;
+      case MarkdownAction.quote:
+        _prefixSelectionWithSyntax('> ');
+        break;
+      case MarkdownAction.link:
+        _showLinkDialog();
+        break;
+      case MarkdownAction.image:
+        _showImageSelectionDialog();
+        break;
+      case MarkdownAction.hr:
+        _insertBlockSyntax('---');
+        break;
+      case MarkdownAction.table:
+        _insertBlockSyntax(tableTemplate);
+        break;
+      case MarkdownAction.mention:
+        _showMentionFlow();
+        break;
+    }
+  }
+
+  void _showAddContentMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) {
+        return MarkdownToolbar(onAction: _handleMarkdownAction);
+      },
+    );
   }
 
   @override
@@ -185,11 +409,13 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                   _isContentLoaded = true;
 
                   WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) setState(() => _lastSavedStatus = "All changes saved");
+                    if (mounted) {
+                      setState(() => _lastSavedStatus = "All changes saved");
+                      _bodyFocusNode.requestFocus();
+                    }
                   });
                 }
                 
-                // --- FIX: Wrap the Column in a LayoutBuilder and SingleChildScrollView ---
                 return LayoutBuilder(
                   builder: (context, constraints) {
                     return SingleChildScrollView(
@@ -197,7 +423,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                         constraints: BoxConstraints(
                           minHeight: constraints.maxHeight,
                         ),
-                        child: IntrinsicHeight( // Ensures Column takes up necessary height
+                        child: IntrinsicHeight(
                           child: Column(
                             children: [
                               Padding(
@@ -220,11 +446,11 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                                   _onNoteContentChanged();
                                 }
                               ),
-                              // Use Expanded to make the body take up the remaining space
                               Expanded(
                                 child: Padding(
                                   padding: const EdgeInsets.all(16.0),
                                   child: TextField(
+                                    focusNode: _bodyFocusNode,
                                     controller: _bodyController,
                                     onChanged: (_) => _onNoteContentChanged(),
                                     expands: true,
@@ -238,7 +464,6 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                                   ),
                                 ),
                               ),
-                              // The status bar is now outside the scroll view, always visible
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                                 color: Theme.of(context).bottomAppBarTheme.color,
@@ -263,6 +488,11 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
           },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (err, stack) => Center(child: Text('Error: $err')),
+        ),
+        floatingActionButton: FloatingActionButton(
+          tooltip: 'Add content',
+          child: const Icon(Icons.add),
+          onPressed: () => _showAddContentMenu(context),
         ),
       ),
     );

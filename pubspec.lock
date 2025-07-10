@@ -105,6 +105,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.1"
+  equatable:
+    dependency: transitive
+    description:
+      name: equatable
+      sha256: "567c64b3cb4cf82397aac55f4f0cbd3ca20d77c6c03bedbc4ceaddc08904aef7"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.7"
   fake_async:
     dependency: transitive
     description:
@@ -480,6 +488,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.6.1"
+  rrule_generator:
+    dependency: "direct main"
+    description:
+      name: rrule_generator
+      sha256: "3df8b4aabc17ef19131439de47b22326c722de73544a790f75b4e8410d39cfa6"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.9.4"
   rxdart:
     dependency: transitive
     description:
@@ -621,6 +637,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.2.0"
+  teno_datetime:
+    dependency: transitive
+    description:
+      name: teno_datetime
+      sha256: "4a6a0984e1d01f515cdf8504b21064ba4c63024981187dfc7fbb182ca0015d98"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.9"
+  teno_rrule:
+    dependency: "direct main"
+    description:
+      name: teno_rrule
+      sha256: "18eab54df64ffeb9830c11ac1003149e9bc21cfa294e98219b9e27a579badd7e"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.8"
   term_glyph:
     dependency: transitive
     description:
@@ -637,6 +669,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.4"
+  timezone:
+    dependency: transitive
+    description:
+      name: timezone
+      sha256: dd14a3b83cfd7cb19e7888f1cbc20f258b8d71b54c06f79ac585f14093a287d1
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.10.1"
   typed_data:
     dependency: transitive
     description:

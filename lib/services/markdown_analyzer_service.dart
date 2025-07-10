@@ -30,29 +30,33 @@ class MentionSyntax extends md.InlineSyntax {
   }
 }
 
-class CalendarSyntax extends md.InlineSyntax {
-  // \d{4}         -> Exactly four digits (Year)
-  // -             -> A literal hyphen
-  // \d{2}         -> Exactly two digits (Month, Day, Hour, etc.)
-  // \s+           -> One or more whitespace characters
-  // :             -> A literal colon
-  // (?:...)       -> Optional section
-  CalendarSyntax() : super(r'\{calendar\}\[([^\]]*)\]\((\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2}:\d{2})?)\)');
+class EventSyntax extends md.InlineSyntax {
+  // \{event\}          - literal "{event}"
+  // \[([^\]]*)\]        - Group 1: event description
+  // \(                 - literal "("
+  // ([^;)]+)           - Group 2: datetime string
+  // (?:;([^)]*))?      - Optional non-capturing group for the rrule part
+  //   ;                - literal ";"
+  //   ([^)]*)           - Group 3: the rrule string
+  EventSyntax() : super(r'\{event\}\[([^\]]*)\]\(([^;)]+)(?:;([^)]*))?\)');
 
   /// This method is called when the parser finds a match.
   @override
   bool onMatch(md.InlineParser parser, Match match) {
     // 1. Extract the captured groups from the regex match.
     final String text = match.group(1)!;
-    final String value = match.group(2)!;
+    final String dt = match.group(2)!;
+    final String? rrule = match.group(3); // This will be the rrule string if it exists
 
     // 2. Create a custom md.Element to represent this in the AST.
-    final element = md.Element.withTag('mcalendar');
+    final element = md.Element.withTag('mevent');
     
     // 3. Store our parsed data as attributes on the element.
-    // for "visitor" ability to retrieve the data later.
     element.attributes['data-text'] = text;
-    element.attributes['data-value'] = value;
+    element.attributes['data-dt'] = dt;
+    if (rrule != null) {
+      element.attributes['data-rrule'] = rrule;
+    }
 
     parser.addNode(element);
     return true;
@@ -116,11 +120,12 @@ class MarkdownAstVisitor implements md.NodeVisitor {
         final lng = double.parse(parts[1].trim());
         locations.add(Location(info: text, lat: lat, lng: lng));
         break;
-      case 'mcalendar':
+      case 'mevent':
         final text = element.attributes['data-text']!;
-        final value = element.attributes['data-value']!;
-        final time = DateTime.parse(value);
-        events.add(Event(info: text, time: time));
+        final dt = element.attributes['data-dt']!;
+        final rrule = element.attributes['data-rrule'];
+        final time = DateTime.parse(dt);
+        events.add(Event(info: text, time: time, rrule: rrule));
         break;
       case 'mmention':
         final text = element.attributes['data-text']!;
@@ -136,7 +141,7 @@ MarkdownAstVisitor analyzeMarkdown(String markdownContent) {
     encodeHtml: false,
     inlineSyntaxes: [
       LocationSyntax(),
-      CalendarSyntax(),
+      EventSyntax(),
       MentionSyntax(),
     ],
     extensionSet: md.ExtensionSet.gitHubFlavored,

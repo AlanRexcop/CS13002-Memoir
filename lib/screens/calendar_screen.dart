@@ -1,12 +1,13 @@
 // C:\dev\memoir\lib\screens\calendar_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import 'package:memoir/models/event_model.dart';
 import 'package:memoir/models/note_model.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/screens/note_view_screen.dart';
+import 'package:table_calendar/table_calendar.dart';
+import 'package:teno_rrule/teno_rrule.dart';
 
 class CalendarEventEntry {
   final Event event;
@@ -44,7 +45,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     super.dispose();
   }
 
-  List<CalendarEventEntry> _getEventsForDay(DateTime day, Map<DateTime, List<CalendarEventEntry>> source) {
+  List<CalendarEventEntry> _getEventsForDay(
+      DateTime day, Map<DateTime, List<CalendarEventEntry>> source) {
     return source[DateTime.utc(day.year, day.month, day.day)] ?? [];
   }
 
@@ -60,18 +62,60 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   @override
   Widget build(BuildContext context) {
     final allPersons = ref.watch(appProvider).persons;
-    
+
     final Map<DateTime, List<CalendarEventEntry>> eventsSource = {};
+
+    // Get the visible range from the calendar to optimize instance generation.
+    final firstDayOfMonth = DateTime.utc(_focusedDay.year, _focusedDay.month, 1);
+    final lastDayOfMonth =
+        DateTime.utc(_focusedDay.year, _focusedDay.month + 1, 0, 23, 59, 59);
+
     for (var person in allPersons) {
       for (var note in [person.info, ...person.notes]) {
         for (var event in note.events) {
-          final dayKey = DateTime.utc(event.time.year, event.time.month, event.time.day);
-          if (eventsSource[dayKey] == null) eventsSource[dayKey] = [];
-          eventsSource[dayKey]!.add(CalendarEventEntry(event, note));
+          if (event.rrule == null || event.rrule!.isEmpty) {
+            // It's a single event
+            final dayKey =
+                DateTime.utc(event.time.year, event.time.month, event.time.day);
+            if (eventsSource[dayKey] == null) eventsSource[dayKey] = [];
+            eventsSource[dayKey]!.add(CalendarEventEntry(event, note));
+          } else {
+            // It's a recurring event
+            try {
+              final dtStart = DateFormat("yyyyMMdd'T'HHmmss'Z'")
+                  .format(event.time.toUtc());
+              final rruleString = 'DTSTART:$dtStart\n${event.rrule!}';
+              final rrule = RecurrenceRule.from(rruleString);
+              if (rrule != null) {
+                final instances = rrule.between(
+                    firstDayOfMonth.toUtc(), lastDayOfMonth.toUtc());
+                for (final instance in instances) {
+                  final dayKey =
+                      DateTime.utc(instance.year, instance.month, instance.day);
+                  if (eventsSource[dayKey] == null) eventsSource[dayKey] = [];
+                  // Create a new event object for this specific instance to show correct time
+                  final instanceEvent = Event(
+                      info: event.info,
+                      time: instance.toLocal(),
+                      rrule: event.rrule);
+                  eventsSource[dayKey]!
+                      .add(CalendarEventEntry(instanceEvent, note));
+                }
+              }
+            } catch (e) {
+              print(
+                  'Error parsing rrule: "${event.rrule}" for event "${event.info}". Error: $e');
+              // Optionally add the base event as a fallback if parsing fails
+              final dayKey = DateTime.utc(
+                  event.time.year, event.time.month, event.time.day);
+              if (eventsSource[dayKey] == null) eventsSource[dayKey] = [];
+              eventsSource[dayKey]!.add(CalendarEventEntry(event, note));
+            }
+          }
         }
       }
     }
-    
+
     final selectedDayEvents = _getEventsForDay(_selectedDay!, eventsSource);
 
     return Scaffold(
@@ -114,10 +158,13 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             ),
             onDaySelected: _onDaySelected,
             onFormatChanged: (format) {
-              if (_calendarFormat != format) setState(() => _calendarFormat = format);
+              if (_calendarFormat != format)
+                setState(() => _calendarFormat = format);
             },
             onPageChanged: (focusedDay) {
-              _focusedDay = focusedDay;
+              setState(() {
+                _focusedDay = focusedDay;
+              });
             },
           ),
           const SizedBox(height: 8.0),
@@ -128,10 +175,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               itemBuilder: (context, index) {
                 final entry = selectedDayEvents[index];
                 return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
                   child: ListTile(
                     leading: const Icon(Icons.event_note_outlined),
-                    title: Text(entry.event.info, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    title: Text(entry.event.info,
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -141,20 +190,24 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                         const SizedBox(height: 4),
                         if (entry.parentNote.tags.isNotEmpty)
                           Wrap(
-                            spacing: 4.0, runSpacing: 4.0,
-                            children: entry.parentNote.tags.map((tag) => Chip(
-                              label: Text(tag),
-                              padding: EdgeInsets.zero,
-                              visualDensity: VisualDensity.compact,
-                              labelStyle: const TextStyle(fontSize: 10),
-                            )).toList(),
+                            spacing: 4.0,
+                            runSpacing: 4.0,
+                            children: entry.parentNote.tags
+                                .map((tag) => Chip(
+                                      label: Text(tag),
+                                      padding: EdgeInsets.zero,
+                                      visualDensity: VisualDensity.compact,
+                                      labelStyle: const TextStyle(fontSize: 10),
+                                    ))
+                                .toList(),
                           ),
                       ],
                     ),
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (context) => NoteViewScreen(note: entry.parentNote),
+                          builder: (context) =>
+                              NoteViewScreen(note: entry.parentNote),
                         ),
                       );
                     },

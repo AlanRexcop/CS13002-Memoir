@@ -1,4 +1,5 @@
 // C:\dev\memoir\lib\screens\graph_view_screen.dart
+// C:\dev\memoir\lib\screens\graph_view_screen.dart
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -79,11 +80,10 @@ class _GraphViewScreenState extends ConsumerState<GraphViewScreen> {
         }
 
         for (final note in allNotesByPath.values) {
-          // --- FIX: Decode and normalize mention paths before comparison ---
-          if (note.mentions.any((m) => p.joinAll(Uri.decodeFull(m.path).split('/')) == rootNote.path)) {
+          if (note.mentions.any((m) => p.joinAll(m.path.split('/')) == rootNote.path)) {
             localGraphNotePaths.add(note.path);
           }
-          if (rootNote.mentions.any((m) => p.joinAll(Uri.decodeFull(m.path).split('/')) == note.path)) {
+          if (rootNote.mentions.any((m) => p.joinAll(m.path.split('/')) == note.path)) {
             localGraphNotePaths.add(note.path);
           }
         }
@@ -124,9 +124,7 @@ class _GraphViewScreenState extends ConsumerState<GraphViewScreen> {
       if (sourceNode == null) continue;
       
       for (final mention in sourceNote.mentions) {
-        // --- FIX: Decode and normalize mention path before using it as a map key ---
-        final decodedPath = Uri.decodeFull(mention.path);
-        final normalizedPath = p.joinAll(decodedPath.split('/'));
+        final normalizedPath = p.joinAll(mention.path.split('/'));
         final destinationNode = nodeMap[normalizedPath];
         if (destinationNode != null && sourceNode != destinationNode) {
           edgesToDisplay.add(Edge(sourceNode, destinationNode));

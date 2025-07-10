@@ -1,4 +1,5 @@
 // C:\dev\memoir\lib\widgets\markdown_toolbar.dart
+// C:\dev\memoir\lib\widgets\markdown_toolbar.dart
 import 'package:flutter/material.dart';
 
 // --- NEW: An enum to represent all possible actions from the toolbar ---
@@ -7,7 +8,7 @@ enum MarkdownAction {
   bold, italic, strikethrough, inlineCode, codeBlock,
   h1, h2, h3,
   checkbox, ul, ol,
-  quote, mention,
+  quote, mention, location,
 }
 
 class MarkdownToolbar extends StatelessWidget {
@@ -22,6 +23,7 @@ class MarkdownToolbar extends StatelessWidget {
     final List<({String label, IconData icon, MarkdownAction action})> menuItems = [
       (label: 'Mention', icon: Icons.alternate_email, action: MarkdownAction.mention),
       (label: 'Image', icon: Icons.image_outlined, action: MarkdownAction.image),
+      (label: 'Location', icon: Icons.add_location_alt_outlined, action: MarkdownAction.location),
       (label: 'Table', icon: Icons.table_chart_outlined, action: MarkdownAction.table),
       (label: 'Link', icon: Icons.link, action: MarkdownAction.link),
       (label: 'Divider', icon: Icons.horizontal_rule, action: MarkdownAction.hr),

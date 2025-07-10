@@ -1,4 +1,5 @@
 // C:\dev\memoir\lib\providers\app_provider.dart
+// C:\dev\memoir\lib\providers\app_provider.dart
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -265,5 +266,17 @@ class AppNotifier extends StateNotifier<AppState> {
     // --- FIX: Removed the line causing the circular dependency ---
     // _ref.refresh(vaultImagesProvider); 
     return relativePath;
+  }
+
+  // --- NEW: Method to delete an image from the vault ---
+  Future<bool> deleteImage(String relativePath) async {
+    if (state.storagePath == null) return false;
+    try {
+        await _localStorageService.deleteImage(state.storagePath!, relativePath);
+        return true;
+    } catch (e) {
+        print("Failed to delete image: $e");
+        return false;
+    }
   }
 }

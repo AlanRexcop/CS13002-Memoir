@@ -1,4 +1,5 @@
 // C:\dev\memoir\lib\widgets\custom_markdown_elements.dart
+// C:\dev\memoir\lib\widgets\custom_markdown_elements.dart
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -37,9 +38,7 @@ class MentionNode extends SpanNode {
       ),
       recognizer: TapGestureRecognizer()
         ..onTap = () {
-          // --- FIX: Decode the URL-encoded path before normalizing and using it ---
-          final decodedPath = Uri.decodeFull(path);
-          final normalizedPath = p.joinAll(decodedPath.split('/'));
+          final normalizedPath = p.joinAll(path.split('/'));
 
           final allPersons = buildContext.ref.read(appProvider).persons;
           Note? targetNote;

@@ -1,9 +1,11 @@
 // C:\dev\memoir\lib\screens\person_list_screen.dart
+// C:\dev\memoir\lib\screens\person_list_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/models/person_model.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/screens/calendar_screen.dart';
+import 'package:memoir/screens/image_gallery_screen.dart';
 import 'package:memoir/screens/map_screen.dart';
 import 'package:memoir/screens/person_detail_screen.dart';
 import 'package:memoir/screens/graph_view_screen.dart';
@@ -51,6 +53,7 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
       appBar: AppBar(
         title: Text(widget.purpose == ScreenPurpose.select ? 'Select Person' : 'Persons'),
         actions: widget.purpose == ScreenPurpose.view ? [ // Only show actions in view mode
+          IconButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ImageGalleryScreen())), icon: const Icon(Icons.photo_library_outlined), tooltip: 'View Image Vault'),
           IconButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const GraphViewScreen())), icon: const Icon(Icons.hub_outlined), tooltip: 'View Graph'),
           IconButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MapScreen())), icon: const Icon(Icons.map_outlined), tooltip: 'View Map'),
           IconButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CalendarScreen())), icon: const Icon(Icons.calendar_month), tooltip: 'View Calendar'),

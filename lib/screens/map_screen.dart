@@ -67,7 +67,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     } else if (allLocations.isEmpty) {
       // Default view if no locations exist at all
       mapOptions = MapOptions(
-        initialCenter: const LatLng(51.509865, -0.118092),
+        initialCenter: const LatLng(10.8231, 106.6297),
         initialZoom: 4.0,
         onTap: (_, __) => _popupLayerController.hideAllPopups(),
       );

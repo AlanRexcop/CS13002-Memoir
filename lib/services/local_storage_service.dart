@@ -1,4 +1,5 @@
 // C:\dev\memoir\lib\services\local_storage_service.dart
+// C:\dev\memoir\lib\services\local_storage_service.dart
 import 'dart:io';
 import 'dart:math'; // Added for ID generation
 import 'package:file_picker/file_picker.dart';
@@ -288,6 +289,20 @@ class LocalStorageService {
       }
     } catch (e) {
       print("Error deleting note file at $notePath: $e");
+      rethrow;
+    }
+  }
+
+  // --- NEW: Method to delete an image ---
+  Future<void> deleteImage(String vaultRoot, String relativePath) async {
+    try {
+      final absolutePath = p.join(vaultRoot, relativePath);
+      final file = File(absolutePath);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (e) {
+      print("Error deleting image file at $relativePath: $e");
       rethrow;
     }
   }

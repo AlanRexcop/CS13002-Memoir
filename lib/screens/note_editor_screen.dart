@@ -1,12 +1,14 @@
 // C:\dev\memoir\lib\screens\note_editor_screen.dart
+// C:\dev\memoir\lib\screens\note_editor_screen.dart
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/models/note_model.dart';
 import 'package:memoir/providers/app_provider.dart';
+import 'package:memoir/screens/image_gallery_screen.dart';
+import 'package:memoir/screens/location_selection_screen.dart';
 import 'package:memoir/screens/person_list_screen.dart';
-import 'package:memoir/widgets/image_selection_dialog.dart';
 import 'package:memoir/widgets/markdown_toolbar.dart';
 import 'package:memoir/widgets/tag_editor.dart';
 import 'package:path/path.dart' as p;
@@ -205,15 +207,40 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
     if (result != null && result['text'] != null && result['path'] != null) {
       final displayText = result['text']!;
-      // --- FIX: URL-encode the path to handle spaces ---
       final notePath = result['path']!.replaceAll(r'\', '/');
-      final encodedPath = Uri.encodeFull(notePath);
-      final textToInsert = ' {mention}[$displayText]($encodedPath) ';
+      final textToInsert = ' {mention}[$displayText]($notePath) ';
       _wrapSelectionWithSyntax(prefix: textToInsert);
     }
   }
 
-  // ... rest of the file is unchanged
+  // --- NEW: Navigates to the ImageGalleryScreen to select an image ---
+  void _showImageGalleryForSelection() async {
+    final relativePath = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (context) => const ImageGalleryScreen(purpose: ScreenPurpose.select),
+      ),
+    );
+
+    if (relativePath != null && relativePath.isNotEmpty) {
+      _onImageSelectedForInsertion(relativePath);
+    }
+  }
+
+  // --- NEW: Navigates to the LocationSelectionScreen and handles the result ---
+  void _showLocationSelection() async {
+    final result = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(builder: (context) => const LocationSelectionScreen()),
+    );
+
+    if (result != null) {
+      final text = result['text'];
+      final lat = result['lat'];
+      final lng = result['lng'];
+      final textToInsert = ' {location}[$text]($lat,$lng) ';
+      _wrapSelectionWithSyntax(prefix: textToInsert);
+    }
+  }
+
   Future<void> _autoSaveNote() async {
     if (_hasUnsavedChanges) {
       await _performSave();
@@ -292,19 +319,6 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     return true;
   }
 
-  void _showImageSelectionDialog() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => FractionallySizedBox(
-        heightFactor: 0.7,
-        child: ImageSelectionDialog(
-          onImageSelected: _onImageSelectedForInsertion,
-        ),
-      ),
-    );
-  }
-
   void _handleMarkdownAction(MarkdownAction action) {
     const tableTemplate = '| Header 1 | Header 2 |\n'
                         '| :--- | :--- |\n'
@@ -352,7 +366,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         _showLinkDialog();
         break;
       case MarkdownAction.image:
-        _showImageSelectionDialog();
+        _showImageGalleryForSelection();
         break;
       case MarkdownAction.hr:
         _insertBlockSyntax('---');
@@ -362,6 +376,9 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         break;
       case MarkdownAction.mention:
         _showMentionFlow();
+        break;
+      case MarkdownAction.location:
+        _showLocationSelection();
         break;
     }
   }

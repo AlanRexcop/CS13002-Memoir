@@ -57,6 +57,7 @@ dependencies:
   google_places_flutter: ^2.1.0
   rrule_generator: ^0.9.4
   teno_rrule: ^0.0.8
+  permission_handler: ^12.0.1
 
 dev_dependencies:
   flutter_test:

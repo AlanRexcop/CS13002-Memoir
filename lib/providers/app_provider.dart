@@ -33,14 +33,22 @@ class AppState {
     if (searchQuery.text.isEmpty && searchQuery.tags.isEmpty) {
       return persons;
     }
-    
+
     return persons.where((person) {
       final lowerCaseTitle = person.info.title.toLowerCase();
-      final lowerCaseTags = person.info.tags.map((t) => t.toLowerCase()).toList();
+      final lowerCaseTags = person.info.tags
+          .map((t) => t.toLowerCase())
+          .toList();
 
-      final textMatch = searchQuery.text.isEmpty || lowerCaseTitle.contains(searchQuery.text.toLowerCase());
-      final tagsMatch = searchQuery.tags.isEmpty || searchQuery.tags.every((searchTag) => lowerCaseTags.contains(searchTag.toLowerCase()));
-      
+      final textMatch =
+          searchQuery.text.isEmpty ||
+          lowerCaseTitle.contains(searchQuery.text.toLowerCase());
+      final tagsMatch =
+          searchQuery.tags.isEmpty ||
+          searchQuery.tags.every(
+            (searchTag) => lowerCaseTags.contains(searchTag.toLowerCase()),
+          );
+
       return textMatch && tagsMatch;
     }).toList();
   }
@@ -73,7 +81,10 @@ final appProvider = StateNotifierProvider<AppNotifier, AppState>((ref) {
   );
 });
 
-final rawNoteContentProvider = FutureProvider.family<String, String>((ref, relativePath) async {
+final rawNoteContentProvider = FutureProvider.family<String, String>((
+  ref,
+  relativePath,
+) async {
   final service = ref.read(localStorageServiceProvider);
   final storagePath = ref.watch(appProvider.select((s) => s.storagePath));
 
@@ -84,17 +95,18 @@ final rawNoteContentProvider = FutureProvider.family<String, String>((ref, relat
   return service.readRawFileContent(storagePath, relativePath);
 });
 
-final detailSearchProvider = StateProvider<({String text, List<String> tags})>((ref) => (text: '', tags: const []));
+final detailSearchProvider = StateProvider<({String text, List<String> tags})>(
+  (ref) => (text: '', tags: const []),
+);
 
 // --- NEW: Provider for listing images in the vault ---
 final vaultImagesProvider = FutureProvider<List<File>>((ref) async {
   final storagePath = ref.watch(appProvider.select((s) => s.storagePath));
   if (storagePath == null) return [];
-  
+
   final service = ref.read(localStorageServiceProvider);
   return service.listImages(storagePath);
 });
-
 
 // --- StateNotifier Class ---
 class AppNotifier extends StateNotifier<AppState> {
@@ -106,10 +118,17 @@ class AppNotifier extends StateNotifier<AppState> {
   AppNotifier({
     required PersistenceService persistenceService,
     required LocalStorageService localStorageService,
-  })  : _persistenceService = persistenceService,
-        _localStorageService = localStorageService,
-        super(const AppState()) {
+  }) : _persistenceService = persistenceService,
+       _localStorageService = localStorageService,
+       super(const AppState()) {
     initializationComplete = _loadInitialPath();
+  }
+
+  AppNotifier.initial(AppState testState)
+    : _persistenceService = PersistenceService(),
+      _localStorageService = LocalStorageService(),
+      super(testState) {
+    initializationComplete = Future.value();
   }
 
   // ... (rest of the class is unchanged)
@@ -127,7 +146,9 @@ class AppNotifier extends StateNotifier<AppState> {
     state = state.copyWith(isLoading: true, storagePath: path);
     try {
       // --- MODIFIED: Service now handles subdirectory logic ---
-      final persons = await _localStorageService.readAllPersonsFromDirectory(path);
+      final persons = await _localStorageService.readAllPersonsFromDirectory(
+        path,
+      );
       persons.sort((a, b) => a.info.title.compareTo(b.info.title));
       state = state.copyWith(persons: persons, isLoading: false);
     } catch (e) {
@@ -141,7 +162,7 @@ class AppNotifier extends StateNotifier<AppState> {
       await loadAllPersons(state.storagePath!);
     }
   }
-  
+
   Future<void> selectAndSetStorage() async {
     final path = await _localStorageService.pickDirectory();
     if (path != null) {
@@ -171,7 +192,7 @@ class AppNotifier extends StateNotifier<AppState> {
   }
 
   Future<bool> createNewNoteForPerson(Person person, String noteName) async {
-     if (state.storagePath == null) return false;
+    if (state.storagePath == null) return false;
     try {
       // --- MODIFIED: Pass vault root to service method ---
       await _localStorageService.createNote(
@@ -207,17 +228,28 @@ class AppNotifier extends StateNotifier<AppState> {
     try {
       // --- MODIFIED: Construct absolute path and pass vault root ---
       final absolutePath = p.join(state.storagePath!, notePath);
-      final updatedNote = await _localStorageService.readNoteFromFile(File(absolutePath), state.storagePath!);
-      
+      final updatedNote = await _localStorageService.readNoteFromFile(
+        File(absolutePath),
+        state.storagePath!,
+      );
+
       final newPersonsList = state.persons.map((person) {
         if (person.info.path == notePath) {
-          return Person(path: person.path, info: updatedNote, notes: person.notes);
+          return Person(
+            path: person.path,
+            info: updatedNote,
+            notes: person.notes,
+          );
         }
         final noteIndex = person.notes.indexWhere((n) => n.path == notePath);
         if (noteIndex != -1) {
           final newNotesForPerson = List<Note>.from(person.notes);
           newNotesForPerson[noteIndex] = updatedNote;
-          return Person(path: person.path, info: person.info, notes: newNotesForPerson);
+          return Person(
+            path: person.path,
+            info: person.info,
+            notes: newNotesForPerson,
+          );
         }
         return person;
       }).toList();
@@ -231,11 +263,20 @@ class AppNotifier extends StateNotifier<AppState> {
     if (state.storagePath == null) return false;
     try {
       // --- MODIFIED: Pass vault root to service method ---
-      await _localStorageService.deleteNote(state.storagePath!, noteToDelete.path);
+      await _localStorageService.deleteNote(
+        state.storagePath!,
+        noteToDelete.path,
+      );
       final newPersonsList = state.persons.map((person) {
         if (person.notes.any((n) => n.path == noteToDelete.path)) {
-          final newNotesForPerson = person.notes.where((n) => n.path != noteToDelete.path).toList();
-          return Person(path: person.path, info: person.info, notes: newNotesForPerson);
+          final newNotesForPerson = person.notes
+              .where((n) => n.path != noteToDelete.path)
+              .toList();
+          return Person(
+            path: person.path,
+            info: person.info,
+            notes: newNotesForPerson,
+          );
         }
         return person;
       }).toList();
@@ -262,9 +303,12 @@ class AppNotifier extends StateNotifier<AppState> {
     if (state.storagePath == null) {
       throw Exception("Storage path is not set");
     }
-    final relativePath = await _localStorageService.saveImage(state.storagePath!, imageFile);
+    final relativePath = await _localStorageService.saveImage(
+      state.storagePath!,
+      imageFile,
+    );
     // --- FIX: Removed the line causing the circular dependency ---
-    // _ref.refresh(vaultImagesProvider); 
+    // _ref.refresh(vaultImagesProvider);
     return relativePath;
   }
 
@@ -272,11 +316,11 @@ class AppNotifier extends StateNotifier<AppState> {
   Future<bool> deleteImage(String relativePath) async {
     if (state.storagePath == null) return false;
     try {
-        await _localStorageService.deleteImage(state.storagePath!, relativePath);
-        return true;
+      await _localStorageService.deleteImage(state.storagePath!, relativePath);
+      return true;
     } catch (e) {
-        print("Failed to delete image: $e");
-        return false;
+      print("Failed to delete image: $e");
+      return false;
     }
   }
 }

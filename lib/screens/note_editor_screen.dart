@@ -1,11 +1,11 @@
 // C:\dev\memoir\lib\screens\note_editor_screen.dart
-// C:\dev\memoir\lib\screens\note_editor_screen.dart
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/models/note_model.dart';
 import 'package:memoir/providers/app_provider.dart';
+import 'package:memoir/screens/event_creation_screen.dart';
 import 'package:memoir/screens/image_gallery_screen.dart';
 import 'package:memoir/screens/location_selection_screen.dart';
 import 'package:memoir/screens/person_list_screen.dart';
@@ -213,7 +213,6 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     }
   }
 
-  // --- NEW: Navigates to the ImageGalleryScreen to select an image ---
   void _showImageGalleryForSelection() async {
     final relativePath = await Navigator.of(context).push<String>(
       MaterialPageRoute(
@@ -226,7 +225,6 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     }
   }
 
-  // --- NEW: Navigates to the LocationSelectionScreen and handles the result ---
   void _showLocationSelection() async {
     final result = await Navigator.of(context).push<Map<String, dynamic>>(
       MaterialPageRoute(builder: (context) => const LocationSelectionScreen()),
@@ -238,6 +236,41 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       final lng = result['lng'];
       final textToInsert = ' {location}[$text]($lat,$lng) ';
       _wrapSelectionWithSyntax(prefix: textToInsert);
+    }
+  }
+
+  Future<void> _showEventCreationFlow() async {
+    final titleController = TextEditingController();
+    final title = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('New Event'),
+        content: TextField(
+          controller: titleController,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Event Description'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(titleController.text.trim()),
+            child: const Text('Next'),
+          ),
+        ],
+      ),
+    );
+
+    if (title != null && title.isNotEmpty && mounted) {
+      final markdownToInsert = await Navigator.of(context).push<String>(
+        MaterialPageRoute(
+          builder: (context) => EventCreationScreen(eventTitle: title),
+        ),
+      );
+      if (markdownToInsert != null && markdownToInsert.isNotEmpty) {
+        _wrapSelectionWithSyntax(prefix: markdownToInsert);
+      }
     }
   }
 
@@ -379,6 +412,9 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         break;
       case MarkdownAction.location:
         _showLocationSelection();
+        break;
+      case MarkdownAction.event:
+        _showEventCreationFlow();
         break;
     }
   }

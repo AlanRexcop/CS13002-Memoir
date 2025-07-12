@@ -159,7 +159,7 @@ class _NoteViewScreenState extends ConsumerState<NoteViewScreen> {
               final markdownBuildContext = MarkdownBuildContext(context, ref);
               
               final generator = MarkdownGenerator(
-                inlineSyntaxList: [ MentionSyntax(), LocationSyntax(), CalendarSyntax() ],
+                inlineSyntaxList: [ MentionSyntax(), LocationSyntax(), EventSyntax() ],
                 generators: [ mentionGenerator(markdownBuildContext), locationGenerator(markdownBuildContext), eventGenerator(markdownBuildContext) ],
               );
               

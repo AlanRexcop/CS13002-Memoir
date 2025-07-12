@@ -37,7 +37,7 @@ class _ImageGalleryScreenState extends ConsumerState<ImageGalleryScreen> with Si
   void _showImageViewer(BuildContext context, File imageFile) {
     Navigator.of(context).push(PageRouteBuilder(
       opaque: false,
-      pageBuilder: (_, __, ___) => ImageViewer(child: Image.file(imageFile), heroTag: imageFile.path),
+      pageBuilder: (_, __, ___) => ImageViewer(heroTag: imageFile.path, child: Image.file(imageFile)),
     ));
   }
 

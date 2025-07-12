@@ -1,18 +1,31 @@
 // C:\dev\memoir\lib\widgets\markdown_toolbar.dart
-// C:\dev\memoir\lib\widgets\markdown_toolbar.dart
 import 'package:flutter/material.dart';
 
-// --- NEW: An enum to represent all possible actions from the toolbar ---
+// enum to represent all possible actions from the toolbar
 enum MarkdownAction {
-  image, table, link, hr,
-  bold, italic, strikethrough, inlineCode, codeBlock,
-  h1, h2, h3,
-  checkbox, ul, ol,
-  quote, mention, location,
+  image,
+  table,
+  link,
+  hr,
+  bold,
+  italic,
+  strikethrough,
+  inlineCode,
+  codeBlock,
+  h1,
+  h2,
+  h3,
+  checkbox,
+  ul,
+  ol,
+  quote,
+  mention,
+  location,
+  event,
 }
 
 class MarkdownToolbar extends StatelessWidget {
-  // --- NEW: A callback to notify the parent about which action was selected ---
+  // callback to notify the parent about which action was selected
   final void Function(MarkdownAction) onAction;
 
   const MarkdownToolbar({super.key, required this.onAction});
@@ -20,25 +33,75 @@ class MarkdownToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // A list of all menu items, mapping UI to a specific MarkdownAction
-    final List<({String label, IconData icon, MarkdownAction action})> menuItems = [
-      (label: 'Mention', icon: Icons.alternate_email, action: MarkdownAction.mention),
-      (label: 'Image', icon: Icons.image_outlined, action: MarkdownAction.image),
-      (label: 'Location', icon: Icons.add_location_alt_outlined, action: MarkdownAction.location),
-      (label: 'Table', icon: Icons.table_chart_outlined, action: MarkdownAction.table),
+    final List<({String label, IconData icon, MarkdownAction action})> menuItems =
+        [
+      (
+        label: 'Mention',
+        icon: Icons.alternate_email,
+        action: MarkdownAction.mention
+      ),
+      (
+        label: 'Image',
+        icon: Icons.image_outlined,
+        action: MarkdownAction.image
+      ),
+      (
+        label: 'Location',
+        icon: Icons.add_location_alt_outlined,
+        action: MarkdownAction.location
+      ),
+      (label: 'Event', icon: Icons.event, action: MarkdownAction.event),
+      (
+        label: 'Table',
+        icon: Icons.table_chart_outlined,
+        action: MarkdownAction.table
+      ),
       (label: 'Link', icon: Icons.link, action: MarkdownAction.link),
       (label: 'Divider', icon: Icons.horizontal_rule, action: MarkdownAction.hr),
       (label: 'Bold', icon: Icons.format_bold, action: MarkdownAction.bold),
-      (label: 'Italic', icon: Icons.format_italic, action: MarkdownAction.italic),
-      (label: 'Strikethrough', icon: Icons.format_strikethrough, action: MarkdownAction.strikethrough),
-      (label: 'Inline Code', icon: Icons.code, action: MarkdownAction.inlineCode),
-      (label: 'Code Block', icon: Icons.code_off_outlined, action: MarkdownAction.codeBlock),
+      (
+        label: 'Italic',
+        icon: Icons.format_italic,
+        action: MarkdownAction.italic
+      ),
+      (
+        label: 'Strikethrough',
+        icon: Icons.format_strikethrough,
+        action: MarkdownAction.strikethrough
+      ),
+      (
+        label: 'Inline Code',
+        icon: Icons.code,
+        action: MarkdownAction.inlineCode
+      ),
+      (
+        label: 'Code Block',
+        icon: Icons.code_off_outlined,
+        action: MarkdownAction.codeBlock
+      ),
       (label: 'Header 1', icon: Icons.looks_one_outlined, action: MarkdownAction.h1),
       (label: 'Header 2', icon: Icons.looks_two_outlined, action: MarkdownAction.h2),
       (label: 'Header 3', icon: Icons.looks_3_outlined, action: MarkdownAction.h3),
-      (label: 'Checkbox', icon: Icons.check_box_outlined, action: MarkdownAction.checkbox),
-      (label: 'Bullet List', icon: Icons.format_list_bulleted, action: MarkdownAction.ul),
-      (label: 'Numbered List', icon: Icons.format_list_numbered, action: MarkdownAction.ol),
-      (label: 'Blockquote', icon: Icons.format_quote, action: MarkdownAction.quote),
+      (
+        label: 'Checkbox',
+        icon: Icons.check_box_outlined,
+        action: MarkdownAction.checkbox
+      ),
+      (
+        label: 'Bullet List',
+        icon: Icons.format_list_bulleted,
+        action: MarkdownAction.ul
+      ),
+      (
+        label: 'Numbered List',
+        icon: Icons.format_list_numbered,
+        action: MarkdownAction.ol
+      ),
+      (
+        label: 'Blockquote',
+        icon: Icons.format_quote,
+        action: MarkdownAction.quote
+      ),
     ];
 
     return SafeArea(
@@ -66,7 +129,9 @@ class MarkdownToolbar extends StatelessWidget {
               children: [
                 Icon(item.icon),
                 const SizedBox(height: 4),
-                Text(item.label, style: const TextStyle(fontSize: 12), textAlign: TextAlign.center),
+                Text(item.label,
+                    style: const TextStyle(fontSize: 12),
+                    textAlign: TextAlign.center),
               ],
             ),
           );

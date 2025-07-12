@@ -1,10 +1,10 @@
 // C:\dev\memoir\lib\widgets\custom_markdown_elements.dart
-// C:\dev\memoir\lib\widgets\custom_markdown_elements.dart
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:markdown_widget/markdown_widget.dart';
+import 'package:memoir/models/event_model.dart';
 import 'package:memoir/models/location_model.dart';
 import 'package:memoir/models/note_model.dart';
 import 'package:memoir/providers/app_provider.dart';
@@ -43,7 +43,8 @@ class MentionNode extends SpanNode {
           final allPersons = buildContext.ref.read(appProvider).persons;
           Note? targetNote;
           for (var person in allPersons) {
-            final found = [person.info, ...person.notes].where((note) => note.path == normalizedPath);
+            final found = [person.info, ...person.notes]
+                .where((note) => note.path == normalizedPath);
             if (found.isNotEmpty) {
               targetNote = found.first;
               break;
@@ -51,11 +52,14 @@ class MentionNode extends SpanNode {
           }
           if (targetNote != null) {
             Navigator.of(buildContext.context).push(
-              MaterialPageRoute(builder: (context) => NoteViewScreen(note: targetNote!)),
+              MaterialPageRoute(
+                  builder: (context) => NoteViewScreen(note: targetNote!)),
             );
           } else {
             ScaffoldMessenger.of(buildContext.context).showSnackBar(
-              const SnackBar(content: Text('Could not find the mentioned note.'), backgroundColor: Colors.red),
+              const SnackBar(
+                  content: Text('Could not find the mentioned note.'),
+                  backgroundColor: Colors.red),
             );
           }
         },
@@ -63,13 +67,12 @@ class MentionNode extends SpanNode {
   }
 }
 
-// ... rest of the file is unchanged
 // --- LOCATION WIDGET ---
 
 class LocationNode extends SpanNode {
   final Location location;
   final MarkdownBuildContext buildContext;
-  
+
   LocationNode(this.location, this.buildContext);
 
   @override
@@ -79,7 +82,8 @@ class LocationNode extends SpanNode {
       child: GestureDetector(
         onTap: () {
           Navigator.of(buildContext.context).push(
-            MaterialPageRoute(builder: (context) => MapScreen(initialLocation: location)),
+            MaterialPageRoute(
+                builder: (context) => MapScreen(initialLocation: location)),
           );
         },
         child: Chip(
@@ -95,32 +99,34 @@ class LocationNode extends SpanNode {
 // --- CALENDAR/EVENT WIDGET ---
 
 class EventNode extends SpanNode {
-  final String text;
-  final DateTime time;
+  final Event event;
   final MarkdownBuildContext buildContext;
 
-  EventNode(this.text, this.time, this.buildContext);
-  
+  EventNode(this.event, this.buildContext);
+
   @override
   InlineSpan build() {
+    final isRecurring = event.rrule != null && event.rrule!.isNotEmpty;
     return WidgetSpan(
       alignment: PlaceholderAlignment.middle,
       child: GestureDetector(
         onTap: () {
           Navigator.of(buildContext.context).push(
-            MaterialPageRoute(builder: (context) => CalendarScreen(initialDate: time)),
+            MaterialPageRoute(
+                builder: (context) => CalendarScreen(initialDate: event.time)),
           );
         },
         child: Chip(
-          avatar: const Icon(Icons.calendar_today_outlined, size: 16),
-          label: Text('$text (${DateFormat.yMMMd().format(time)})'),
+          avatar: Icon(
+              isRecurring ? Icons.sync : Icons.calendar_today_outlined,
+              size: 16),
+          label: Text('${event.info} (${DateFormat.yMMMd().format(event.time)})'),
           visualDensity: VisualDensity.compact,
         ),
       ),
     );
   }
 }
-
 
 // --- GENERATOR FUNCTIONS ---
 
@@ -152,11 +158,14 @@ SpanNodeGeneratorWithTag locationGenerator(MarkdownBuildContext buildContext) {
 
 SpanNodeGeneratorWithTag eventGenerator(MarkdownBuildContext buildContext) {
   return SpanNodeGeneratorWithTag(
-    tag: 'mcalendar',
-    generator: (e, config, visitor) => EventNode(
-      e.attributes['data-text']!,
-      DateTime.parse(e.attributes['data-value']!),
-      buildContext,
-    ),
+    tag: 'mevent',
+    generator: (e, config, visitor) {
+      final text = e.attributes['data-text']!;
+      final dt = e.attributes['data-dt']!;
+      final rrule = e.attributes['data-rrule'];
+      final event =
+          Event(info: text, time: DateTime.parse(dt), rrule: rrule);
+      return EventNode(event, buildContext);
+    },
   );
 }

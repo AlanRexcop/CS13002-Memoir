@@ -18,7 +18,6 @@ class MapLocationEntry {
 }
 
 class MapScreen extends ConsumerStatefulWidget {
-  // --- NEW: Optional parameter to focus on a specific location ---
   final Location? initialLocation;
 
   const MapScreen({super.key, this.initialLocation});
@@ -56,7 +55,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
     late final MapOptions mapOptions;
 
-    // --- NEW: Conditional logic for map view ---
     if (widget.initialLocation != null) {
       // If an initial location is provided, center and zoom on it.
       mapOptions = MapOptions(

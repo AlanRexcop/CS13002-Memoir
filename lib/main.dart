@@ -3,10 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:memoir/screens/home_wrapper.dart';
+import 'package:memoir/services/notification_service.dart';
+import 'package:timezone/data/latest_10y.dart' as tz;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  tz.initializeTimeZones();
   await initializeDateFormatting();
+  await NotificationService().init();
   
   runApp(const ProviderScope(child: MyApp()));
 }

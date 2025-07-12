@@ -17,7 +17,6 @@ class CalendarEventEntry {
 }
 
 class CalendarScreen extends ConsumerStatefulWidget {
-  // --- NEW: Optional parameter to set the initial date ---
   final DateTime? initialDate;
 
   const CalendarScreen({super.key, this.initialDate});
@@ -34,7 +33,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   @override
   void initState() {
     super.initState();
-    // --- NEW: Use the initialDate if provided, otherwise default to now ---
     final initial = widget.initialDate ?? DateTime.now();
     _focusedDay = initial;
     _selectedDay = initial;

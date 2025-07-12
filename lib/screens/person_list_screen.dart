@@ -1,5 +1,4 @@
 // C:\dev\memoir\lib\screens\person_list_screen.dart
-// C:\dev\memoir\lib\screens\person_list_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/models/person_model.dart';
@@ -11,11 +10,9 @@ import 'package:memoir/screens/person_detail_screen.dart';
 import 'package:memoir/screens/graph_view_screen.dart';
 import 'package:memoir/screens/settings_screen.dart';
 
-// --- NEW: Enum to define the screen's purpose ---
 enum ScreenPurpose { view, select }
 
 class PersonListScreen extends ConsumerStatefulWidget {
-  // --- NEW: Parameter to determine the screen's behavior ---
   final ScreenPurpose purpose;
 
   const PersonListScreen({super.key, this.purpose = ScreenPurpose.view});
@@ -192,7 +189,6 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
                           ],
                         ),
                         onTap: () async {
-                          // --- MODIFIED: On tap behavior depends on the purpose ---
                           if (widget.purpose == ScreenPurpose.select) {
                             final result = await Navigator.of(context).push<Map<String, String>>(
                               MaterialPageRoute(

@@ -67,7 +67,6 @@ class MentionNode extends SpanNode {
   }
 }
 
-// ... rest of the file is unchanged
 // --- LOCATION WIDGET ---
 
 class LocationNode extends SpanNode {

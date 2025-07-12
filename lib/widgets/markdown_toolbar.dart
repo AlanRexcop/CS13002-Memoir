@@ -1,7 +1,7 @@
 // C:\dev\memoir\lib\widgets\markdown_toolbar.dart
 import 'package:flutter/material.dart';
 
-// --- NEW: An enum to represent all possible actions from the toolbar ---
+// enum to represent all possible actions from the toolbar
 enum MarkdownAction {
   image,
   table,
@@ -25,7 +25,7 @@ enum MarkdownAction {
 }
 
 class MarkdownToolbar extends StatelessWidget {
-  // --- NEW: A callback to notify the parent about which action was selected ---
+  // callback to notify the parent about which action was selected
   final void Function(MarkdownAction) onAction;
 
   const MarkdownToolbar({super.key, required this.onAction});

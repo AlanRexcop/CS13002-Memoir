@@ -10,7 +10,6 @@ import 'package:memoir/screens/person_list_screen.dart'; // Import for the enum
 
 class PersonDetailScreen extends ConsumerStatefulWidget {
   final Person person;
-  // --- NEW: Parameter to determine the screen's behavior ---
   final ScreenPurpose purpose;
 
   const PersonDetailScreen({super.key, required this.person, this.purpose = ScreenPurpose.view});
@@ -31,7 +30,6 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
     );
   }
 
-  // --- NEW: Helper method to show the final dialog and pop with a result ---
   Future<void> _showMentionInfoDialog(BuildContext context, Note selectedNote) async {
     final textController = TextEditingController();
     final result = await showDialog<String>(
@@ -231,7 +229,6 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
                       ),
                       trailing: isInfoNote ? const Chip(label: Text('Info'), visualDensity: VisualDensity.compact) : null,
                       onTap: () {
-                        // --- MODIFIED: On tap behavior depends on the purpose ---
                         if (widget.purpose == ScreenPurpose.select) {
                           _showMentionInfoDialog(context, note);
                         } else {

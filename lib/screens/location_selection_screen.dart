@@ -15,15 +15,12 @@ class LocationSelectionScreen extends StatefulWidget {
 }
 
 class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
-  // --- IMPORTANT: Paste your Google API Key here ---
   static const String _apiKey = "AIzaSyDcdJId1pEaYCu7DoNe9Oe6gmQFB6qDIlg";
   
   final _mapController = MapController();
   final _searchController = TextEditingController();
-  // --- NEW: Add a FocusNode to manage the search input's focus state.
   late final FocusNode _searchFocusNode;
 
-  // --- NEW: API client for reverse geocoding ---
   late final GoogleGeocodingApi _geocodingApi;
   
   LatLng? _selectedPoint;
@@ -32,14 +29,12 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
   @override
   void initState() {
     super.initState();
-    // --- NEW: Initialize the FocusNode.
     _searchFocusNode = FocusNode();
     _geocodingApi = GoogleGeocodingApi(_apiKey);
     // A default starting point
     _selectedPoint = const LatLng(10.8231, 106.6297); 
   }
   
-  // --- NEW: Method to handle reverse geocoding from a map tap ---
   Future<void> _getAddressFromCoordinates(LatLng point) async {
     setState(() {
       _selectedPoint = point; // Update marker position immediately
@@ -84,7 +79,6 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
   @override
   void dispose() {
     _searchController.dispose();
-    // --- NEW: Dispose the FocusNode to prevent memory leaks.
     _searchFocusNode.dispose();
     super.dispose();
   }
@@ -94,7 +88,6 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Select a Location'),
-        // --- NEW: Loading indicator for reverse geocoding ---
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(4.0),
           child: _isReverseGeocoding ? const LinearProgressIndicator() : const SizedBox.shrink(),
@@ -107,7 +100,6 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
             options: MapOptions(
               initialCenter: _selectedPoint!,
               initialZoom: 13.0,
-              // --- MODIFIED: Unfocus our specific node on tap for better control.
               onTap: (tapPosition, point) {
                  _searchFocusNode.unfocus();
                  _getAddressFromCoordinates(point);
@@ -139,7 +131,6 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
               elevation: 4,
               borderRadius: BorderRadius.circular(10),
               child: GooglePlaceAutoCompleteTextField(  
-                // --- MODIFIED: Pass the persistent FocusNode to the widget.
                 focusNode: _searchFocusNode,
                 textEditingController: _searchController,
                 googleAPIKey: _apiKey,
@@ -170,7 +161,6 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
                   _searchController.selection = TextSelection.fromPosition(
                     TextPosition(offset: prediction.description?.length ?? 0),
                   );
-                  // --- MODIFIED: Unfocus our specific node for better control.
                   _searchFocusNode.unfocus();
                 },
               )

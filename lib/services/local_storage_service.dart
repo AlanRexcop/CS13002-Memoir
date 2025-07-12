@@ -1,17 +1,15 @@
 // C:\dev\memoir\lib\services\local_storage_service.dart
-// C:\dev\memoir\lib\services\local_storage_service.dart
 import 'dart:io';
-import 'dart:math'; // Added for ID generation
+import 'dart:math';
 import 'package:file_picker/file_picker.dart';
 import 'package:memoir/models/person_model.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 import 'package:memoir/services/markdown_analyzer_service.dart';
 import 'package:memoir/models/note_model.dart';
-import 'package:yaml_writer/yaml_writer.dart'; // A helper for writing YAML
+import 'package:yaml_writer/yaml_writer.dart';
 
 class LocalStorageService {
-  // --- Helper to generate a unique, human-friendly ID ---
   String _generateFriendlyId() {
     final now = DateTime.now().millisecondsSinceEpoch;
     // Generates a random number up to 16,777,215 for added uniqueness
@@ -19,7 +17,6 @@ class LocalStorageService {
     return '${now.toRadixString(36)}${random.toRadixString(36)}';
   }
 
-  // --- NEW: Helper to generate a unique filename for images ---
   String _generateUniqueFilename(String originalPath) {
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final extension = p.extension(originalPath);
@@ -210,7 +207,6 @@ class LocalStorageService {
     required String parentPath,
     required String personName,
   }) async {
-    // --- MODIFIED: Add collision check for generated ID ---
     String id;
     Directory personDir;
     do {
@@ -245,7 +241,6 @@ class LocalStorageService {
   }) async {
     final personAbsolutePath = p.join(vaultRoot, personPath);
 
-    // --- MODIFIED: Add collision check for generated ID ---
     String id;
     File noteFileAbsolutePath;
     do {
@@ -293,7 +288,6 @@ class LocalStorageService {
     }
   }
 
-  // --- NEW: Method to delete an image ---
   Future<void> deleteImage(String vaultRoot, String relativePath) async {
     try {
       final absolutePath = p.join(vaultRoot, relativePath);
@@ -307,14 +301,11 @@ class LocalStorageService {
     }
   }
 
-  // --- NEW: Methods for handling images ---
-
   Future<List<File>> listImages(String vaultRoot) async {
     final imagesDir = Directory(p.join(vaultRoot, 'images'));
     if (!await imagesDir.exists()) {
       return [];
     }
-    // --- FIX: Awaited toList() on the stream before filtering ---
     final entities = await imagesDir.list().toList();
     return entities.whereType<File>().toList();
   }

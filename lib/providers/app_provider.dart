@@ -123,13 +123,6 @@ class AppNotifier extends StateNotifier<AppState> {
     initializationComplete = Future.value();
   }
 
-  AppNotifier.initial(AppState testState)
-    : _persistenceService = PersistenceService(),
-      _localStorageService = LocalStorageService(),
-      super(testState) {
-    initializationComplete = Future.value();
-  }
-
   Future<void> _scheduleAllReminders(List<Person> persons) async {
     for (final person in persons) {
       for (final note in [person.info, ...person.notes]) {

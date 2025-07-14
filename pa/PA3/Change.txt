@@ -1,0 +1,5 @@
+Use case model and spec:
+- add view note list
+- add delete uploaded note
+- remove server maintaining (tracking bandwidth, current active user)
+- adjust basic flow for add event to calendar use case 

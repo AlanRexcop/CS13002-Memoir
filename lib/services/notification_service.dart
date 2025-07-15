@@ -1,4 +1,5 @@
 // C:\dev\memoir\lib\services\notification_service.dart
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:memoir/models/event_model.dart';
 import 'package:memoir/models/note_model.dart';
@@ -13,11 +14,10 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   Future<void> init() async {
-    // Initialization settings for Android
+    // Platform-specific initialization settings
     const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    // Initialization settings for iOS
     const DarwinInitializationSettings darwinSettings =
         DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -25,25 +25,45 @@ class NotificationService {
       requestSoundPermission: true,
     );
 
-    const InitializationSettings initializationSettings =
+    // This cannot be 'const' because AssetsLinuxIcon() is not a const constructor.
+    final LinuxInitializationSettings linuxSettings =
+        LinuxInitializationSettings(
+      defaultActionName: 'Open',
+      defaultIcon: AssetsLinuxIcon('assets/icons/app_icon.png'),
+    );
+
+    const WindowsInitializationSettings windowsSettings =
+        WindowsInitializationSettings(
+      appName: 'Memoir',
+      appUserModelId: 'com.example.memoir',
+      guid: 'd49b0314-ee7a-4626-bf79-97cdb8a991bb',
+    );
+
+    final InitializationSettings initializationSettings =
         InitializationSettings(
       android: androidSettings,
       iOS: darwinSettings,
+      macOS: darwinSettings,
+      linux: linuxSettings,
+      windows: windowsSettings,
     );
 
     await _notificationsPlugin.initialize(initializationSettings);
 
-    // Request permissions for Android 13+
-    final androidPlugin = _notificationsPlugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
-    await androidPlugin?.requestNotificationsPermission();
-    await androidPlugin?.requestExactAlarmsPermission();
+    // Request platform-specific permissions only on the relevant platform
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      final androidPlugin = _notificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      await androidPlugin?.requestNotificationsPermission();
+      await androidPlugin?.requestExactAlarmsPermission();
+    }
   }
-
-  // A unique ID for the notification can be generated from the event's properties
+  
+  // ... rest of the file is unchanged ...
   int _generateId(Event event, Note note) {
-    return (note.path + event.time.toIso8601String() + event.info).hashCode & 0x7FFFFFFF;
+    return (note.path + event.time.toIso8601String() + event.info).hashCode &
+        0x7FFFFFFF;
   }
 
   Future<void> scheduleEventNotification(Event event, Note note) async {
@@ -69,17 +89,16 @@ class NotificationService {
 
     const NotificationDetails notificationDetails = NotificationDetails(
       android: androidDetails,
+
       iOS: darwinDetails,
     );
 
     await _notificationsPlugin.zonedSchedule(
       id,
-      'Reminder: ${event.info}', // More specific title
-      'From note: "${note.title}"', // Context in the body
+      'Reminder: ${event.info}',
+      'From note: "${note.title}"',
       tz.TZDateTime.from(reminderTime, tz.local),
       notificationDetails,
-      // The parameter below is for newer versions. It's removed to match your library version.
-      // uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime, 
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );
   }

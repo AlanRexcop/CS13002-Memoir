@@ -69,19 +69,49 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         initialZoom: 4.0,
         onTap: (_, __) => _popupLayerController.hideAllPopups(),
       );
-    } else {
-      // Original logic to fit all locations in bounds
-      final points = allLocations.map((entry) => LatLng(entry.location.lat, entry.location.lng)).toList();
-      final bounds = LatLngBounds.fromPoints(points);
-      final cameraFit = CameraFit.bounds(
-        bounds: bounds,
-        padding: const EdgeInsets.all(50.0),
-      );
+    } else if (allLocations.length == 1) {
+      // Center on that single location with a fixed zoom level.
       mapOptions = MapOptions(
-        initialCameraFit: cameraFit,
+        initialCenter: LatLng(allLocations.first.location.lat, allLocations.first.location.lng),
+        initialZoom: 15.0, // A nice close-up zoom level
         onTap: (_, __) => _popupLayerController.hideAllPopups(),
       );
+    } else {
+      // Original logic, now safe because we know there are multiple, distinct points.
+      final points = allLocations.map((entry) => LatLng(entry.location.lat, entry.location.lng)).toList();
+      // We add a check to handle the edge case where all locations have the same coordinate
+      final bounds = LatLngBounds.fromPoints(points);
+      if (bounds.northEast == bounds.southWest) {
+        // All points are the same, treat as a single location
+        mapOptions = MapOptions(
+          initialCenter: LatLng(allLocations.first.location.lat, allLocations.first.location.lng),
+          initialZoom: 15.0,
+          onTap: (_, __) => _popupLayerController.hideAllPopups(),
+        );
+      } else {
+        final cameraFit = CameraFit.bounds(
+          bounds: bounds,
+          padding: const EdgeInsets.all(50.0),
+        );
+        mapOptions = MapOptions(
+          initialCameraFit: cameraFit,
+          onTap: (_, __) => _popupLayerController.hideAllPopups(),
+        );
+      }
     }
+    // else {
+    //   // Original logic to fit all locations in bounds
+    //   final points = allLocations.map((entry) => LatLng(entry.location.lat, entry.location.lng)).toList();
+    //   final bounds = LatLngBounds.fromPoints(points);
+    //   final cameraFit = CameraFit.bounds(
+    //     bounds: bounds,
+    //     padding: const EdgeInsets.all(50.0),
+    //   );
+    //   mapOptions = MapOptions(
+    //     initialCameraFit: cameraFit,
+    //     onTap: (_, __) => _popupLayerController.hideAllPopups(),
+    //   );
+    // }
 
     return Scaffold(
       appBar: AppBar(

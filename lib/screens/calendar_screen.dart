@@ -115,9 +115,14 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     }
 
     final selectedDayEvents = _getEventsForDay(_selectedDay!, eventsSource);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Event Calendar')),
+      appBar: AppBar(
+          title: Text(
+              'Calendar',
+          )
+      ),
       body: Column(
         children: [
           TableCalendar<CalendarEventEntry>(
@@ -126,7 +131,80 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             focusedDay: _focusedDay,
             selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
             calendarFormat: _calendarFormat,
+            daysOfWeekHeight: 30.0,
             eventLoader: (day) => _getEventsForDay(day, eventsSource),
+
+            headerStyle: HeaderStyle(
+              titleCentered: true,
+              formatButtonVisible: false,
+              titleTextStyle: TextStyle(
+                color: colorScheme.primary,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+              leftChevronIcon: Icon(Icons.chevron_left, color: colorScheme.primary),
+              rightChevronIcon: Icon(Icons.chevron_right, color: colorScheme.primary),
+            ),
+
+            daysOfWeekStyle: DaysOfWeekStyle(
+              weekdayStyle: TextStyle(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18
+              ),
+              weekendStyle: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18
+              ),
+            ),
+
+            calendarStyle: CalendarStyle(
+              defaultDecoration: BoxDecoration(
+                  shape: BoxShape.rectangle,
+                  borderRadius: BorderRadius.circular(8.0)
+              ),
+              weekendDecoration: BoxDecoration(
+                  shape: BoxShape.rectangle,
+                  borderRadius: BorderRadius.circular(8.0)
+              ),
+              outsideDecoration: BoxDecoration(
+                  shape: BoxShape.rectangle,
+                  borderRadius: BorderRadius.circular(8.0)
+              ),
+              holidayDecoration: BoxDecoration(
+                  shape: BoxShape.rectangle,
+                  borderRadius: BorderRadius.circular(8.0)
+              ),
+              disabledDecoration: BoxDecoration(
+                  shape: BoxShape.rectangle,
+                  borderRadius: BorderRadius.circular(8.0)
+              ),
+              selectedDecoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                shape: BoxShape.rectangle,
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+              selectedTextStyle: TextStyle(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18
+              ),
+              todayDecoration: BoxDecoration(
+                border: Border.all(color: colorScheme.primary, width: 1.5),
+                shape: BoxShape.rectangle,
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+              todayTextStyle: TextStyle(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18
+              ),
+              outsideTextStyle: TextStyle(color: Colors.grey, fontSize: 18),
+              weekendTextStyle: const TextStyle(color: Colors.black, fontSize: 18),
+              defaultTextStyle: const TextStyle(color: Colors.black, fontSize: 18),
+            ),
+
             calendarBuilders: CalendarBuilders(
               markerBuilder: (context, day, events) {
                 if (events.isEmpty) return null;
@@ -139,7 +217,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                     height: 16,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Theme.of(context).primaryColor,
+                      color: colorScheme.primary,
                     ),
                     child: Center(
                       child: Text(
@@ -174,16 +252,51 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 final entry = selectedDayEvents[index];
                 return Card(
                   margin:
-                      const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+                  const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
                   child: ListTile(
-                    leading: const Icon(Icons.event_note_outlined),
+                    leading: const Icon(Icons.alarm),
                     title: Text(entry.event.info,
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20)
+                    ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'In: "${entry.parentNote.title}" at ${DateFormat('HH:mm').format(entry.event.time.toLocal())}',
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+                              decoration: BoxDecoration(
+                                color: Colors.deepPurple[50],
+                                borderRadius: BorderRadius.circular(20.0),
+                              ),
+                              child: Text(
+                                DateFormat('MMM d, yyyy').format(entry.event.time.toLocal()),
+                                style: TextStyle(
+                                  color: Colors.deepPurple[400],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(width: 8),
+
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+                              decoration: BoxDecoration(
+                                color: Colors.deepPurple[50],
+                                borderRadius: BorderRadius.circular(20.0),
+                              ),
+                              child: Text(
+                                DateFormat('h:mm a').format(entry.event.time.toLocal()),
+                                style: TextStyle(
+                                  color: Colors.deepPurple[400],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 4),
                         if (entry.parentNote.tags.isNotEmpty)
@@ -192,11 +305,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                             runSpacing: 4.0,
                             children: entry.parentNote.tags
                                 .map((tag) => Chip(
-                                      label: Text(tag),
-                                      padding: EdgeInsets.zero,
-                                      visualDensity: VisualDensity.compact,
-                                      labelStyle: const TextStyle(fontSize: 10),
-                                    ))
+                              label: Text(tag),
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                              labelStyle: const TextStyle(fontSize: 10),
+                            ))
                                 .toList(),
                           ),
                       ],

@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/providers/app_provider.dart';
+import 'package:memoir/screens/recycle_bin_screen.dart';
+
+import '../widgets/setting_group.dart';
+import '../widgets/setting_item.dart';
+import 'account_screen.dart';
+import 'backup_sync_screen.dart';
+import 'feedback_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -8,57 +15,210 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // We can watch the provider to display the current path.
-    final currentPath = ref.watch(appProvider).storagePath ?? "Not set";
-
+    // final currentPath = ref.watch(appProvider).storagePath ?? "Not set";
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings'),
+        // leading: IconButton(
+        //   onPressed: () {
+        //     Navigator.of(context).pop();
+        //   },
+        //   icon: Icon(Icons.chevron_left_outlined, size: 30,),
+        // ),
+        // leadingWidth: 50,
+        // backgroundColor: colorScheme.primaryContainer,
+        // elevation: 0,
+        title: Text('Setting'),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16.0),
         children: [
-          ListTile(
-            leading: const Icon(Icons.folder_open_outlined),
-            title: const Text('Storage Location'),
-            subtitle: Text(
-              currentPath,
-              style: TextStyle(color: Colors.grey[400], fontSize: 12),
-            ),
-            onTap: () async {
-              // Show a confirmation dialog before proceeding.
-              final bool? shouldChange = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Change Storage Location?'),
-                  content: const Text(
-                    'This will close your current vault and ask you to select a new one. Are you sure you want to continue?',
+          SizedBox(height: 20,),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      width: 4,
+                      color: Colors.white,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        spreadRadius: 2,
+                        blurRadius: 10,
+                        color: Color.fromRGBO(0, 0, 0, 0.1),
+                      )
+                    ],
+                    shape: BoxShape.circle,
+                    image: const DecorationImage(
+                      image: AssetImage("assets/avatar.png"),
+                      fit: BoxFit.cover,
+                    ),
                   ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      child: const Text('Cancel'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(true),
-                      child: const Text('Continue', style: TextStyle(color: Colors.amber)),
-                    ),
-                  ],
                 ),
-              );
 
-              // If the user confirmed, call the provider method.
-              if (shouldChange == true) {
-                await ref.read(appProvider.notifier).changeStorageLocation();
-                // After the action, if the context is still valid, pop the settings screen.
-                if(context.mounted) {
-                   Navigator.of(context).pop();
-                }
-              }
-            },
+                const SizedBox(width: 16),
+
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Nguyen Gia Huy',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.primary,
+                          fontSize: 20,
+                        ),
+                      ),
+                      Text(
+                        'giahuyhcmus@gmail.com',
+                        style: TextStyle(
+                          fontWeight: FontWeight.normal,
+                          color: colorScheme.onSurfaceVariant,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              ],
+            ),
           ),
-          const Divider(),
-          // You can add more settings options here in the future
-          // e.g., ListTile for Theme, About, etc.
+
+          SizedBox(height: 20,),
+          SettingGroup(
+            title: 'Account & Security',
+            children: [
+              SettingItem(
+                  title: 'Account info',
+                  icon: Icons.person_outline,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AccountScreen(),
+                      ),
+                    );
+                  }
+              ),
+              SettingItem(
+                  title: 'Change password',
+                  icon: Icons.lock_outline,
+                  onTap: () {}
+              ),
+            ],
+          ),
+          SettingGroup(
+            title: 'Storage',
+            children: [
+              SettingItem(
+                  title: 'Back up & Cloud sync',
+                  icon: Icons.cloud_sync_outlined,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const BackupSyncScreen(),
+                      ),
+                    );
+                  }
+              ),
+              SettingItem(
+                  title: 'Recycle bin',
+                  icon: Icons.restore_from_trash_outlined,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const RecycleBinScreen(),
+                      ),
+                    );
+                  }
+              ),
+              SettingItem(
+                  title: 'Storage location',
+                  icon: Icons.folder_open_outlined,
+                onTap: () async {
+                  // Show a confirmation dialog before proceeding.
+                  final bool? shouldChange = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Change Storage Location?'),
+                      content: const Text(
+                        'This will close your current vault and ask you to select a new one. Are you sure you want to continue?',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(false),
+                          child: const Text('Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(true),
+                          child: const Text('Continue', style: TextStyle(color: Colors.amber)),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  // If the user confirmed, call the provider method.
+                  if (shouldChange == true) {
+                    await ref.read(appProvider.notifier).changeStorageLocation();
+                    // After the action, if the context is still valid, pop the settings screen.
+                    // if(context.mounted) {
+                    //   // Navigator.of(context).pop();
+                    //   // //   Future.delayed(const Duration(milliseconds: 100), () {
+                    //   // //     Navigator.of(context).pop();
+                    //   // //   }
+                    //   // // )
+                    // }
+                  }
+                },
+              )
+            ],
+          ),
+          SettingGroup(
+            title: 'Improve the app',
+            children: [
+              SettingItem(
+                  title: 'Feedback & bug report',
+                  icon: Icons.feedback_outlined,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const FeedbackScreen(),
+                      ),
+                    );
+                  }
+              ),
+            ],
+          ),
+          SizedBox(height: 30,),
+          Center(
+            child: OutlinedButton(
+              onPressed: () {},
+              style: OutlinedButton.styleFrom(
+                foregroundColor: colorScheme.primary,
+                side: BorderSide(
+                  color: colorScheme.primary,
+                  width: 1.75,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              child: const Text('Log out'),
+            ),
+          ),
         ],
       ),
     );

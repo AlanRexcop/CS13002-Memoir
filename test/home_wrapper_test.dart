@@ -5,7 +5,6 @@ import 'package:memoir/screens/home_wrapper.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/screens/person_list_screen.dart';
 import 'package:memoir/screens/storage_selection_screen.dart';
-import 'package:mocktail/mocktail.dart';
 
 // Mock AppNotifier to use in test
 class MockAppNotifier extends AppNotifier {

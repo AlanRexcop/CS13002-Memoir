@@ -6,22 +6,24 @@ import 'package:memoir/models/note_model.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/screens/person_list_screen.dart';
 
+// create mock notifier to control create, delete behavior
 class MockAppNotifier extends AppNotifier {
   MockAppNotifier(AppState state) : super.initial(state);
 
+  // check if the functions are called or not
   bool wasCreatePersonCalled = false;
   bool wasDeletePersonCalled = false;
 
   @override
   Future<bool> createNewPerson(String name) async {
     wasCreatePersonCalled = true;
-    return true; // giả lập thành công
+    return true; // simulate success
   }
 
   @override
   Future<bool> deletePerson(Person person) async {
     wasDeletePersonCalled = true;
-    return true;
+    return true; // simulate success
   }
 }
 
@@ -29,7 +31,7 @@ void main() {
   testWidgets('Displays and interacts with PersonListScreen', (
     WidgetTester tester,
   ) async {
-    // Khởi tạo AppState giả
+    // Create fake test data with two Person instances.
     final testPersons = [
       Person(
         info: Note(
@@ -63,13 +65,16 @@ void main() {
       ),
     ];
 
+    // Set up the initial application state with predefined persons and empty search.
     final appState = AppState(
       persons: testPersons,
       searchQuery: (text: '', tags: []),
     );
 
+    // Inject mock notifier with test state.
     final mockNotifier = MockAppNotifier(appState);
 
+    // Render the widget with overridden provider using mockNotifier.
     await tester.pumpWidget(
       ProviderScope(
         overrides: [appProvider.overrideWith((ref) => mockNotifier)],
@@ -77,26 +82,28 @@ void main() {
       ),
     );
 
-    // ✅ Kiểm tra tiêu đề
+    // Verify the app bar title is displayed
     expect(find.text('Persons'), findsOneWidget);
 
-    // ✅ Hiển thị danh sách
+    // Verify the person names are shown in the list (check TC: View contact list)
     expect(find.text('Alice'), findsOneWidget);
     expect(find.text('Bob'), findsOneWidget);
 
-    // ✅ Mở dialog tạo mới
+    // Tap the FAB to open the "Create Person" dialog (check TC: create contact)
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
 
+    //  Verify the dialog title is shown
     expect(find.text('Create New Person'), findsOneWidget);
 
-    // ✅ Nhập tên và nhấn "Create"
+    // Enter a name and tap the "Create" button
     await tester.enterText(find.byType(TextField).last, 'Charlie');
     await tester.tap(find.text('Create'));
     await tester.pumpAndSettle();
 
-    // ✅ Kiểm tra gọi hàm tạo mới
+    // Confirm that createNewPerson was called
     expect(mockNotifier.wasCreatePersonCalled, isTrue);
+    // Check for success feedback after create new contact
     expect(find.textContaining('created successfully'), findsOneWidget);
   });
 }

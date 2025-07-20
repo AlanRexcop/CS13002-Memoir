@@ -18,7 +18,7 @@ Duration? _parseDuration(String? reminderString) {
         return Duration(hours: value);
       case 'd':
         return Duration(days: value);
-      case 'w': // Added support for weeks
+      case 'w':
         return Duration(days: value * 7);
       default:
         return null;

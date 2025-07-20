@@ -57,6 +57,7 @@ dependencies:
   flutter_local_notifications: ^19.3.0  # Platform local notification
   timezone: ^0.10.1 # timezone for flutter_local_notifications
   flutter_launcher_icons: ^0.14.4
+  supabase_flutter: ^2.9.0 
 
 dev_dependencies:
   flutter_test:

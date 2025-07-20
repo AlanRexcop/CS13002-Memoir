@@ -1,4 +1,5 @@
-// C:\dev\memoir\lib\providers\app_provider.dart
+// lib/providers/app_provider.dart
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +9,7 @@ import 'package:memoir/services/notification_service.dart';
 import 'package:memoir/services/persistence_service.dart';
 import 'package:memoir/models/note_model.dart';
 import 'package:path/path.dart' as p;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 @immutable
 class AppState {
@@ -15,15 +17,18 @@ class AppState {
   final List<Person> persons;
   final bool isLoading;
   final ({String text, List<String> tags}) searchQuery;
+  final User? currentUser; // Added for auth state awareness
 
   const AppState({
     this.storagePath,
     this.persons = const [],
     this.isLoading = true,
     this.searchQuery = (text: '', tags: const []),
+    this.currentUser,
   });
 
   bool get isStorageSet => storagePath != null;
+  bool get isSignedIn => currentUser != null;
 
   List<Person> get filteredPersons {
     if (searchQuery.text.isEmpty && searchQuery.tags.isEmpty) {
@@ -46,6 +51,7 @@ class AppState {
     List<Person>? persons,
     bool? isLoading,
     ({String text, List<String> tags})? searchQuery,
+    User? currentUser,
     bool clearStoragePath = false,
   }) {
     return AppState(
@@ -53,6 +59,7 @@ class AppState {
       persons: persons ?? this.persons,
       isLoading: isLoading ?? this.isLoading,
       searchQuery: searchQuery ?? this.searchQuery,
+      currentUser: currentUser ?? this.currentUser,
     );
   }
 }
@@ -91,6 +98,7 @@ class AppNotifier extends StateNotifier<AppState> {
   final PersistenceService _persistenceService;
   final LocalStorageService _localStorageService;
   final NotificationService _notificationService = NotificationService();
+  StreamSubscription<AuthState>? _authSubscription;
 
   late final Future<void> initializationComplete;
 
@@ -101,6 +109,20 @@ class AppNotifier extends StateNotifier<AppState> {
         _localStorageService = localStorageService,
         super(const AppState()) {
     initializationComplete = _loadInitialPath();
+    _listenToAuthChanges();
+  }
+
+  void _listenToAuthChanges() {
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      final User? user = data.session?.user;
+      state = state.copyWith(currentUser: user);
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _scheduleAllReminders(List<Person> persons) async {
@@ -293,5 +315,9 @@ class AppNotifier extends StateNotifier<AppState> {
         print("Failed to delete image: $e");
         return false;
     }
+  }
+
+  Future<void> signOut() async {
+    await Supabase.instance.client.auth.signOut();
   }
 }

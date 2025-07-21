@@ -90,10 +90,11 @@ void main() {
 
     // Verify the app bar title is displayed
     expect(find.text('Persons'), findsOneWidget);
-    // Verify the person names are shown in the list (check TC: View contact list)
+    // Verify the person names are shown in the list (TC: VIEW CONTACT LIST)
     expect(find.text('Alice'), findsOneWidget);
     expect(find.text('Bob'), findsOneWidget);
 
+    //--CREATE A CONTACT--
     // Cancel Create
     await openCreateDialog(tester);
     await tester.tap(find.text('Cancel'));
@@ -111,7 +112,7 @@ void main() {
     expect(mockNotifier.wasCreatePersonCalled, isTrue);
     expect(find.textContaining('created successfully'), findsOneWidget);
 
-    // DELETE A CONTACT
+    //--DELETE A CONTACT--
     // Cancel deleting a contact
     final tile = find.byKey(ValueKey('path1'));
     expect(tile, findsOneWidget);

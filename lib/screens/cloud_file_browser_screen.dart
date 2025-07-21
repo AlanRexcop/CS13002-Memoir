@@ -1,21 +1,19 @@
 // lib/screens/cloud_file_browser_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:memoir/models/cloud_file.dart';
 import 'package:memoir/providers/app_provider.dart';
-import 'package:memoir/viewmodels/cloud_viewmodel.dart';
+import 'package:memoir/providers/cloud_provider.dart';
 
 class CloudFileBrowserScreen extends ConsumerWidget {
   const CloudFileBrowserScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cloudState = ref.watch(cloudViewModelProvider);
-    final cloudViewModel = ref.read(cloudViewModelProvider.notifier);
+    final cloudState = ref.watch(cloudNotifierProvider);
+    final cloudNotifier = ref.read(cloudNotifierProvider.notifier);
     final vaultRoot = ref.watch(appProvider).storagePath;
 
-    // Listen for errors and show a snackbar
-    ref.listen<CloudState>(cloudViewModelProvider, (previous, current) {
+    ref.listen<CloudState>(cloudNotifierProvider, (previous, current) {
       if (current.errorMessage != null && current.errorMessage != previous?.errorMessage) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(current.errorMessage!), backgroundColor: Colors.red),
@@ -29,10 +27,10 @@ class CloudFileBrowserScreen extends ConsumerWidget {
       ),
       body: Column(
         children: [
-          _buildBreadcrumbs(context, cloudState, cloudViewModel),
+          _buildBreadcrumbs(context, cloudState, cloudNotifier),
           Expanded(
             child: RefreshIndicator(
-              onRefresh: () => cloudViewModel.refreshCurrentFolder(),
+              onRefresh: () => cloudNotifier.refreshCurrentFolder(),
               child: Stack(
                 children: [
                   if (cloudState.isLoading && cloudState.items.isEmpty)
@@ -48,29 +46,70 @@ class CloudFileBrowserScreen extends ConsumerWidget {
                           leading: Icon(item.isFolder ? Icons.folder_outlined : Icons.description_outlined),
                           title: Text(item.name),
                           onTap: item.isFolder
-                              ? () => cloudViewModel.navigateToFolder(item.id)
+                              ? () => cloudNotifier.navigateToFolder(item.id)
                               : null,
                           trailing: item.isFolder
                               ? null
-                              : IconButton(
-                                  icon: const Icon(Icons.download_outlined),
-                                  onPressed: () async {
-                                    if (vaultRoot == null) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Local vault path not set!')),
-                                      );
-                                      return;
-                                    }
-                                    final success = await cloudViewModel.downloadFile(item, vaultRoot);
-                                    if(context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text(success ? 'Downloaded: ${item.name}' : 'Download failed!'),
-                                          backgroundColor: success ? Colors.green : Colors.red,
-                                        ),
-                                      );
-                                    }
-                                  },
+                              : Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.download_outlined),
+                                      tooltip: 'Download',
+                                      onPressed: () async {
+                                        if (vaultRoot == null) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('Local vault path not set!')),
+                                          );
+                                          return;
+                                        }
+                                        final success = await cloudNotifier.downloadFile(item, vaultRoot);
+                                        if(context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text(success ? 'Downloaded: ${item.name}' : 'Download failed!'),
+                                              backgroundColor: success ? Colors.green : Colors.red,
+                                            ),
+                                          );
+                                          if (success) {
+                                            ref.read(appProvider.notifier).refreshVault();
+                                          }
+                                        }
+                                      },
+                                    ),
+                                    IconButton(
+                                      icon: Icon(Icons.delete_forever_outlined, color: Colors.red.shade700),
+                                      tooltip: 'Delete from Cloud',
+                                      onPressed: () async {
+                                        final confirmed = await showDialog<bool>(
+                                          context: context,
+                                          builder: (context) => AlertDialog(
+                                            title: const Text('Confirm Deletion'),
+                                            content: Text('Are you sure you want to permanently delete "${item.name}" from the cloud? This action cannot be undone.'),
+                                            actions: [
+                                              TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+                                              TextButton(
+                                                onPressed: () => Navigator.of(context).pop(true),
+                                                child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+
+                                        if (confirmed == true) {
+                                          final success = await cloudNotifier.deleteFile(item);
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text(success ? 'File deleted from cloud.' : 'Failed to delete file.'),
+                                                backgroundColor: success ? Colors.green : Colors.red,
+                                              ),
+                                            );
+                                          }
+                                        }
+                                      },
+                                    )
+                                  ],
                                 ),
                         );
                       },
@@ -89,7 +128,7 @@ class CloudFileBrowserScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildBreadcrumbs(BuildContext context, CloudState state, CloudViewModel viewModel) {
+  Widget _buildBreadcrumbs(BuildContext context, CloudState state, CloudNotifier notifier) {
     if (state.breadcrumbs.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -104,7 +143,7 @@ class CloudFileBrowserScreen extends ConsumerWidget {
         children: state.breadcrumbs.map((crumb) {
           final isLast = crumb == state.breadcrumbs.last;
           return InkWell(
-            onTap: isLast ? null : () => viewModel.navigateToFolder(crumb['id'] as String?),
+            onTap: isLast ? null : () => notifier.navigateToFolder(crumb['id'] as String?),
             child: Text(
               isLast ? '${crumb['name']}' : '${crumb['name']} > ',
               style: TextStyle(

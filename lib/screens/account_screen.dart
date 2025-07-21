@@ -17,27 +17,45 @@ final userProfileProvider = FutureProvider<Map<String, dynamic>>((ref) {
   return cloudService.fetchUserProfile(user.id);
 });
 
-class AccountScreen extends ConsumerWidget {
+class AccountScreen extends ConsumerStatefulWidget {
   const AccountScreen({super.key});
 
-  Future<void> _signOut(BuildContext context, WidgetRef ref) async {
+  @override
+  ConsumerState<AccountScreen> createState() => _AccountScreenState();
+}
+
+class _AccountScreenState extends ConsumerState<AccountScreen> {
+  bool _isSigningOut = false;
+
+  Future<void> _signOut() async {
+    setState(() {
+      _isSigningOut = true;
+    });
+
     try {
       await ref.read(appProvider.notifier).signOut();
-      if (context.mounted) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
+      
+      if (mounted) {
+        Navigator.of(context).pop();
       }
     } on AuthException catch (e) {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Sign Out Error: ${e.message}')),
         );
       }
     } catch (e, stackTrace) {
       log('An unexpected error occurred during sign out:', error: e, stackTrace: stackTrace);
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('An unexpected error occurred.')),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSigningOut = false;
+        });
       }
     }
   }
@@ -57,9 +75,8 @@ class AccountScreen extends ConsumerWidget {
     return '${dBytes.toStringAsFixed(decimals)} ${suffixes[i]}';
   }
 
-
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final user = ref.watch(appProvider).currentUser;
     final profileAsync = ref.watch(userProfileProvider);
 
@@ -67,23 +84,23 @@ class AccountScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Account Info'),
         actions: [
-          // Add a refresh button to re-fetch profile data
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () => ref.invalidate(userProfileProvider),
           )
         ],
       ),
-      body: user == null
-          ? const Center(child: Text('Not signed in.'))
-          : profileAsync.when(
+      body: Stack(
+        children: [
+          // Main content
+          if (user != null)
+            profileAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (err, stack) => Center(child: Text('Error loading profile: $err')),
               data: (profileData) {
-                // Safely parse data from the profile map
                 final username = profileData['username'] as String? ?? 'N/A';
                 final storageUsed = profileData['storage_used'] as int? ?? 0;
-                final storageLimit = profileData['storage_limit'] as int? ?? 1; // Avoid division by zero
+                final storageLimit = profileData['storage_limit'] as int? ?? 1; 
                 final fileCount = profileData['file_count'] as int? ?? 0;
                 
                 final createdAtStr = profileData['created_at'] as String?;
@@ -103,7 +120,6 @@ class AccountScreen extends ConsumerWidget {
                       _buildInfoTile('Email Address', user.email ?? 'N/A'),
                       const Divider(height: 30),
 
-                      // Storage Info Section
                       const Text('Cloud Storage', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 12),
                       LinearProgressIndicator(
@@ -129,25 +145,36 @@ class AccountScreen extends ConsumerWidget {
                       _buildInfoTile('User ID', user.id, isSelectable: true),
                       const SizedBox(height: 40),
 
-                      // Sign Out Button
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.red.shade400,
                           foregroundColor: Colors.white,
                           minimumSize: const Size(double.infinity, 40)
                         ),
-                        onPressed: () => _signOut(context, ref),
+                        onPressed: _isSigningOut ? null : _signOut, // Disable button while signing out
                         child: const Text('Sign Out'),
                       ),
                     ],
                   ),
                 );
               },
+            )
+          else 
+             const Center(child: Text('Not signed in.')),
+          
+          // Loading overlay
+          if (_isSigningOut)
+            Container(
+              color: Colors.black.withOpacity(0.5),
+              child: const Center(
+                child: CircularProgressIndicator(),
+              ),
             ),
+        ],
+      ),
     );
   }
 
-  // Helper widget for consistently styled information tiles.
   Widget _buildInfoTile(String label, String value, {bool isSelectable = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),

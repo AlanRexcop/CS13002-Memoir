@@ -1,93 +1,123 @@
 // lib/screens/local_vault_browser_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:memoir/models/cloud_file.dart';
 import 'package:memoir/models/note_model.dart';
-import 'package:memoir/viewmodels/cloud_viewmodel.dart';
-import 'package:memoir/viewmodels/local_vault_viewmodel.dart';
-
-enum SyncStatus { local, synced, unknown }
+import 'package:memoir/providers/cloud_provider.dart';
+import 'package:memoir/providers/local_vault_provider.dart';
 
 class LocalVaultBrowserScreen extends ConsumerWidget {
   const LocalVaultBrowserScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final localNotesAsync = ref.watch(localVaultViewModelProvider);
+    final localNotesAsync = ref.watch(localVaultNotifierProvider);
     final allCloudFilesAsync = ref.watch(allCloudFilesProvider);
 
     return Scaffold(
-        appBar: AppBar(
-          title: const Text('Local Vault Sync Status'),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: () {
-                ref.invalidate(localVaultViewModelProvider);
-                ref.invalidate(allCloudFilesProvider);
-              },
-            )
-          ],
+      appBar: AppBar(
+        title: const Text('Local Vault Notes'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh Sync Status',
+            onPressed: () {
+              ref.invalidate(localVaultNotifierProvider);
+              ref.invalidate(allCloudFilesProvider);
+            },
+          )
+        ],
+      ),
+      body: localNotesAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text('Error loading local notes:\n$err', textAlign: TextAlign.center),
+          ),
         ),
-        body: localNotesAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, stack) => Center(child: Text('Error loading local notes: $err')),
-          data: (localNotes) {
-            return allCloudFilesAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, stack) => Center(child: Text('Error loading cloud files: $err')),
-              data: (cloudFiles) {
-                if (localNotes.isEmpty) {
-                  return const Center(child: Text("No local notes found in the vault."));
-                }
-                
-                return ListView.builder(
-                  itemCount: localNotes.length,
-                  itemBuilder: (context, index) {
-                    final note = localNotes[index];
-                    
-                    final normalizedLocalPath = note.path.replaceAll(r'\', '/');
+        data: (localNotes) {
+          return allCloudFilesAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, stack) => Center(child: Text('Error loading cloud files sync status:\n$err')),
+            data: (cloudFiles) {
+              final cloudPaths = cloudFiles.map((cf) => cf.cloudPath).toSet();
+              
+              if (localNotes.isEmpty) {
+                return const Center(child: Text('No local notes found.'));
+              }
 
-                    // 2. Check if ANY cloud file's path ends with the normalized local path.
-                    // This correctly matches 'user-id/people/info.md' with 'people/info.md'.
-                    final isSynced = cloudFiles.any(
-                        (cf) => cf.cloudPath?.endsWith(normalizedLocalPath) ?? false);
-                    
-                    final status = isSynced ? SyncStatus.synced : SyncStatus.local;
+              return ListView.builder(
+                itemCount: localNotes.length,
+                itemBuilder: (context, index) {
+                  final note = localNotes[index];
+                  final normalizedLocalPath = note.path.replaceAll(r'\', '/');
+                  final isSynced = cloudPaths.any((cp) => cp?.endsWith(normalizedLocalPath) ?? false);
+                  
+                  return NoteSyncTile(
+                    note: note,
+                    isSynced: isSynced,
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
 
-                    return ListTile(
-                      leading: Icon(
-                        status == SyncStatus.synced ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
-                        color: status == SyncStatus.synced ? Colors.green : Colors.orange,
-                      ),
-                      title: Text(note.title),
-                      subtitle: Text(note.path, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                      trailing: status == SyncStatus.local
-                          ? ElevatedButton(
-                              child: const Text('Upload'),
-                              onPressed: () async {
-                                final success = await ref.read(localVaultViewModelProvider.notifier).uploadNote(note);
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(success ? 'Upload successful!' : 'Upload failed.'),
-                                      backgroundColor: success ? Colors.green : Colors.red,
-                                    ),
-                                  );
-                                  // Refresh cloud file list after successful upload
-                                  if (success) {
-                                    ref.invalidate(allCloudFilesProvider);
-                                  }
-                                }
-                              },
-                            )
-                          : null,
-                    );
-                  },
-                );
-              },
-            );
-          },
-        ));
+class NoteSyncTile extends ConsumerStatefulWidget {
+  final Note note;
+  final bool isSynced;
+
+  const NoteSyncTile({
+    super.key,
+    required this.note,
+    required this.isSynced,
+  });
+
+  @override
+  ConsumerState<NoteSyncTile> createState() => _NoteSyncTileState();
+}
+
+class _NoteSyncTileState extends ConsumerState<NoteSyncTile> {
+  bool _isUploading = false;
+
+  Future<void> _upload() async {
+    setState(() {
+      _isUploading = true;
+    });
+
+    final success = await ref.read(localVaultNotifierProvider.notifier).uploadNote(widget.note);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(success ? 'Upload successful for ${widget.note.title}' : 'Upload failed for ${widget.note.title}'),
+          backgroundColor: success ? Colors.green : Colors.red,
+        ),
+      );
+      setState(() {
+        _isUploading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      title: Text(widget.note.title),
+      subtitle: Text(widget.note.path, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+      trailing: _isUploading
+          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+          : widget.isSynced
+              ? const Tooltip(message: 'Synced', child: Icon(Icons.check_circle, color: Colors.green))
+              : IconButton(
+                  icon: const Icon(Icons.cloud_upload_outlined),
+                  tooltip: 'Upload to Cloud',
+                  onPressed: _upload,
+                ),
+    );
   }
 }

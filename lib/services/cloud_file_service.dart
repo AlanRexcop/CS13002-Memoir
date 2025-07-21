@@ -35,7 +35,6 @@ class CloudFileService {
     return (result as List<dynamic>).cast<Map<String, dynamic>>();
   }
 
-  /// Fetches the user's root folder ID and path.
   Future<Map<String, dynamic>> getUserRootFolder(String userId) async {
     final response = await _supabaseClient
         .from('files')
@@ -46,7 +45,6 @@ class CloudFileService {
     return response;
   }
 
-  /// Fetches the breadcrumb path for a given folder.
   Future<List<Map<String, dynamic>>> getFolderPath(String folderId) async {
     final result = await _supabaseClient.rpc(
       'get_folder_path',
@@ -55,7 +53,6 @@ class CloudFileService {
     return (result as List<dynamic>).cast<Map<String, dynamic>>();
   }
 
-  /// Uploads file bytes to a specific path in Supabase Storage.
   Future<void> uploadFile({
     required String path,
     required Uint8List fileBytes,
@@ -67,12 +64,10 @@ class CloudFileService {
         );
   }
 
-  /// Downloads a file from a specific path.
   Future<Uint8List> downloadFile({required String path}) async {
     return await _supabaseClient.storage.from(supabaseBucket).download(path);
   }
 
-  /// Deletes a file from storage.
   Future<void> deleteFile({required String path}) async {
     await _supabaseClient.storage.from(supabaseBucket).remove([path]);
   }

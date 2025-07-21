@@ -1,10 +1,9 @@
-// lib/viewmodels/cloud_viewmodel.dart
+// lib/providers/cloud_provider.dart
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/models/cloud_file.dart';
-import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/services/cloud_file_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path/path.dart' as p;
@@ -16,7 +15,7 @@ class CloudState {
   final bool isLoading;
   final String? errorMessage;
   final String? currentFolderId;
-  final String? userRootPath; // Added to store the root path (e.g., 'user-id-string')
+  final String? userRootPath; 
 
   const CloudState({
     this.items = const [],
@@ -46,11 +45,12 @@ class CloudState {
   }
 }
 
-class CloudViewModel extends StateNotifier<CloudState> {
+class CloudNotifier extends StateNotifier<CloudState> {
   final CloudFileService _cloudService;
   final User _currentUser;
+  final Ref _ref;
 
-  CloudViewModel(this._cloudService, this._currentUser) : super(const CloudState()) {
+  CloudNotifier(this._cloudService, this._currentUser, this._ref) : super(const CloudState()) {
     initialize();
   }
 
@@ -59,7 +59,6 @@ class CloudViewModel extends StateNotifier<CloudState> {
     try {
       final rootFolder = await _cloudService.getUserRootFolder(_currentUser.id);
       final rootFolderId = rootFolder['id'] as String;
-      // Store the root path to correctly construct relative paths later
       final rootPath = rootFolder['path'] as String; 
       state = state.copyWith(userRootPath: rootPath);
       await _fetchFolderContents(rootFolderId);
@@ -90,7 +89,9 @@ class CloudViewModel extends StateNotifier<CloudState> {
       });
 
       final breadcrumbs = (results[1] as List<Map<String, dynamic>>);
-      breadcrumbs[0]['name'] = 'root';
+      if (breadcrumbs.isNotEmpty) {
+        breadcrumbs[0]['name'] = 'root';
+      }
       state = state.copyWith(
         items: items,
         breadcrumbs: breadcrumbs,
@@ -98,18 +99,55 @@ class CloudViewModel extends StateNotifier<CloudState> {
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: 'Error fetching folder contents: ${e.toString()}');
+      rethrow;
     }
   }
 
   Future<void> navigateToFolder(String? folderId) async {
-    await _fetchFolderContents(folderId);
+    try {
+      await _fetchFolderContents(folderId);
+    } catch (e) {
+      await refreshCurrentFolder();
+    }
   }
 
   Future<void> refreshCurrentFolder() async {
-    if (state.currentFolderId != null) {
-      await _fetchFolderContents(state.currentFolderId);
-    } else {
+    final folderIdToRefresh = state.currentFolderId;
+    if (folderIdToRefresh == null) {
       await initialize();
+      return;
+    }
+
+    try {
+      await _fetchFolderContents(folderIdToRefresh);
+    } catch (e) {
+      final parentFolders = state.breadcrumbs.sublist(0, state.breadcrumbs.length - 1).reversed.toList();
+      for (final parentCrumb in parentFolders) {
+        final parentId = parentCrumb['id'] as String?;
+        try {
+          await _fetchFolderContents(parentId);
+          return;
+        } catch (innerError) {
+          // This parent also doesn't exist. The loop will continue to the next one.
+        }
+      }
+      await initialize();
+    }
+  }
+
+  Future<bool> deleteFile(CloudFile file) async {
+    if (file.cloudPath == null) {
+      state = state.copyWith(errorMessage: 'File has no valid cloud path to delete.');
+      return false;
+    }
+    try {
+      await _cloudService.deleteFile(path: file.cloudPath!);
+      await refreshCurrentFolder(); 
+      _ref.invalidate(allCloudFilesProvider);
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Error deleting file: ${e.toString()}');
+      return false;
     }
   }
 
@@ -118,7 +156,6 @@ class CloudViewModel extends StateNotifier<CloudState> {
     try {
       final fullCloudPath = file.cloudPath!;
       final relativePath = fullCloudPath.replaceFirst(state.userRootPath!, '');
-
       final localPath = p.join(vaultRoot, relativePath);
       final fileBytes = await _cloudService.downloadFile(path: fullCloudPath);
       
@@ -132,20 +169,19 @@ class CloudViewModel extends StateNotifier<CloudState> {
       await localFile.writeAsBytes(fileBytes);
       return true;
     } catch (e) {
-      print('Download failed: $e');
       return false;
     }
   }
 }
 
-final cloudViewModelProvider = StateNotifierProvider<CloudViewModel, CloudState>((ref) {
+final cloudNotifierProvider = StateNotifierProvider<CloudNotifier, CloudState>((ref) {
   final cloudService = ref.watch(cloudFileServiceProvider);
   final user = Supabase.instance.client.auth.currentUser;
 
   if (user == null) {
-    throw Exception("CloudViewModel requires an authenticated user.");
+    throw Exception("CloudNotifier requires an authenticated user.");
   }
-  return CloudViewModel(cloudService, user);
+  return CloudNotifier(cloudService, user, ref);
 });
 
 // A simple provider that gives a flat list of all cloud files for sync checking

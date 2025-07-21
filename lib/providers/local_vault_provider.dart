@@ -1,22 +1,22 @@
-// lib/viewmodels/local_vault_viewmodel.dart
-import 'dart:io';
+// lib/providers/local_vault_provider.dart
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/models/note_model.dart';
 import 'package:memoir/providers/app_provider.dart';
+import 'package:memoir/providers/cloud_provider.dart';
 import 'package:memoir/services/cloud_file_service.dart';
 import 'package:memoir/services/local_storage_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:path/path.dart' as p;
 
-class LocalVaultViewModel extends StateNotifier<AsyncValue<List<Note>>> {
+class LocalVaultNotifier extends StateNotifier<AsyncValue<List<Note>>> {
   final String _vaultRoot;
   final User _currentUser;
   final LocalStorageService _localService;
   final CloudFileService _cloudService;
+  final Ref _ref;
 
-  LocalVaultViewModel(this._vaultRoot, this._currentUser, this._localService, this._cloudService) : super(const AsyncValue.loading()) {
+  LocalVaultNotifier(this._vaultRoot, this._currentUser, this._localService, this._cloudService, this._ref) : super(const AsyncValue.loading()) {
     _loadLocalNotes();
   }
 
@@ -31,8 +31,8 @@ class LocalVaultViewModel extends StateNotifier<AsyncValue<List<Note>>> {
       }
       allNotes.sort((a,b) => a.title.compareTo(b.title));
       state = AsyncValue.data(allNotes);
-    } catch (e) {
-      state = AsyncValue.error(e, StackTrace.current);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
     }
   }
 
@@ -48,6 +48,10 @@ class LocalVaultViewModel extends StateNotifier<AsyncValue<List<Note>>> {
       final fileBytes = Uint8List.fromList(fileContent.codeUnits);
 
       await _cloudService.uploadFile(path: cloudPath, fileBytes: fileBytes);
+      
+      _ref.invalidate(allCloudFilesProvider);
+      _ref.invalidate(cloudNotifierProvider);
+
       return true;
     } catch(e) {
       print("Upload failed for note ${note.path}: $e");
@@ -56,15 +60,29 @@ class LocalVaultViewModel extends StateNotifier<AsyncValue<List<Note>>> {
   }
 }
 
-final localVaultViewModelProvider = StateNotifierProvider<LocalVaultViewModel, AsyncValue<List<Note>>>((ref) {
+final localVaultNotifierProvider = StateNotifierProvider<LocalVaultNotifier, AsyncValue<List<Note>>>((ref) {
   final vaultRoot = ref.watch(appProvider).storagePath;
-  final user = Supabase.instance.client.auth.currentUser;
+  final user = ref.watch(appProvider).currentUser;
   final localService = ref.watch(localStorageServiceProvider);
   final cloudService = ref.watch(cloudFileServiceProvider);
 
   if (vaultRoot == null || user == null) {
-    throw Exception("LocalVaultViewModel requires a vault path and an authenticated user.");
+    // Return a notifier with an error state instead of throwing an exception
+    // FIX: Added the required 'createdAt' parameter.
+    final dummyUser = User(
+      id: '', 
+      appMetadata: {}, 
+      userMetadata: {}, 
+      aud: '', 
+      createdAt: DateTime.now().toIso8601String()
+    );
+    final notifier = LocalVaultNotifier('', dummyUser, localService, cloudService, ref);
+    notifier.state = AsyncValue.error(
+        "A local vault and authenticated user are required.", 
+        StackTrace.current
+    );
+    return notifier;
   }
 
-  return LocalVaultViewModel(vaultRoot, user, localService, cloudService);
+  return LocalVaultNotifier(vaultRoot, user, localService, cloudService, ref);
 });

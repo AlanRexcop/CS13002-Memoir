@@ -42,8 +42,6 @@ class AccountScreen extends ConsumerWidget {
     }
   }
 
-  // **CORRECTED HELPER FUNCTION**
-  // This version uses a loop instead of logarithms, which is more stable.
   String _formatBytes(int bytes, int decimals) {
     if (bytes <= 0) return "0 B";
     if (decimals < 0) decimals = 0;

@@ -31,7 +31,7 @@ class CloudFileService {
 
   /// Fetches a flat list of ALL files for the currently authenticated user.
   Future<List<Map<String, dynamic>>> getAllFiles() async {
-    final result = await _supabaseClient.rpc('get_all_user_files');
+    final result = await _supabaseClient.rpc('get_user_files');
     return (result as List<dynamic>).cast<Map<String, dynamic>>();
   }
 

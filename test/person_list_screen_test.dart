@@ -27,18 +27,22 @@ class MockAppNotifier extends AppNotifier {
   }
 }
 
+Future<void> openCreateDialog(WidgetTester tester) async {
+  await tester.tap(find.byType(FloatingActionButton));
+  await tester.pumpAndSettle();
+  expect(find.text('Create New Person'), findsOneWidget);
+}
+
 void main() {
-  testWidgets('Displays and interacts with PersonListScreen', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('Create and delete a contact', (WidgetTester tester) async {
     // Create fake test data with two Person instances.
     final testPersons = [
       Person(
         info: Note(
           path: 'path1',
           title: 'Alice',
-          creationDate: DateTime(2023, 1, 1),
-          lastModified: DateTime(2023, 1, 2),
+          creationDate: DateTime.now(),
+          lastModified: DateTime.now(),
           tags: ['friend'],
           events: [],
           images: [],
@@ -52,8 +56,8 @@ void main() {
         info: Note(
           path: 'path2',
           title: 'Bob',
-          creationDate: DateTime(2023, 1, 3),
-          lastModified: DateTime(2023, 1, 4),
+          creationDate: DateTime.now(),
+          lastModified: DateTime.now(),
           tags: ['colleague'],
           events: [],
           images: [],
@@ -82,28 +86,67 @@ void main() {
       ),
     );
 
+    await tester.pumpAndSettle();
+
     // Verify the app bar title is displayed
     expect(find.text('Persons'), findsOneWidget);
-
     // Verify the person names are shown in the list (check TC: View contact list)
     expect(find.text('Alice'), findsOneWidget);
     expect(find.text('Bob'), findsOneWidget);
 
-    // Tap the FAB to open the "Create Person" dialog (check TC: create contact)
-    await tester.tap(find.byType(FloatingActionButton));
+    // Cancel Create
+    await openCreateDialog(tester);
+    await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
+    expect(find.text('Create New Person'), findsNothing);
+    expect(mockNotifier.wasCreatePersonCalled, isFalse);
 
-    //  Verify the dialog title is shown
-    expect(find.text('Create New Person'), findsOneWidget);
-
-    // Enter a name and tap the "Create" button
+    // Create a contact
+    await openCreateDialog(tester);
     await tester.enterText(find.byType(TextField).last, 'Charlie');
     await tester.tap(find.text('Create'));
     await tester.pumpAndSettle();
 
     // Confirm that createNewPerson was called
     expect(mockNotifier.wasCreatePersonCalled, isTrue);
-    // Check for success feedback after create new contact
     expect(find.textContaining('created successfully'), findsOneWidget);
+
+    // DELETE A CONTACT
+    // Cancel deleting a contact
+    final tile = find.byKey(ValueKey('path1'));
+    expect(tile, findsOneWidget);
+    await tester.drag(tile, const Offset(-500.0, 0.0));
+    await tester.pumpAndSettle();
+    expect(find.text('Confirm Deletion'), findsOneWidget);
+    expect(
+      find.text(
+        'Are you sure you want to delete Alice? This action cannot be undone.',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.text('Confirm Deletion'), findsNothing);
+    expect(find.text('Alice'), findsOneWidget);
+    expect(mockNotifier.wasDeletePersonCalled, isFalse);
+
+    // delete a contact
+    await tester.drag(tile, const Offset(-500.0, 0.0)); // Vuốt trái
+    await tester.pumpAndSettle();
+
+    //  Xác minh dialog xác nhận xóa
+    expect(find.text('Confirm Deletion'), findsOneWidget);
+    expect(
+      find.text(
+        'Are you sure you want to delete Alice? This action cannot be undone.',
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+
+    expect(mockNotifier.wasDeletePersonCalled, isTrue);
+    expect(find.text('Alice'), findsNothing);
   });
 }

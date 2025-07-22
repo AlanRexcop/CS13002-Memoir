@@ -159,7 +159,7 @@ class CloudNotifier extends StateNotifier<CloudState> {
     }
     try {
       final normalizedPath = relativePath.replaceAll(r'\', '/');
-      final fullCloudPath = '${state.userRootPath!}/$normalizedPath';
+      final fullCloudPath = '${state.userRootPath!}$normalizedPath';
 
       await _cloudService.deleteFile(path: fullCloudPath);
       
@@ -170,6 +170,7 @@ class CloudNotifier extends StateNotifier<CloudState> {
       return true;
     } catch (e) {
       state = state.copyWith(errorMessage: 'Error deleting file: ${e.toString()}');
+      print(e);
       return false;
     }
   }

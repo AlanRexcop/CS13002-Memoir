@@ -151,6 +151,29 @@ class CloudNotifier extends StateNotifier<CloudState> {
     }
   }
 
+  /// Deletes a file from the cloud using its local relative path.
+  Future<bool> deleteFileByRelativePath(String relativePath) async {
+    if (state.userRootPath == null) {
+      state = state.copyWith(errorMessage: 'User root path not available. Cannot delete file.');
+      return false;
+    }
+    try {
+      final normalizedPath = relativePath.replaceAll(r'\', '/');
+      final fullCloudPath = '${state.userRootPath!}/$normalizedPath';
+
+      await _cloudService.deleteFile(path: fullCloudPath);
+      
+      // Invalidate the flat file list used for sync checks and refresh the browser view.
+      _ref.invalidate(allCloudFilesProvider);
+      await refreshCurrentFolder(); 
+      
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Error deleting file: ${e.toString()}');
+      return false;
+    }
+  }
+
   Future<bool> downloadFile(CloudFile file, String vaultRoot) async {
     if (file.cloudPath == null || state.userRootPath == null) return false;
     try {

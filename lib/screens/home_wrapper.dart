@@ -4,6 +4,8 @@ import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/screens/person_list_screen.dart';
 import 'package:memoir/screens/storage_selection_screen.dart';
 
+import 'main_app_shell.dart';
+
 class HomeWrapper extends ConsumerWidget {
   const HomeWrapper({super.key});
 
@@ -18,7 +20,7 @@ class HomeWrapper extends ConsumerWidget {
     }
 
     if (appState.isStorageSet) {
-      return const PersonListScreen();
+      return const MainAppShell();
     } else {
       return const StorageSelectionScreen();
     }

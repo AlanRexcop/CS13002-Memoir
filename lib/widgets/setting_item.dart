@@ -12,7 +12,7 @@ class SettingItem extends StatelessWidget {
     required this.title,
     required this.icon,
     required this.onTap,
-    this.backgroundColor = const Color(0x80DFD5E7),
+    this.backgroundColor = const Color(0x33DFD5E7),
   });
 
   @override

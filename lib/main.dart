@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:memoir/screens/home_wrapper.dart';
+import 'package:memoir/screens/login_screen.dart';
+import 'package:memoir/screens/signup_screen.dart';
 import 'package:memoir/services/notification_service.dart';
 import 'package:timezone/data/latest_10y.dart' as tz;
 
@@ -30,54 +32,54 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme(
           brightness: Brightness.light,
-          primary: Color(0xFF5E548E),
+          primary: const Color(0xFF5C29A2),
           onPrimary: Colors.white,
 
-          primaryContainer: Color(0x80DFD5E7),
+          primaryContainer: const Color(0x33DFD5E7),
 
-          secondary: Color(0xFFDFD5E7),
-          onSecondary: Color(0xFF5E548E),
+          secondary: const Color(0xFFF3E8F5),
+          onSecondary: const Color(0xFF5C29A2),
 
           error: Colors.red,
           onError: Colors.white,
 
           surface: Colors.white,
-          onSurface: Color(0xFF5E548E),
+          onSurface: const Color(0xFF5C29A2),
         ),
 
         appBarTheme: AppBarTheme(
-          backgroundColor: const Color(0xFFDFD5E7),
+          backgroundColor: const Color(0xFFF3E8F5),
           toolbarHeight: 45,
           elevation: 0,
           centerTitle: true,
           titleTextStyle: const TextStyle(
-            color: Color(0xFF5E548E),
+            color: Color(0xFF5C29A2),
             fontSize: 22,
             fontWeight: FontWeight.bold,
           ),
         ),
 
         navigationBarTheme: NavigationBarThemeData(
-            backgroundColor: Color(0x80DFD5E7),
+            backgroundColor: const Color(0xFFF3E8F5),
             height: 80,
             elevation: 0,
 
-            indicatorColor: const Color(0xFF5E548E),
+            indicatorColor: const Color(0xFF5C29A2),
 
             iconTheme: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.selected)) {
                 return const IconThemeData(color: Colors.white);
               } else {
-                return IconThemeData(color: Color(0xFF5E548E));
+                return IconThemeData(color: const Color(0xFF5C29A2));
               }
             }
             ),
 
             labelTextStyle: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.selected)) {
-                return const TextStyle(color: Color(0xFF5E548E), fontWeight: FontWeight.bold);
+                return const TextStyle(color: Color(0xFF5C29A2), fontWeight: FontWeight.bold);
               } else {
-                return TextStyle(color: const Color(0xFF5E548E));
+                return const TextStyle(color: Color(0xFF5C29A2));
               }
             }
             )
@@ -85,7 +87,9 @@ class MyApp extends StatelessWidget {
       ),
       debugShowCheckedModeBanner: false,
 
-      home: const HomeWrapper(),
+      // home: const HomeWrapper(),
+      home: LoginScreen(),
     );
+
   }
 }

@@ -57,6 +57,9 @@ dependencies:
   flutter_local_notifications: ^19.3.0  # Platform local notification
   timezone: ^0.10.1 # timezone for flutter_local_notifications
   flutter_launcher_icons: ^0.14.4
+  font_awesome_flutter: ^10.7.0 # Icon for face and gg logo
+  google_fonts: ^6.1.0 #Font
+  pinput: ^4.0.0 # for OTP
 
 dev_dependencies:
   flutter_test:
@@ -98,6 +101,7 @@ flutter:
 
   assets:
     - assets/icons/
+    - assets/
 
 
   # An image asset can refer to one or more resolution-specific "variants", see

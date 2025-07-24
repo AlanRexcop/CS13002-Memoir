@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_force_directed_graph/flutter_force_directed_graph.dart';
+import 'package:memoir/widgets/custom_float_button.dart';
 import 'package:path/path.dart' as p;
 import 'package:vector_math/vector_math.dart' as vm;
 
@@ -293,14 +294,23 @@ class _GraphViewScreenState extends ConsumerState<GraphViewScreen> {
                 );
               },
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _controller.center();
-          _controller.scale = 1.0;
-        },
-        tooltip: 'Reset View',
-        child: const Icon(Icons.center_focus_strong),
+      // floatingActionButton: FloatingActionButton(
+      //   onPressed: () {
+      //     _controller.center();
+      //     _controller.scale = 1.0;
+      //   },
+      //   tooltip: 'Reset View',
+      //   child: const Icon(Icons.center_focus_strong),
+      // ),
+      floatingActionButton: CustomFloatButton(
+          icon: Icons.my_location,
+          onTap: () {
+            _controller.center();
+            _controller.scale = 1.0;
+          },
+        tooltip: 'Reset view',
       ),
+
     );
   }
 }

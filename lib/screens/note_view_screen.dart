@@ -11,6 +11,7 @@ import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/screens/graph_view_screen.dart';
 import 'package:memoir/screens/note_editor_screen.dart';
 import 'package:memoir/services/markdown_analyzer_service.dart';
+import 'package:memoir/widgets/custom_float_button.dart';
 import 'package:memoir/widgets/custom_markdown_elements.dart';
 import 'package:memoir/widgets/note_metadata_card.dart';
 import 'package:path/path.dart' as p;
@@ -226,18 +227,18 @@ class _NoteViewScreenState extends ConsumerState<NoteViewScreen> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
+      floatingActionButton: CustomFloatButton(
+          icon: Icons.add,
+          tooltip: 'Add note',
+          onTap: () => {
           showModalBottomSheet(
-            context: context,
-            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
-            isScrollControlled: true,
-            shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-            builder: (context) => TocWidget(controller: tocController),
-          );
-        },
-        tooltip: 'Table of Contents',
-        child: const Icon(Icons.list_alt_outlined),
+                context: context,
+                constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
+                isScrollControlled: true,
+                shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+                builder: (context) => TocWidget(controller: tocController),
+              )
+          },
       ),
     );
   }

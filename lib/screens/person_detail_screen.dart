@@ -6,7 +6,10 @@ import 'package:memoir/models/note_model.dart';
 import 'package:memoir/models/person_model.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/screens/note_view_screen.dart';
-import 'package:memoir/screens/person_list_screen.dart'; // Import for the enum
+import 'package:memoir/screens/person_list_screen.dart';
+
+import '../widgets/custom_float_button.dart';
+import '../widgets/tag.dart'; // Import for the enum
 
 class PersonDetailScreen extends ConsumerStatefulWidget {
   final Person person;
@@ -71,6 +74,16 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
     }
   }
 
+  String _formatTagName(String tag) {
+    const int maxLength = 10;
+    const int charsToKeep = 5;
+
+    if (tag.length > maxLength) {
+      return '${tag.substring(0, charsToKeep)}...';
+    }
+    return tag;
+  }
+
 
   @override
   void dispose() {
@@ -98,7 +111,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
       
       return textMatch && tagsMatch;
     }).toList();
-
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.purpose == ScreenPurpose.select ? 'Select Note' : updatedPerson.info.title),
@@ -174,7 +187,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
               itemBuilder: (context, index) {
                 final note = filteredNotes[index];
                 final isInfoNote = note.path == updatedPerson.info.path;
-
+                final maxTagsToShow = 4;
                 return Dismissible(
                   key: ValueKey(note.path),
                   direction: widget.purpose == ScreenPurpose.view && !isInfoNote ? DismissDirection.endToStart : DismissDirection.none,
@@ -204,29 +217,45 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
                   },
                   child: Card(
                     margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    color: colorScheme.secondary,
                     child: ListTile(
-                      leading: Icon(isInfoNote ? Icons.info_outline : Icons.description_outlined, size: 40),
+                      // leading: Icon(isInfoNote ? Icons.info_outline : Icons.description_outlined, size: 40),
                       title: Text(note.title, style: const TextStyle(fontWeight: FontWeight.bold)),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Modified: ${DateFormat('yyyy-MM-dd HH:mm').format(note.lastModified.toLocal())}',
+                          Row(
+                            children: [
+                              Icon(Icons.calendar_month, size: 16,),
+                              const SizedBox(width: 10,),
+                              Text(
+                                DateFormat('yyyy-MM-dd').format(note.lastModified.toLocal()),
+                              ),
+                            ],
                           ),
+
                           const SizedBox(height: 4),
                           if (note.tags.isNotEmpty)
-                            Wrap(
-                              spacing: 4.0,
-                              runSpacing: 4.0,
-                              children: note.tags.map((tag) => Chip(
-                                label: Text(tag),
-                                padding: EdgeInsets.zero,
-                                visualDensity: VisualDensity.compact,
-                                labelStyle: const TextStyle(fontSize: 10),
-                              )).toList(),
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  ...(note.tags.length > maxTagsToShow
+                                      ? note.tags.sublist(0, maxTagsToShow)
+                                      : note.tags)
+                                      .map((tag) => Padding(
+                                    padding: const EdgeInsets.only(right: 4.0),
+                                    child: Tag(label: _formatTagName(tag)),
+                                  ))
+                                      .toList(),
+                                  if (note.tags.length > maxTagsToShow)
+                                    Tag(label: '+${note.tags.length - maxTagsToShow}'),
+                                ],
+                              ),
                             ),
                         ],
                       ),
+
                       trailing: isInfoNote ? const Chip(label: Text('Info'), visualDensity: VisualDensity.compact) : null,
                       onTap: () {
                         if (widget.purpose == ScreenPurpose.select) {
@@ -243,10 +272,10 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
           ),
         ],
       ),
-      floatingActionButton: widget.purpose == ScreenPurpose.view ? FloatingActionButton(
-        onPressed: () => _showCreateNoteDialog(context, ref, updatedPerson),
-        tooltip: 'Add Note',
-        child: const Icon(Icons.note_add),
+      floatingActionButton: widget.purpose == ScreenPurpose.view ? CustomFloatButton(
+        icon: Icons.add,
+        tooltip: 'Add note',
+        onTap: () => _showCreateNoteDialog(context, ref, updatedPerson),
       ) : null,
     );
   }

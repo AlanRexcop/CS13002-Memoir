@@ -25,6 +25,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
+
       decoration: BoxDecoration(
         boxShadow: [
           BoxShadow(
@@ -45,10 +46,18 @@ class _CustomTextFieldState extends State<CustomTextField> {
           fillColor: Colors.white,
           contentPadding:
           const EdgeInsets.symmetric(vertical: 10.0, horizontal: 20.0),
-          border: OutlineInputBorder(
+
+          enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,
           ),
+
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            // Hiển thị viền màu tím
+            borderSide: const BorderSide(color: Color(0xFFE2D1F9), width: 2),
+          ),
+
           prefixIcon: widget.prefixIcon != null
               ? Icon(widget.prefixIcon, color: colorScheme.primary)
               : null,

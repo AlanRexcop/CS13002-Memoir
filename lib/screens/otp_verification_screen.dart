@@ -128,7 +128,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   defaultPinTheme: defaultPinTheme,
                   focusedPinTheme: defaultPinTheme.copyWith(
                     decoration: defaultPinTheme.decoration!.copyWith(
-                      // border: Border.all(color: Colors.lightBlue, width: 1.5),
+                      border: Border.all(color: Color(0xFFE2D1F9), width: 2),
                       boxShadow: [
                         BoxShadow(
                           color: const Color(0x4D999999),

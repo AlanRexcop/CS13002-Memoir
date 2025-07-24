@@ -6,10 +6,11 @@ class Tag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
       decoration: BoxDecoration(
-        color: Colors.deepPurple[50],
+        color: const Color(0xFFFFB0EB),
         borderRadius: BorderRadius.circular(20.0),
       ),
       child: Text(

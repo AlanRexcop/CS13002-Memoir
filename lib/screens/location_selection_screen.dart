@@ -6,6 +6,7 @@ import 'package:google_places_flutter/google_places_flutter.dart';
 import 'package:google_places_flutter/model/prediction.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:google_geocoding_api/google_geocoding_api.dart';
+import 'package:memoir/widgets/custom_float_button.dart';
 
 class LocationSelectionScreen extends StatefulWidget {
   const LocationSelectionScreen({super.key});
@@ -169,8 +170,14 @@ class _LocationSelectionScreenState extends State<LocationSelectionScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: Theme.of(context).colorScheme.secondary,
         onPressed: _selectedPoint == null ? null : _confirmSelection,
-        label: const Text('Confirm Location'),
+        label: Text(
+          'Confirm Location',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.primary
+          ),
+        ),
         icon: const Icon(Icons.check),
       ),
     );

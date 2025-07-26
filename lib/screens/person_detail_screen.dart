@@ -98,9 +98,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> with Si
 
   @override
   void dispose() {
-    _tabController.dispose();
-    super.dispose();
-    
+    _tabController.dispose();    
     _tagController.dispose();
 
     super.dispose();

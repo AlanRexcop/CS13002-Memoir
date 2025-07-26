@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/services/cloud_file_service.dart';
+import 'package:memoir/screens/change_password_screen.dart'; // Import the new screen
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // Provider to fetch user profile data asynchronously
@@ -36,7 +37,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
       await ref.read(appProvider.notifier).signOut();
       
       if (mounted) {
-        Navigator.of(context).pop();
+        Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } on AuthException catch (e) {
       if (mounted) {
@@ -92,7 +93,6 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
       ),
       body: Stack(
         children: [
-          // Main content
           if (user != null)
             profileAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -118,6 +118,17 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                     children: [
                       _buildInfoTile('Username', username),
                       _buildInfoTile('Email Address', user.email ?? 'N/A'),
+                      const Divider(height: 30),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.lock_outline),
+                        title: const Text('Change Password'),
+                        onTap: () {
+                          Navigator.of(context).push(MaterialPageRoute(
+                            builder: (_) => const ChangePasswordScreen(),
+                          ));
+                        },
+                      ),
                       const Divider(height: 30),
 
                       const Text('Cloud Storage', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
@@ -151,7 +162,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                           foregroundColor: Colors.white,
                           minimumSize: const Size(double.infinity, 40)
                         ),
-                        onPressed: _isSigningOut ? null : _signOut, // Disable button while signing out
+                        onPressed: _isSigningOut ? null : _signOut,
                         child: const Text('Sign Out'),
                       ),
                     ],
@@ -162,7 +173,6 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
           else 
              const Center(child: Text('Not signed in.')),
           
-          // Loading overlay
           if (_isSigningOut)
             Container(
               color: Colors.black.withOpacity(0.5),

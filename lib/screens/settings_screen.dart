@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/providers/app_provider.dart';
-import 'package:memoir/screens/account_screen.dart'; // Import the new screen
+import 'package:memoir/screens/account_screen.dart'; 
 import 'package:memoir/screens/auth_screen.dart';
 import 'package:memoir/screens/cloud_management_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -18,7 +18,7 @@ class SettingsScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Settings'),
       ),
-      body: appState.isSignedIn 
+      body: appState.isSignedIn
         ? _buildSignedInView(context, ref, appState.currentUser!, appState.storagePath)
         : _buildSignedOutView(context, ref, appState.storagePath),
     );
@@ -71,8 +71,6 @@ class SettingsScreen extends ConsumerWidget {
             );
           },
         ),
-        // Note: The Sign Out button is now on the AccountScreen for better UX.
-        // We can remove the standalone sign out button from this list.
       ],
     );
   }

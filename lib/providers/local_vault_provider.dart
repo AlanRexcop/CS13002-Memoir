@@ -10,7 +10,6 @@ import 'package:memoir/services/local_storage_service.dart';
 import 'package:memoir/providers/cloud_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// The Notifier's state is now an AsyncValue of a List of Persons.
 class LocalVaultNotifier extends StateNotifier<AsyncValue<List<Person>>> {
   final String _vaultRoot;
   final User _currentUser;
@@ -34,7 +33,6 @@ class LocalVaultNotifier extends StateNotifier<AsyncValue<List<Person>>> {
     }
   }
 
-  // The upload method remains the same as it operates on a single note.
   Future<bool> uploadNote(Note note) async {
     try {
       final rootFolder = await _cloudService.getUserRootFolder(_currentUser.id);
@@ -59,7 +57,6 @@ class LocalVaultNotifier extends StateNotifier<AsyncValue<List<Person>>> {
   }
 }
 
-// The provider's type signature is updated to match the Notifier's new state.
 final localVaultNotifierProvider = StateNotifierProvider<LocalVaultNotifier, AsyncValue<List<Person>>>((ref) {
   final vaultRoot = ref.watch(appProvider).storagePath;
   final user = ref.watch(appProvider).currentUser;
@@ -67,7 +64,6 @@ final localVaultNotifierProvider = StateNotifierProvider<LocalVaultNotifier, Asy
   final cloudService = ref.watch(cloudFileServiceProvider);
 
   if (vaultRoot == null || user == null) {
-    // Return a notifier with an error state instead of throwing an exception
     final dummyUser = User(
       id: '', 
       appMetadata: {}, 

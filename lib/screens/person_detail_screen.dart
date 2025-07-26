@@ -11,7 +11,7 @@ import 'package:memoir/widgets/tag_editor.dart';
 import '../widgets/custom_float_button.dart';
 import '../widgets/tag.dart'; // Import for the enum
 
-
+const Color borderColor = Color(0xFFE2D1F9); // hem dám sửa ColorSchema trong main.dart nên để tạm
 class PersonDetailScreen extends ConsumerStatefulWidget {
   final Person person;
   final ScreenPurpose purpose;
@@ -25,18 +25,14 @@ class PersonDetailScreen extends ConsumerStatefulWidget {
 class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> with SingleTickerProviderStateMixin { // SingleTickerProviderStateMixin for animations
   // _tabController: manage tab bar state
   late TabController _tabController;
-  // _tagController: controller for tag input
-  late TextEditingController _tagController;
-
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() {
-      if (mounted) setState(() {});
-    });
-    _tagController = TextEditingController();
   }
+
+  // _tagController: controller for tag input
+  final _tagController = TextEditingController();
 
   // _searchTags: list to hold search tags
   final List<String> _searchTags = [];
@@ -100,51 +96,11 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> with Si
     return tag;
   }
 
-  void _showCreateNoteDialog(BuildContext context, WidgetRef ref, Person currentPerson) {
-    final nameController = TextEditingController();
-    final colorScheme = Theme.of(context).colorScheme;
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Create New Note'),
-          content: TextField(
-            controller: nameController,
-            autofocus: true,
-            decoration: const InputDecoration(hintText: "Note Title"),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: colorScheme.primary),
-              onPressed: () async {
-                final name = nameController.text.trim();
-                if (name.isEmpty) return;
-                Navigator.of(context).pop();
-                final success = await ref.read(appProvider.notifier).createNewNoteForPerson(currentPerson, name);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(success ? 'Note "$name" created.' : 'Failed to create note. Name might already exist.'),
-                      backgroundColor: success ? Colors.green[700] : colorScheme.error,
-                    ),
-                  );
-                }
-              },
-              child: const Text('Create'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   void dispose() {
-    _tabController.dispose();    
+    _tabController.dispose();
+    super.dispose();
+    
     _tagController.dispose();
 
     super.dispose();
@@ -152,6 +108,8 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> with Si
 
   @override
   Widget build(BuildContext context) {
+    // Watch the updated person from the provider
+    // This ensures that the UI updates when the person data changes
     final updatedPerson = ref.watch(appProvider).persons.firstWhere(
           (p) => p.path == widget.person.path,
           orElse: () => widget.person,
@@ -171,6 +129,8 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> with Si
       return textMatch && tagsMatch;
     }).toList();
     final colorScheme = Theme.of(context).colorScheme;
+
+    // ============== main UI ==============
     return Scaffold(
       backgroundColor: colorScheme.surface,
       floatingActionButton: _tabController.index == 1 && widget.purpose == ScreenPurpose.view
@@ -767,37 +727,19 @@ class _NoteCard extends StatelessWidget {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final maxTagsToShow = 3;
-
-    return GestureDetector(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 6),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: isSelected ? [
-            BoxShadow(
-              color: colorScheme.primary.withOpacity(0.8),
-              offset: const Offset(4, 4),
-              blurRadius: 0,
-            )
-          ] : [],
-        ),
-        child: Card(
-          elevation: 0,
-          margin: EdgeInsets.zero,
-          color: colorScheme.secondary,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(
-              color: isSelected ? colorScheme.primary : Theme.of(context).dividerColor,
-              width: isSelected ? 2.0 : 1.5,
-            ),
+  // Logic: Show dialog to create a new note for the person
+  // If successful, show a toggle with the result
+  void _showCreateNoteDialog(BuildContext context, WidgetRef ref, Person currentPerson) {
+    final nameController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Create New Note'),
+          content: TextField(
+            controller: nameController,
+            autofocus: true,
+            decoration: const InputDecoration(hintText: "Note Title"),
           ),
           child: Padding(
             padding: const EdgeInsets.all(16.0),

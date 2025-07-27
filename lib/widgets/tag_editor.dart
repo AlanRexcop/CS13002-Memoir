@@ -3,10 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/providers/app_provider.dart';
 
-// NEW: An enum to define the widget's behavior and appearance.
-enum TagInputPurpose { edit, filter }
+import '../widgets/tag.dart';
 
-class TagEditor extends ConsumerStatefulWidget {
+class TagEditor extends StatefulWidget {
   final List<String> initialTags;
   final ValueChanged<List<String>> onTagsChanged;
   // NEW: Add the purpose parameter, defaulting to 'edit' for backward compatibility.
@@ -95,6 +94,40 @@ class _TagEditorState extends ConsumerState<TagEditor> {
             const SizedBox(width: 8),
             const Text('Tags', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(width: 16),
+            Expanded(
+              child: Wrap(
+                spacing: 8.0,
+                runSpacing: 4.0,
+                children: [
+                  ..._tags.map((tag) {
+                    final tagColors = getTagColors(tag);
+                    return Chip(
+                        label: Text(tag),
+                        labelStyle: TextStyle(color: tagColors.foreground, fontWeight: FontWeight.w500),
+                        backgroundColor: tagColors.background,
+                        labelPadding: const EdgeInsets.only(left: 8.0),
+                        deleteIcon: const Icon(Icons.close, size: 14),
+                        onDeleted: () => _removeTag(tag),
+                        visualDensity: VisualDensity.compact,
+                    );
+                  }), // The TextField is part of the Wrap so it flows correctly
+                  SizedBox(
+                    width: 150, // Give it a reasonable width
+                    child: TextField(
+                      controller: _textController,
+                      focusNode: _focusNode,
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(vertical: 8.0),
+                        border: InputBorder.none,
+                        hintText: 'Add a tag...',
+                      ),
+                      onSubmitted: _addTag,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
           Expanded(
             child: Wrap(

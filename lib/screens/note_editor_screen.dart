@@ -7,7 +7,7 @@ import 'package:memoir/models/note_model.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/screens/event_creation_screen.dart';
 import 'package:memoir/screens/image_gallery_screen.dart';
-import 'package:memoir/screens/location_selection_screen.dart';
+import 'package:memoir/screens/map_screen.dart';
 import 'package:memoir/screens/person_list_screen.dart';
 import 'package:memoir/widgets/markdown_toolbar.dart';
 import 'package:memoir/widgets/tag_editor.dart';
@@ -227,7 +227,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
   void _showLocationSelection() async {
     final result = await Navigator.of(context).push<Map<String, dynamic>>(
-      MaterialPageRoute(builder: (context) => const LocationSelectionScreen()),
+      MaterialPageRoute(builder: (context) => const MapScreen(purpose: ScreenPurpose.select)),
     );
 
     if (result != null) {

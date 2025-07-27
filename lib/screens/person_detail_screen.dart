@@ -6,7 +6,8 @@ import 'package:memoir/models/note_model.dart';
 import 'package:memoir/models/person_model.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/screens/note_view_screen.dart';
-import 'package:memoir/screens/person_list_screen.dart'; // Import for the enum
+import 'package:memoir/screens/person_list_screen.dart';
+import 'package:memoir/widgets/tag_editor.dart';
 
 class PersonDetailScreen extends ConsumerStatefulWidget {
   final Person person;
@@ -19,8 +20,8 @@ class PersonDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
-  final _tagController = TextEditingController();
-  final List<String> _searchTags = [];
+  // REMOVED: _tagController and _searchTags are no longer needed here.
+  // The TagEditor widget now manages all of that internally.
 
   void _updateSearch({String? text, List<String>? tags}) {
     final currentQuery = ref.read(detailSearchProvider);
@@ -71,12 +72,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
     }
   }
 
-
-  @override
-  void dispose() {
-    _tagController.dispose();
-    super.dispose();
-  }
+  // REMOVED: dispose() is no longer needed for the tag controller.
 
   @override
   Widget build(BuildContext context) {
@@ -116,55 +112,21 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
               onChanged: (value) => _updateSearch(text: value),
             ),
           ),
+          // CHANGED: Replaced the old complex UI with our new reusable component.
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 0.0),
               decoration: BoxDecoration(
                 border: Border.all(color: Theme.of(context).dividerColor),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.label_outline, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Wrap(
-                      spacing: 8.0,
-                      runSpacing: 4.0,
-                      children: [
-                        ..._searchTags.map((tag) => Chip(
-                              label: Text(tag),
-                              onDeleted: () {
-                                setState(() => _searchTags.remove(tag));
-                                _updateSearch(tags: _searchTags);
-                              },
-                              visualDensity: VisualDensity.compact,
-                            )),
-                        SizedBox(
-                          width: 150,
-                          child: TextField(
-                            controller: _tagController,
-                            decoration: const InputDecoration(
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(vertical: 8.0),
-                              border: InputBorder.none,
-                              hintText: 'Filter by tag...',
-                            ),
-                            onSubmitted: (tag) {
-                              tag = tag.trim();
-                              if (tag.isNotEmpty && !_searchTags.contains(tag)) {
-                                setState(() => _searchTags.add(tag));
-                                _tagController.clear();
-                                _updateSearch(tags: _searchTags);
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              child: TagEditor(
+                purpose: TagInputPurpose.filter,
+                initialTags: searchQuery.tags,
+                onTagsChanged: (newTags) {
+                  _updateSearch(tags: newTags);
+                },
               ),
             ),
           ),

@@ -12,6 +12,7 @@ class Note {
   final List<String> images;
   final List<Mention> mentions;
   final List<Location> locations;
+  final DateTime? deletedDate;
 
   Note({
     required this.path,
@@ -22,6 +23,7 @@ class Note {
     this.events = const [],
     this.images = const [],
     this.mentions = const [],
-    this.locations = const []
+    this.locations = const [],
+    this.deletedDate,
   });
 }

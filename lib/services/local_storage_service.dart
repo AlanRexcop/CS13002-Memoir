@@ -68,6 +68,48 @@ class LocalStorageService {
     }
   }
 
+  Future<void> setNoteDeleted(String vaultRoot, String notePath, DateTime? deletedTime) async {
+    final absolutePath = p.join(vaultRoot, notePath);
+    final file = File(absolutePath);
+    if (!await file.exists()) {
+      throw FileSystemException("File not found for updating deletion status", absolutePath);
+    }
+    
+    final content = await file.readAsString();
+    String frontmatterRaw = '';
+    String body = content;
+
+    if (content.startsWith('---')) {
+        final parts = content.split('---');
+        if (parts.length >= 3) {
+            frontmatterRaw = parts[1];
+            body = parts.sublist(2).join('---').trim();
+        }
+    }
+
+    dynamic yamlMap;
+    try {
+      yamlMap = loadYaml(frontmatterRaw);
+    } catch (e) {
+      yamlMap = {}; // If parsing fails, start with a fresh map
+    }
+    
+    // Ensure we have a mutable map
+    final newFrontmatter = (yamlMap is Map) ? Map<String, dynamic>.from(yamlMap) : <String, dynamic>{};
+    
+    if (deletedTime != null) {
+      newFrontmatter['deleted_date'] = deletedTime.toIso8601String();
+    } else {
+      newFrontmatter.remove('deleted_date');
+    }
+
+    final yamlWriter = YAMLWriter();
+    final newYamlString = yamlWriter.write(newFrontmatter);
+    
+    final fullContent = '---\n$newYamlString---\n\n$body';
+    await file.writeAsString(fullContent);
+  }
+
   // Receives an absolute file and the vault root to produce a Note with relative paths.
   Future<Note> readNoteFromFile(File file, String vaultRoot) async {
     final stats = await file.stat();
@@ -78,6 +120,7 @@ class LocalStorageService {
     DateTime lastModified = stats.modified;
     String noteMainContent = fileContent;
     List<String> tags = [];
+    DateTime? deletedDate;
 
     if (fileContent.startsWith('---')) {
       final parts = fileContent.split('---');
@@ -102,6 +145,10 @@ class LocalStorageService {
             if (yamlMap['Tags'] is YamlList) {
               tags = yamlMap['Tags'].map<String>((tag) => tag.toString()).toList();
             }
+
+            if (yamlMap['deleted_date'] != null) {
+              deletedDate = DateTime.tryParse(yamlMap['deleted_date'].toString());
+            }
           }
         } catch (e) {
           print("Error parsing YAML for file ${file.path}: $e");
@@ -118,7 +165,9 @@ class LocalStorageService {
       tags: tags,
       events: analysis.events,
       mentions: analysis.mentions,
-      locations: analysis.locations);
+      locations: analysis.locations,
+      deletedDate: deletedDate,
+    );
   }
 
   // Receives an absolute directory path and the vault root.

@@ -1,4 +1,5 @@
-// C:\dev\memoir\lib\providers\app_provider.dart
+// lib/providers/app_provider.dart
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,7 +8,10 @@ import 'package:memoir/services/local_storage_service.dart';
 import 'package:memoir/services/notification_service.dart';
 import 'package:memoir/services/persistence_service.dart';
 import 'package:memoir/models/note_model.dart';
+import 'package:memoir/services/sync_service.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 @immutable
 class AppState {
@@ -16,6 +20,7 @@ class AppState {
   final List<Note> deletedNotes;
   final bool isLoading;
   final ({String text, List<String> tags}) searchQuery;
+  final User? currentUser;
 
   const AppState({
     this.storagePath,
@@ -23,33 +28,37 @@ class AppState {
     this.deletedNotes = const [],
     this.isLoading = true,
     this.searchQuery = (text: '', tags: const []),
+    this.currentUser,
   });
 
   bool get isStorageSet => storagePath != null;
+  bool get isSignedIn => currentUser != null;
 
   List<Person> get filteredPersons {
     if (searchQuery.text.isEmpty && searchQuery.tags.isEmpty) {
       return persons;
     }
-    
+
     return persons.where((person) {
       final lowerCaseTitle = person.info.title.toLowerCase();
       final lowerCaseTags = person.info.tags.map((t) => t.toLowerCase()).toList();
 
       final textMatch = searchQuery.text.isEmpty || lowerCaseTitle.contains(searchQuery.text.toLowerCase());
       final tagsMatch = searchQuery.tags.isEmpty || searchQuery.tags.every((searchTag) => lowerCaseTags.contains(searchTag.toLowerCase()));
-      
+
       return textMatch && tagsMatch;
     }).toList();
   }
-
+  
   AppState copyWith({
     String? storagePath,
     List<Person>? persons,
     List<Note>? deletedNotes,
     bool? isLoading,
     ({String text, List<String> tags})? searchQuery,
+    User? currentUser,
     bool clearStoragePath = false,
+    bool clearCurrentUser = false, 
   }) {
     return AppState(
       storagePath: clearStoragePath ? null : storagePath ?? this.storagePath,
@@ -57,6 +66,7 @@ class AppState {
       deletedNotes: deletedNotes ?? this.deletedNotes,
       isLoading: isLoading ?? this.isLoading,
       searchQuery: searchQuery ?? this.searchQuery,
+      currentUser: clearCurrentUser ? null : currentUser ?? this.currentUser,
     );
   }
 }
@@ -68,6 +78,7 @@ final appProvider = StateNotifierProvider<AppNotifier, AppState>((ref) {
   return AppNotifier(
     persistenceService: ref.read(persistenceServiceProvider),
     localStorageService: ref.read(localStorageServiceProvider),
+    syncService: ref.read(syncServiceProvider), 
   );
 });
 
@@ -86,7 +97,7 @@ final detailSearchProvider = StateProvider<({String text, List<String> tags})>((
 final vaultImagesProvider = FutureProvider<List<File>>((ref) async {
   final storagePath = ref.watch(appProvider.select((s) => s.storagePath));
   if (storagePath == null) return [];
-  
+
   final service = ref.read(localStorageServiceProvider);
   return service.listImages(storagePath);
 });
@@ -94,17 +105,47 @@ final vaultImagesProvider = FutureProvider<List<File>>((ref) async {
 class AppNotifier extends StateNotifier<AppState> {
   final PersistenceService _persistenceService;
   final LocalStorageService _localStorageService;
+  final SyncService _syncService;
   final NotificationService _notificationService = NotificationService();
+  StreamSubscription<AuthState>? _authSubscription;
 
   late final Future<void> initializationComplete;
 
   AppNotifier({
     required PersistenceService persistenceService,
     required LocalStorageService localStorageService,
+    required SyncService syncService,
   })  : _persistenceService = persistenceService,
         _localStorageService = localStorageService,
+        _syncService = syncService,
         super(const AppState()) {
     initializationComplete = _loadInitialPath();
+    _listenToAuthChanges();
+  }
+
+  void _listenToAuthChanges() {
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      final User? user = data.session?.user;
+      // Only update state if the user's ID has actually changed.
+      if (state.currentUser?.id != user?.id) {
+         // FIX: Use the 'clearCurrentUser' flag when the user is null
+         if (user == null) {
+           state = state.copyWith(clearCurrentUser: true);
+         } else {
+           state = state.copyWith(currentUser: user);
+         }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> signOut() async {
+    await Supabase.instance.client.auth.signOut();
   }
 
   Future<void> _scheduleAllReminders(List<Person> persons) async {
@@ -167,7 +208,6 @@ class AppNotifier extends StateNotifier<AppState> {
       );
       
       await _scheduleAllReminders(activePersons);
-
     } catch (e) {
       print("Failed to load persons: $e");
       state = state.copyWith(isLoading: false);
@@ -179,7 +219,7 @@ class AppNotifier extends StateNotifier<AppState> {
       await loadAllPersons(state.storagePath!);
     }
   }
-  
+
   Future<void> selectAndSetStorage() async {
     final path = await _localStorageService.pickDirectory();
     if (path != null) {
@@ -278,6 +318,10 @@ class AppNotifier extends StateNotifier<AppState> {
         await _notificationService.scheduleEventNotification(event, updatedNote);
       }
 
+      if (state.storagePath != null) {
+        _syncService.autoUpload(updatedNote, state.storagePath!);
+      }
+
     } catch (e) {
       print("Failed to update note in state: $e");
     }
@@ -286,6 +330,7 @@ class AppNotifier extends StateNotifier<AppState> {
   Future<bool> deleteNote(Note noteToDelete) async {
     if (state.storagePath == null) return false;
     try {
+      await _syncService.autoDelete(noteToDelete); // IS THIS SOFT DELETE ?
       await _notificationService.cancelAllNotificationsForNote(noteToDelete);
       
       final now = DateTime.now();
@@ -360,7 +405,6 @@ class AppNotifier extends StateNotifier<AppState> {
   Future<void> changeStorageLocation() async {
     await _persistenceService.clearLocalStoragePath();
     state = state.copyWith(
-      storagePath: null,
       persons: [],
       isLoading: false,
       clearStoragePath: true,

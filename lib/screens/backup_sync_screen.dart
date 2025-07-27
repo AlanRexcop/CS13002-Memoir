@@ -1,28 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:memoir/screens/account_screen.dart';
+import 'package:memoir/screens/cloud_management_screen.dart';
 
 import '../widgets/info_item.dart';
 import '../widgets/storage_info.dart';
 
-
-
-class BackupSyncScreen extends StatefulWidget {
+// Changed to a ConsumerWidget to access Riverpod state
+class BackupSyncScreen extends ConsumerWidget {
   const BackupSyncScreen({super.key});
 
   @override
-  State<BackupSyncScreen> createState() => _BackupSyncScreenState();
-}
-
-class _BackupSyncScreenState extends State<BackupSyncScreen> {
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    // Watch the same provider used by the account screen to get profile data
+    final profileAsync = ref.watch(userProfileProvider);
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           onPressed: () {
             Navigator.of(context).pop();
           },
-          icon: Icon(Icons.chevron_left_outlined, size: 30,),
+          icon: const Icon(Icons.chevron_left_outlined, size: 30,),
         ),
         leadingWidth: 50,
         backgroundColor: colorScheme.secondary,
@@ -34,54 +34,86 @@ class _BackupSyncScreenState extends State<BackupSyncScreen> {
             fontWeight: FontWeight.bold
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => ref.invalidate(userProfileProvider),
+          )
+        ],
       ),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            InfoItem(
-                icon: Icons.key,
+            // These items are placeholders for now, can be made dynamic later
+            const InfoItem(
+                icon: Icons.update,
                 label: 'Last sync',
-                value: '28 Jun 2025, 22:11'
+                value: 'N/A'
             ),
-            InfoItem(
-                icon: Icons.key,
+            const InfoItem(
+                icon: Icons.sync,
                 label: 'Sync status',
-                value: 'Succes'
+                value: 'Idle'
             ),
-            StorageInfo(
+            
+            // This now dynamically builds based on the provider's state
+            profileAsync.when(
+              loading: () => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20.0),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (err, stack) => Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
+              ),
+              data: (profileData) {
+                final storageUsed = profileData['storage_used'] as int? ?? 0;
+                final storageLimit = profileData['storage_limit'] as int? ?? 1;
+                // Pass the real data to the StorageInfo widget
+                return StorageInfo(
+                  usedStorage: storageUsed,
+                  storageLimit: storageLimit,
+                );
+              },
+            ),
 
-            ),
-            InfoItem(
-                icon: Icons.access_time,
-                label: 'File to back up',
-                value: '28 files'
+            const InfoItem(
+                icon: Icons.description_outlined,
+                label: 'File count',
+                value: 'N/A' // Placeholder
             ),
 
             const SizedBox(height: 32),
             const Divider(color: Colors.black26),
             const SizedBox(height: 32),
 
+            // This action now navigates to the functional Cloud Management screen
             _buildActionItem(
-              icon: Icons.upload_outlined,
-              label: 'Upload from Local to Cloud',
+              context: context,
+              icon: Icons.cloud_sync_outlined, // <-- CORRECTED ICON
+              label: 'Manage Cloud Storage',
+              onTap: () {
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const CloudManagementScreen(),
+                ));
+              },
             ),
             const SizedBox(height: 24),
-            _buildActionItem(
-              icon: Icons.download_outlined,
-              label: 'Download from Cloud to Local',
-            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildActionItem({required IconData icon, required String label}) {
+  Widget _buildActionItem({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
     return InkWell(
-      onTap: () {
-        
-      },
+      onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 15.0),
@@ -104,6 +136,8 @@ class _BackupSyncScreenState extends State<BackupSyncScreen> {
                     fontWeight: FontWeight.w500
                 )
             ),
+            const Spacer(),
+            Icon(Icons.chevron_right, color: colorScheme.primary),
           ],
         ),
       ),

@@ -60,6 +60,7 @@ dependencies:
   font_awesome_flutter: ^10.7.0 # Icon for face and gg logo
   google_fonts: ^6.1.0 #Font
   pinput: ^4.0.0 # for OTP
+  supabase_flutter: ^2.9.0 
 
 dev_dependencies:
   flutter_test:

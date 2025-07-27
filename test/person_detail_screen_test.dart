@@ -62,64 +62,221 @@ void main() {
       expect(find.text('Vacation Plan'), findsOneWidget);
     });
 
-    //   testWidgets('TC2: Create note', (WidgetTester tester) async {
-    //     await tester.pumpWidget(
-    //       ProviderScope(
-    //         overrides: [appProvider.overrideWith((ref) => mockNotifier)],
-    //         child: MaterialApp(home: PersonDetailScreen(person: person)),
-    //       ),
-    //     );
+    testWidgets('TC2: Create note with valid title', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [appProvider.overrideWith((ref) => mockNotifier)],
+          child: MaterialApp(home: PersonDetailScreen(person: person)),
+        ),
+      );
 
-    //     await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    //     // Nhấn nút Add note (giả sử dùng icon + hoặc 'Add')
-    //     final addButton = find.byIcon(Icons.add);
-    //     expect(addButton, findsOneWidget);
-    //     await tester.tap(addButton);
-    //     await tester.pumpAndSettle();
+      // Nhấn nút Add note (icon là Icons.note_add)
+      final addButton = find.byIcon(Icons.note_add);
+      expect(addButton, findsOneWidget);
+      await tester.tap(addButton);
+      await tester.pumpAndSettle();
 
-    //     // Nhập tiêu đề note mới
-    //     await tester.enterText(find.byType(TextField).first, 'New Note');
-    //     await tester.pump();
+      // Nhập tiêu đề note mới
+      await tester.enterText(find.byType(TextField).first, 'New Note');
+      await tester.pump();
 
-    //     // Nhấn nút Save (giả định là text 'Save')
-    //     final saveButton = find.text('Save');
-    //     expect(saveButton, findsOneWidget);
-    //     await tester.tap(saveButton);
-    //     await tester.pumpAndSettle();
+      // Nhấn nút Create (không phải Save)
+      final createButton = find.text('Create');
+      expect(createButton, findsOneWidget);
+      await tester.tap(createButton);
+      await tester.pumpAndSettle();
 
-    //     // Kiểm tra note mới xuất hiện
-    //     expect(find.text('New Note'), findsOneWidget);
-    //   });
+      // Kiểm tra note mới xuất hiện
+      expect(find.text('New Note'), findsOneWidget);
+    });
+    testWidgets('TC3: Create note with existing title', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [appProvider.overrideWith((ref) => mockNotifier)],
+          child: MaterialApp(home: PersonDetailScreen(person: person)),
+        ),
+      );
 
-    //   testWidgets('TC3: Cancel create note', (WidgetTester tester) async {
-    //     await tester.pumpWidget(
-    //       ProviderScope(
-    //         overrides: [appProvider.overrideWith((ref) => mockNotifier)],
-    //         child: MaterialApp(home: PersonDetailScreen(person: person)),
-    //       ),
-    //     );
+      await tester.pumpAndSettle();
 
-    //     await tester.pumpAndSettle();
+      final addButton = find.byIcon(Icons.note_add);
+      await tester.tap(addButton);
+      await tester.pumpAndSettle();
 
-    //     // Nhấn nút Add
-    //     final addButton = find.byIcon(Icons.add);
-    //     expect(addButton, findsOneWidget);
-    //     await tester.tap(addButton);
-    //     await tester.pumpAndSettle();
+      // Nhập tiêu đề trùng
+      await tester.enterText(find.byType(TextField).first, 'Meeting Notes');
+      await tester.pump();
 
-    //     // Nhập text vào ô nhập liệu
-    //     await tester.enterText(find.byType(TextField).first, 'Temporary Note');
-    //     await tester.pump();
+      final createButton = find.text('Create');
+      await tester.tap(createButton);
+      await tester.pumpAndSettle();
 
-    //     // Nhấn Cancel
-    //     final cancelButton = find.text('Cancel');
-    //     expect(cancelButton, findsOneWidget);
-    //     await tester.tap(cancelButton);
-    //     await tester.pumpAndSettle();
+      // Kiểm tra có 2 note cùng tên
+      expect(find.text('Meeting Notes'), findsNWidgets(2));
+    });
 
-    //     // Đảm bảo note chưa được thêm
-    //     expect(find.text('Temporary Note'), findsNothing);
-    //   });
+    testWidgets('TC4: Invalid note creation with empty or whitespace title', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [appProvider.overrideWith((ref) => mockNotifier)],
+          child: MaterialApp(home: PersonDetailScreen(person: person)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final addButton = find.byIcon(Icons.note_add);
+      expect(addButton, findsOneWidget);
+      await tester.tap(addButton);
+      await tester.pumpAndSettle();
+
+      final textField = find.byType(TextField).first;
+      expect(textField, findsOneWidget);
+
+      // Test nhập tiêu đề chỉ chứa khoảng trắng
+      await tester.enterText(textField, '   ');
+      await tester.pump();
+
+      final createButton = find.text('Create');
+      expect(createButton, findsOneWidget);
+      await tester.tap(createButton);
+      await tester.pumpAndSettle();
+
+      // Dialog vẫn còn, không bị pop
+      expect(find.byType(AlertDialog), findsOneWidget);
+
+      // Sau đó test tiêu đề rỗng
+      await tester.enterText(textField, '');
+      await tester.pump();
+      await tester.tap(createButton);
+      await tester.pumpAndSettle();
+
+      // Vẫn không được tạo, dialog vẫn hiển thị
+      expect(find.byType(AlertDialog), findsOneWidget);
+
+      expect(find.text('   '), findsNothing);
+      expect(find.text(''), findsNothing);
+    });
+    testWidgets('TC5: Cancel create note', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [appProvider.overrideWith((ref) => mockNotifier)],
+          child: MaterialApp(home: PersonDetailScreen(person: person)),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Nhấn nút Add note (icon là Icons.note_add)
+      final addButton = find.byIcon(Icons.note_add);
+      expect(addButton, findsOneWidget);
+      await tester.tap(addButton);
+      await tester.pumpAndSettle();
+
+      // Nhập tiêu đề note tạm
+      await tester.enterText(find.byType(TextField).first, 'Temporary Note');
+      await tester.pump();
+
+      // Nhấn Cancel
+      final cancelButton = find.text('Cancel');
+      expect(cancelButton, findsOneWidget);
+      await tester.tap(cancelButton);
+      await tester.pumpAndSettle();
+
+      // Đợi thêm một frame để đảm bảo UI được cập nhật
+      await tester.pump();
+
+      // Kiểm tra dialog đã đóng
+      expect(find.byType(AlertDialog), findsNothing);
+    });
+
+    testWidgets('TC6: Delete note which exists', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [appProvider.overrideWith((ref) => mockNotifier)],
+          child: MaterialApp(home: PersonDetailScreen(person: person)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Kéo ghi chú "Vacation Plan" để hiện nút xoá
+      final noteTile = find.byKey(ValueKey('note-2'));
+      expect(noteTile, findsOneWidget);
+
+      await tester.drag(noteTile, const Offset(-500, 0));
+      await tester.pumpAndSettle();
+
+      // Chọn Delete trong dialog xác nhận
+      final deleteButton = find.text('Delete');
+      expect(deleteButton, findsOneWidget);
+      await tester.tap(deleteButton);
+      await tester.pumpAndSettle();
+
+      // Kiểm tra ghi chú đã biến mất
+      expect(find.text('Vacation Plan'), findsNothing);
+    });
+
+    testWidgets('TC7: Cancel delete note', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [appProvider.overrideWith((ref) => mockNotifier)],
+          child: MaterialApp(home: PersonDetailScreen(person: person)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Kéo ghi chú "Meeting Notes" sang trái để hiển thị xác nhận xoá
+      final noteTile = find.byKey(ValueKey('note-1'));
+      expect(noteTile, findsOneWidget);
+
+      await tester.drag(noteTile, const Offset(-500, 0));
+      await tester.pumpAndSettle();
+
+      // Khi dialog xác nhận hiện ra → chọn Cancel
+      final cancelButton = find.text('Cancel');
+      expect(cancelButton, findsOneWidget);
+      await tester.tap(cancelButton);
+      await tester.pumpAndSettle();
+
+      // Ghi chú vẫn tồn tại
+      expect(find.text('Meeting Notes'), findsOneWidget);
+    });
+    testWidgets('TC8: Attempt to delete note which does not exist', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [appProvider.overrideWith((ref) => mockNotifier)],
+          child: MaterialApp(home: PersonDetailScreen(person: person)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tạo ghi chú giả không có thật
+      final fakeNote = Note(
+        path: 'ghost-note',
+        title: 'Ghost Note',
+        creationDate: DateTime(2024, 4, 1),
+        lastModified: DateTime(2024, 4, 2),
+        tags: ['ghost'],
+      );
+
+      // Gọi hàm xoá trực tiếp từ mockNotifier
+      final result = await mockNotifier.deleteNote(fakeNote);
+
+      // Kỳ vọng xoá thất bại → trả về false
+      expect(result, false);
+
+      // Kiểm tra danh sách ghi chú vẫn còn nguyên
+      expect(find.text('Meeting Notes'), findsOneWidget);
+      expect(find.text('Vacation Plan'), findsOneWidget);
+    });
   });
 }

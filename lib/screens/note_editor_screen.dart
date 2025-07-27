@@ -13,6 +13,8 @@ import 'package:memoir/widgets/markdown_toolbar.dart';
 import 'package:memoir/widgets/tag_editor.dart';
 import 'package:path/path.dart' as p;
 
+import '../widgets/custom_float_button.dart';
+
 final noteProvider = FutureProvider.family<Note, String>((ref, path) {
   final appState = ref.watch(appProvider);
   final persons = appState.persons;
@@ -542,10 +544,10 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (err, stack) => Center(child: Text('Error: $err')),
         ),
-        floatingActionButton: FloatingActionButton(
+        floatingActionButton: CustomFloatButton(
+          icon: Icons.add,
           tooltip: 'Add content',
-          child: const Icon(Icons.add),
-          onPressed: () => _showAddContentMenu(context),
+          onTap: () => _showAddContentMenu(context)
         ),
       ),
     );

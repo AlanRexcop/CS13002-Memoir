@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/providers/app_provider.dart';
+import 'package:memoir/screens/recovery_password_screen.dart';
 import 'package:memoir/screens/recycle_bin_screen.dart';
 
 import '../widgets/setting_group.dart';
@@ -108,7 +109,14 @@ class SettingsScreen extends ConsumerWidget {
               SettingItem(
                   title: 'Change password',
                   icon: Icons.lock_outline,
-                  onTap: () {}
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const RecoveryPasswordScreen(),
+                      ),
+                    );
+                  }
               ),
             ],
           ),
@@ -167,14 +175,6 @@ class SettingsScreen extends ConsumerWidget {
                   // If the user confirmed, call the provider method.
                   if (shouldChange == true) {
                     await ref.read(appProvider.notifier).changeStorageLocation();
-                    // After the action, if the context is still valid, pop the settings screen.
-                    // if(context.mounted) {
-                    //   // Navigator.of(context).pop();
-                    //   // //   Future.delayed(const Duration(milliseconds: 100), () {
-                    //   // //     Navigator.of(context).pop();
-                    //   // //   }
-                    //   // // )
-                    // }
                   }
                 },
               )

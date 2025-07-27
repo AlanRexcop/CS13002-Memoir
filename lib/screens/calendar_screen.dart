@@ -1,4 +1,3 @@
-// C:\dev\memoir\lib\screens\calendar_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -66,7 +65,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     // Get the visible range from the calendar to optimize instance generation.
     final firstDayOfMonth = DateTime.utc(_focusedDay.year, _focusedDay.month, 1);
     final lastDayOfMonth =
-        DateTime.utc(_focusedDay.year, _focusedDay.month + 1, 0, 23, 59, 59);
+    DateTime.utc(_focusedDay.year, _focusedDay.month + 1, 0, 23, 59, 59);
 
     for (var person in allPersons) {
       for (var note in [person.info, ...person.notes]) {
@@ -74,7 +73,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           if (event.rrule == null || event.rrule!.isEmpty) {
             // It's a single event
             final dayKey =
-                DateTime.utc(event.time.year, event.time.month, event.time.day);
+            DateTime.utc(event.time.year, event.time.month, event.time.day);
             if (eventsSource[dayKey] == null) eventsSource[dayKey] = [];
             eventsSource[dayKey]!.add(CalendarEventEntry(event, note));
           } else {
@@ -89,7 +88,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                     firstDayOfMonth.toUtc(), lastDayOfMonth.toUtc());
                 for (final instance in instances) {
                   final dayKey =
-                      DateTime.utc(instance.year, instance.month, instance.day);
+                  DateTime.utc(instance.year, instance.month, instance.day);
                   if (eventsSource[dayKey] == null) eventsSource[dayKey] = [];
                   // Create a new event object for this specific instance to show correct time
                   final instanceEvent = Event(
@@ -119,134 +118,122 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
     return Scaffold(
       appBar: AppBar(
-          title: Text(
-              'Calendar',
-          )
+        title: const Text('Calendar'),
       ),
-      body: Column(
-        children: [
-          TableCalendar<CalendarEventEntry>(
-            firstDay: DateTime.utc(2020, 1, 1),
-            lastDay: DateTime.utc(2030, 12, 31),
-            focusedDay: _focusedDay,
-            selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-            calendarFormat: _calendarFormat,
-            daysOfWeekHeight: 30.0,
-            eventLoader: (day) => _getEventsForDay(day, eventsSource),
-
-            headerStyle: HeaderStyle(
-              titleCentered: true,
-              formatButtonVisible: false,
-              titleTextStyle: TextStyle(
-                color: colorScheme.primary,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-              leftChevronIcon: Icon(Icons.chevron_left, color: colorScheme.primary),
-              rightChevronIcon: Icon(Icons.chevron_right, color: colorScheme.primary),
-            ),
-
-            daysOfWeekStyle: DaysOfWeekStyle(
-              weekdayStyle: TextStyle(
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            TableCalendar<CalendarEventEntry>(
+              firstDay: DateTime.utc(2020, 1, 1),
+              lastDay: DateTime.utc(2030, 12, 31),
+              focusedDay: _focusedDay,
+              selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+              calendarFormat: _calendarFormat,
+              daysOfWeekHeight: 30.0,
+              eventLoader: (day) => _getEventsForDay(day, eventsSource),
+              headerStyle: HeaderStyle(
+                titleCentered: true,
+                formatButtonVisible: false,
+                titleTextStyle: TextStyle(
                   color: colorScheme.primary,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  fontSize: 18
+                ),
+                leftChevronIcon: Icon(Icons.chevron_left, color: colorScheme.primary),
+                rightChevronIcon: Icon(Icons.chevron_right, color: colorScheme.primary),
               ),
-              weekendStyle: TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18
+              daysOfWeekStyle: DaysOfWeekStyle(
+                weekdayStyle: TextStyle(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18),
+                weekendStyle: const TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18),
               ),
-            ),
+              calendarStyle: CalendarStyle(
+                defaultDecoration: BoxDecoration(
+                    shape: BoxShape.rectangle,
+                    borderRadius: BorderRadius.circular(8.0)),
+                weekendDecoration: BoxDecoration(
+                    shape: BoxShape.rectangle,
+                    borderRadius: BorderRadius.circular(8.0)),
+                outsideDecoration: BoxDecoration(
+                    shape: BoxShape.rectangle,
+                    borderRadius: BorderRadius.circular(8.0)),
+                holidayDecoration: BoxDecoration(
+                    shape: BoxShape.rectangle,
+                    borderRadius: BorderRadius.circular(8.0)),
+                disabledDecoration: BoxDecoration(
+                    shape: BoxShape.rectangle,
+                    borderRadius: BorderRadius.circular(8.0)),
+                selectedDecoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  shape: BoxShape.rectangle,
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+                selectedTextStyle: TextStyle(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18),
+                todayDecoration: BoxDecoration(
+                  border: Border.all(color: colorScheme.primary, width: 1.5),
+                  shape: BoxShape.rectangle,
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+                todayTextStyle: TextStyle(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18),
+                outsideTextStyle: const TextStyle(color: Colors.grey, fontSize: 18),
+                weekendTextStyle: const TextStyle(color: Colors.black, fontSize: 18),
+                defaultTextStyle: const TextStyle(color: Colors.black, fontSize: 18),
+              ),
+              calendarBuilders: CalendarBuilders(
+                markerBuilder: (context, day, events) {
+                  if (events.isEmpty) return null;
 
-            calendarStyle: CalendarStyle(
-              defaultDecoration: BoxDecoration(
-                  shape: BoxShape.rectangle,
-                  borderRadius: BorderRadius.circular(8.0)
-              ),
-              weekendDecoration: BoxDecoration(
-                  shape: BoxShape.rectangle,
-                  borderRadius: BorderRadius.circular(8.0)
-              ),
-              outsideDecoration: BoxDecoration(
-                  shape: BoxShape.rectangle,
-                  borderRadius: BorderRadius.circular(8.0)
-              ),
-              holidayDecoration: BoxDecoration(
-                  shape: BoxShape.rectangle,
-                  borderRadius: BorderRadius.circular(8.0)
-              ),
-              disabledDecoration: BoxDecoration(
-                  shape: BoxShape.rectangle,
-                  borderRadius: BorderRadius.circular(8.0)
-              ),
-              selectedDecoration: BoxDecoration(
-                color: colorScheme.primaryContainer,
-                shape: BoxShape.rectangle,
-                borderRadius: BorderRadius.circular(8.0),
-              ),
-              selectedTextStyle: TextStyle(
-                  color: colorScheme.primary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18
-              ),
-              todayDecoration: BoxDecoration(
-                border: Border.all(color: colorScheme.primary, width: 1.5),
-                shape: BoxShape.rectangle,
-                borderRadius: BorderRadius.circular(8.0),
-              ),
-              todayTextStyle: TextStyle(
-                  color: colorScheme.primary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18
-              ),
-              outsideTextStyle: TextStyle(color: Colors.grey, fontSize: 18),
-              weekendTextStyle: const TextStyle(color: Colors.black, fontSize: 18),
-              defaultTextStyle: const TextStyle(color: Colors.black, fontSize: 18),
-            ),
-
-            calendarBuilders: CalendarBuilders(
-              markerBuilder: (context, day, events) {
-                if (events.isEmpty) return null;
-
-                return Positioned(
-                  right: 1,
-                  bottom: 1,
-                  child: Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: colorScheme.primary,
-                    ),
-                    child: Center(
-                      child: Text(
-                        '${events.length}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
+                  return Positioned(
+                    right: 1,
+                    bottom: 1,
+                    child: Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: colorScheme.primary,
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${events.length}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                );
+                  );
+                },
+              ),
+              onDaySelected: _onDaySelected,
+              onFormatChanged: (format) {
+                if (_calendarFormat != format) {
+                  setState(() => _calendarFormat = format);
+                }
+              },
+              onPageChanged: (focusedDay) {
+                setState(() {
+                  _focusedDay = focusedDay;
+                });
               },
             ),
-            onDaySelected: _onDaySelected,
-            onFormatChanged: (format) {
-              if (_calendarFormat != format)
-                setState(() => _calendarFormat = format);
-            },
-            onPageChanged: (focusedDay) {
-              setState(() {
-                _focusedDay = focusedDay;
-              });
-            },
-          ),
-          const SizedBox(height: 8.0),
-          const Divider(),
-          Expanded(
-            child: ListView.builder(
+            const SizedBox(height: 8.0),
+            const Divider(),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
               itemCount: selectedDayEvents.length,
               itemBuilder: (context, index) {
                 final entry = selectedDayEvents[index];
@@ -257,39 +244,39 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                     leading: const Icon(Icons.alarm),
                     title: Text(entry.event.info,
                         style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20)
-                    ),
+                            fontWeight: FontWeight.bold, fontSize: 20)),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12.0, vertical: 6.0),
                               decoration: BoxDecoration(
                                 color: Colors.deepPurple[50],
                                 borderRadius: BorderRadius.circular(20.0),
                               ),
                               child: Text(
-                                DateFormat('MMM d, yyyy').format(entry.event.time.toLocal()),
+                                DateFormat('MMM d, yyyy')
+                                    .format(entry.event.time.toLocal()),
                                 style: TextStyle(
                                   color: Colors.deepPurple[400],
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ),
-
                             const SizedBox(width: 8),
-
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12.0, vertical: 6.0),
                               decoration: BoxDecoration(
                                 color: Colors.deepPurple[50],
                                 borderRadius: BorderRadius.circular(20.0),
                               ),
                               child: Text(
-                                DateFormat('h:mm a').format(entry.event.time.toLocal()),
+                                DateFormat('h:mm a')
+                                    .format(entry.event.time.toLocal()),
                                 style: TextStyle(
                                   color: Colors.deepPurple[400],
                                   fontWeight: FontWeight.w500,
@@ -326,8 +313,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 );
               },
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

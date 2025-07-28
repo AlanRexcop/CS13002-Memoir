@@ -1,8 +1,15 @@
 // lib/screens/auth_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:memoir/providers/auth_provider.dart';
 import 'package:memoir/screens/otp_screen.dart';
+import 'package:memoir/widgets/custom_float_button.dart';
+import 'package:memoir/widgets/custom_pinput.dart';
+import 'package:memoir/widgets/custom_text_field.dart';
+import 'package:memoir/widgets/primary_button.dart';
+
+import '../widgets/app_logo_header.dart';
 
 enum AuthView { signIn, signUp, forgotPassword, verifyOtp }
 
@@ -91,25 +98,24 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     });
 
     final authState = ref.watch(authNotifierProvider);
-
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: Text(_getAppBarTitle())),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ..._buildFormFields(),
-                const SizedBox(height: 20),
-                if (authState.isLoading)
-                  const CircularProgressIndicator()
-                else
-                  _buildButtons(),
-              ],
-            ),
+      backgroundColor: colorScheme.secondary,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              ..._buildFormFields(),
+              const SizedBox(height: 40),
+              if (authState.isLoading)
+                const CircularProgressIndicator()
+              else
+                _buildButtons(),
+            ],
           ),
         ),
       ),
@@ -119,34 +125,93 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   String _getAppBarTitle() {
     switch (_view) {
       case AuthView.signIn:
-        return 'Sign In to Memoir Cloud';
+        return '';
       case AuthView.signUp:
-        return 'Create Account';
+        return '';
       case AuthView.forgotPassword:
-        return 'Reset Password';
+        return '';
       case AuthView.verifyOtp:
         return 'Verify Your Email';
     }
   }
 
   List<Widget> _buildFormFields() {
+    final colorScheme = Theme.of(context).colorScheme;
     switch (_view) {
       case AuthView.signIn:
         return [
-          _buildEmailField(),
+          AppLogoHeader(
+            size: 30,
+            logoAsset: 'assets/Logo.png',
+            title: 'Memoir',
+            textColor: colorScheme.primary,
+          ),
+          const SizedBox(height: 20),
+
+          Text(
+            'Welcome Back',
+            style: GoogleFonts.nunito(
+              fontSize: 30,
+              fontWeight: FontWeight.bold,
+              color: colorScheme.primary,
+            ),
+          ),
           const SizedBox(height: 8),
+          Text(
+            'Log in to your Memoir account',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 40),
+          _buildEmailField(),
+          const SizedBox(height: 20),
           _buildPasswordField(),
         ];
       case AuthView.signUp:
         return [
+          AppLogoHeader(
+            size: 30,
+            logoAsset: 'assets/Logo.png',
+            title: 'Memoir',
+            textColor: colorScheme.primary,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Set up your Memoir account',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              color: colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 50,),
+
           _buildUsernameField(),
-          const SizedBox(height: 8),
+          const SizedBox(height: 20),
           _buildEmailField(),
-          const SizedBox(height: 8),
+          const SizedBox(height: 20),
           _buildPasswordField(isSignUp: true),
         ];
       case AuthView.forgotPassword:
-        return [_buildEmailField()];
+        return [
+          AppLogoHeader(
+            size: 30,
+            logoAsset: 'assets/Logo.png',
+            title: 'Memoir',
+            textColor: colorScheme.primary,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Recovery your password',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 70,),
+          _buildEmailField()
+        ];
       case AuthView.verifyOtp:
         return [
           Text(
@@ -154,7 +219,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
-          _buildOtpField(),
+          CustomPinput(controller: _otpController),
         ];
     }
   }
@@ -198,10 +263,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
   
   Widget _buildMainButton(String text) {
-    return ElevatedButton(
-      style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 40)),
-      onPressed: _handleAuthAction,
-      child: Text(text),
+    final colorScheme = Theme.of(context).colorScheme;
+    return PrimaryButton(
+        text: text,
+        background: colorScheme.primary,
+        onPress: _handleAuthAction,
     );
   }
 
@@ -210,41 +276,33 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 
   Widget _buildEmailField() {
-    return TextFormField(
-      controller: _emailController,
-      decoration: const InputDecoration(labelText: 'Email'),
-      keyboardType: TextInputType.emailAddress,
-      validator: (value) => (value == null || !value.contains('@')) ? 'Please enter a valid email' : null,
+    return CustomTextField(
+        hintText: 'Email',
+        controller: _emailController,
+        validator: (value) => (value == null || !value.contains('@')) ? 'Please enter a valid email' : null,
+        keyboardType: TextInputType.emailAddress,
     );
   }
 
   Widget _buildPasswordField({bool isSignUp = false}) {
-    return TextFormField(
-      controller: _passwordController,
-      decoration: const InputDecoration(labelText: 'Password'),
-      obscureText: true,
-      validator: (value) {
-        if (value == null || value.isEmpty) return 'Password cannot be empty';
-        if (isSignUp && value.length < 6) return 'Password must be at least 6 characters';
-        return null;
-      },
+    return CustomTextField(
+        controller: _passwordController,
+        isPassword: true,
+        hintText: 'Password',
+        validator: (value) {
+          if (value == null || value.isEmpty) return 'Password cannot be empty';
+          if (isSignUp && value.length < 6) return 'Password must be at least 6 characters';
+          return null;
+        },
     );
   }
 
   Widget _buildUsernameField() {
-    return TextFormField(
-      controller: _usernameController,
-      decoration: const InputDecoration(labelText: 'Username'),
-      validator: (value) => (value == null || value.isEmpty) ? 'Please enter a username' : null,
+    return CustomTextField(
+        controller: _usernameController,
+        hintText: "Username",
+        validator: (value) => (value == null || value.isEmpty) ? 'Please enter a username' : null
     );
   }
 
-  Widget _buildOtpField() {
-    return TextFormField(
-      controller: _otpController,
-      decoration: const InputDecoration(labelText: 'OTP Code'),
-      keyboardType: TextInputType.number,
-      validator: (value) => (value == null || value.length < 6) ? 'Enter a valid 6-digit OTP' : null,
-    );
-  }
 }

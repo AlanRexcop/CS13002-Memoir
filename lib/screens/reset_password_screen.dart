@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/providers/auth_provider.dart';
+import 'package:memoir/widgets/custom_text_field.dart';
+import 'package:memoir/widgets/primary_button.dart';
 
 class ResetPasswordScreen extends ConsumerWidget {
   ResetPasswordScreen({Key? key}) : super(key: key);
@@ -52,37 +54,37 @@ class ResetPasswordScreen extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                TextFormField(
-                  controller: _passwordController,
-                  decoration: const InputDecoration(labelText: 'New Password'),
-                  obscureText: true,
-                  validator: (value) {
-                    if (value == null || value.length < 6) {
-                      return 'Password must be at least 6 characters long';
-                    }
-                    return null;
-                  },
+                CustomTextField(
+                    controller: _passwordController,
+                    hintText: 'New Password',
+                    isPassword: true,
+                    validator: (value) {
+                      if (value == null || value.length < 6) {
+                        return 'Password must be at least 6 characters long';
+                      }
+                      return null;
+                    },
                 ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _confirmPasswordController,
-                  decoration: const InputDecoration(labelText: 'Confirm New Password'),
-                  obscureText: true,
-                  validator: (value) {
-                    if (value != _passwordController.text) {
-                      return 'Passwords do not match';
-                    }
-                    return null;
-                  },
+                const SizedBox(height: 20),
+                CustomTextField(
+                    controller: _confirmPasswordController,
+                    hintText: 'Confirm New Password',
+                    isPassword: true,
+                    validator: (value) {
+                      if (value != _passwordController.text) {
+                        return 'Passwords do not match';
+                      }
+                      return null;
+                    },
                 ),
                 const SizedBox(height: 20),
                 if (authState.isLoading)
                   const CircularProgressIndicator()
                 else
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 40)),
-                    onPressed: () => _updatePassword(ref),
-                    child: const Text('Reset Password'),
+                  PrimaryButton(
+                      text: 'Reset Password',
+                      background: Theme.of(context).colorScheme.primary,
+                      onPress: () => _updatePassword(ref)
                   ),
               ],
             ),

@@ -95,7 +95,6 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                           }
                         },
                       ),
-                      const SizedBox(height: 60), // Space for the avatar
                       UserInfoSection(
                         name: username, // Use real data
                         email: user.email ?? 'N/A', // Use real data
@@ -117,20 +116,11 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                         label: 'Last active',
                         value: lastSignIn != null ? DateFormat.yMMMd().add_jm().format(lastSignIn.toLocal()) : 'N/A'
                       ),
-                      
-                      const SizedBox(height: 10),
-                      const Divider(indent: 20, endIndent: 20),
-                      const SizedBox(height: 10),
-
                       // Use the new data-driven StorageInfo widget
                       StorageInfo(
                         usedStorage: storageUsed,
                         storageLimit: storageLimit,
                       ),
-                      
-                      const SizedBox(height: 10),
-                      const Divider(indent: 20, endIndent: 20),
-                      const SizedBox(height: 20),
 
                       // Functional buttons
                       Padding(

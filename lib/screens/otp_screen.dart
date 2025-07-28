@@ -3,6 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/providers/auth_provider.dart';
 import 'package:memoir/screens/reset_password_screen.dart';
+import 'package:memoir/widgets/custom_pinput.dart';
+import 'package:memoir/widgets/primary_button.dart';
+import 'package:pinput/pinput.dart';
+
+import '../widgets/app_logo_header.dart';
 
 class OtpScreen extends ConsumerWidget {
   final String email;
@@ -41,44 +46,60 @@ class OtpScreen extends ConsumerWidget {
     });
 
     final authState = ref.watch(authNotifierProvider);
-
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Enter Verification Code')),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'A 6-digit verification code has been sent to $email. Please enter it below.',
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 20),
-                TextFormField(
-                  controller: _otpController,
-                  decoration: const InputDecoration(labelText: 'OTP Code'),
-                  keyboardType: TextInputType.number,
-                  validator: (value) {
-                    if (value == null || value.trim().length != 6) {
-                      return 'Please enter a valid 6-digit OTP';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 20),
-                if (authState.isLoading)
-                  const CircularProgressIndicator()
-                else
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 40)),
-                    onPressed: () => _verifyOtp(ref),
-                    child: const Text('Verify'),
-                  ),
-              ],
-            ),
+      backgroundColor: colorScheme.secondary,
+      appBar: AppBar(),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              AppLogoHeader(
+                size: 30,
+                logoAsset: 'assets/Logo.png',
+                title: 'OTP verification',
+                textColor: colorScheme.primary,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Enter the OTP sent to $email. \nPlease enter it below.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 50),
+              // Pinput(
+              //   controller: _otpController,
+              //   length: 6,
+              //   separatorBuilder: (index) => const SizedBox(width: 10),
+              //   defaultPinTheme: defaultPinTheme,
+              //   focusedPinTheme: defaultPinTheme.copyWith(
+              //     decoration: defaultPinTheme.decoration!.copyWith(
+              //       border: Border.all(color: Color(0xFFE2D1F9), width: 2),
+              //       boxShadow: [
+              //         BoxShadow(
+              //           color: const Color(0x4D999999),
+              //           spreadRadius: 5,
+              //           blurRadius: 7,
+              //           offset: const Offset(0, 3),
+              //         ),
+              //       ],
+              //     ),
+              //   ),
+              // ),
+              CustomPinput(controller: _otpController),
+
+              const SizedBox(height: 32),
+              if (authState.isLoading)
+                const CircularProgressIndicator()
+              else
+                PrimaryButton(
+                    text: 'Verify',
+                    background: colorScheme.primary,
+                    onPress: () => _verifyOtp(ref)
+                )
+            ],
           ),
         ),
       ),

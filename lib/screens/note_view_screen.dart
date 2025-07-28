@@ -228,8 +228,8 @@ class _NoteViewScreenState extends ConsumerState<NoteViewScreen> {
         },
       ),
       floatingActionButton: CustomFloatButton(
-          icon: Icons.add,
-          tooltip: 'Add note',
+          icon: Icons.format_list_bulleted,
+          tooltip: 'Table of content',
           onTap: () => {
           showModalBottomSheet(
                 context: context,

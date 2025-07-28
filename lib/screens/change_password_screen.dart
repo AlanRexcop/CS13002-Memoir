@@ -1,8 +1,14 @@
 // lib/screens/change_password_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:memoir/providers/auth_provider.dart';
 import 'package:memoir/screens/auth_screen.dart';
+import 'package:memoir/screens/reset_password_screen.dart';
+import 'package:memoir/widgets/custom_text_field.dart';
+import 'package:memoir/widgets/primary_button.dart';
+
+import '../widgets/app_logo_header.dart';
 
 class ChangePasswordScreen extends ConsumerWidget {
   const ChangePasswordScreen({Key? key}) : super(key: key);
@@ -48,9 +54,10 @@ class ChangePasswordScreen extends ConsumerWidget {
     });
 
     final authState = ref.watch(authNotifierProvider);
-
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Change Password')),
+      backgroundColor: colorScheme.secondary,
+      appBar: AppBar(),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -58,18 +65,36 @@ class ChangePasswordScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextFormField(
-                controller: oldPasswordController,
-                decoration: const InputDecoration(labelText: 'Old Password'),
-                obscureText: true,
-                validator: (value) =>
-                    (value == null || value.isEmpty) ? 'Please enter your old password' : null,
+              AppLogoHeader(
+                size: 30,
+                logoAsset: 'assets/Logo.png',
+                title: 'Memoir',
+                textColor: colorScheme.primary,
               ),
+              const SizedBox(height: 8),
+              Center(
+                child: Text(
+                  'Change your password',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    color: colorScheme.primary,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 70,),
+              CustomTextField(
+                  controller: oldPasswordController,
+                  hintText: 'Old Password',
+                  isPassword: true,
+                  validator: (value) =>
+                  (value == null || value.isEmpty) ? 'Please enter your old password' : null,
+              ),
+
               const SizedBox(height: 12),
-              TextFormField(
+              CustomTextField(
                 controller: newPasswordController,
-                decoration: const InputDecoration(labelText: 'New Password'),
-                obscureText: true,
+                hintText: 'New Password',
+                isPassword: true,
                 validator: (value) {
                   if (value == null || value.length < 6) {
                     return 'Password must be at least 6 characters long';
@@ -78,10 +103,10 @@ class ChangePasswordScreen extends ConsumerWidget {
                 },
               ),
               const SizedBox(height: 12),
-              TextFormField(
+              CustomTextField(
                 controller: confirmPasswordController,
-                decoration: const InputDecoration(labelText: 'Confirm New Password'),
-                obscureText: true,
+                hintText: 'Confirm New Password',
+                isPassword: true,
                 validator: (value) {
                   if (value != newPasswordController.text) {
                     return 'Passwords do not match';
@@ -89,23 +114,23 @@ class ChangePasswordScreen extends ConsumerWidget {
                   return null;
                 },
               ),
+
               const SizedBox(height: 24),
               authState.isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      onPressed: updatePassword,
-                      child: const Text('Update Password'),
-                    ),
+                  : PrimaryButton(
+                    text: 'Update Password',
+                    background: colorScheme.primary,
+                    onPress: updatePassword
+                  ),
+
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: () {
                     // Navigate to the auth screen, which handles the forgot password flow
                     Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const AuthScreen()),
+                      MaterialPageRoute(builder: (_) => AuthScreen()),
                     );
                   },
                   child: const Text('Forgot Password?'),

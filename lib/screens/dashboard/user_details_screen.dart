@@ -37,89 +37,94 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Back button and Title
-            InkWell(
-              onTap: () => Navigator.of(context).pop(),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.arrow_back, size: 20),
-                  SizedBox(width: 8),
-                  Text('Users Details', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                ],
+      // --- WRAPPED IN SCROLL VIEW ---
+      // This makes the entire content scrollable, preventing overflows.
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Back button and Title
+              InkWell(
+                onTap: () => context.read<UserProvider>().viewUserList(),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.arrow_back, size: 20),
+                    SizedBox(width: 8),
+                    Text('Users Details', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 30),
-            // Main content area
-            Consumer<UserProvider>(
-              builder: (context, provider, child) {
-                // --- State Handling ---
-                if (provider.isDetailLoading) {
-                  return const Expanded(child: Center(child: CircularProgressIndicator()));
-                }
-                if (provider.detailError != null) {
-                  return Expanded(child: Center(child: Text('Error: ${provider.detailError}')));
-                }
-                if (provider.selectedUserDetail == null) {
-                  return const Expanded(child: Center(child: Text('No user data found.')));
-                }
-                // --- End State Handling ---
+              const SizedBox(height: 30),
+              // Main content area
+              Consumer<UserProvider>(
+                builder: (context, provider, child) {
+                  // --- State Handling (Expanded removed) ---
+                  if (provider.isDetailLoading) {
+                    return const Center(child: Padding(
+                      padding: EdgeInsets.all(50.0),
+                      child: CircularProgressIndicator(),
+                    ));
+                  }
+                  if (provider.detailError != null) {
+                    return Center(child: Text('Error: ${provider.detailError}'));
+                  }
+                  if (provider.selectedUserDetail == null) {
+                    return const Center(child: Text('No user data found.'));
+                  }
+                  // --- End State Handling ---
 
-                final user = provider.selectedUserDetail!;
-                
-                return Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  color: Colors.grey[50],
-                  child: Padding(
-                    padding: const EdgeInsets.all(32.0),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const CircleAvatar(
-                          radius: 70,
-                          backgroundColor: Colors.black12,
-                          child: Icon(Icons.person, size: 80, color: Colors.white70),
-                        ),
-                        const SizedBox(width: 40),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildInfoRow('User ID:', _InfoPill(text: user.id.substring(0, 8), color: Colors.blue)),
-                              _buildInfoRow('Account name:', _InfoPill(text: user.username, color: Colors.blue)),
-                              _buildInfoRow('Email:', _InfoPill(text: user.email, color: Colors.blue)),
-                              _buildInfoRow('Created At:', _InfoPill(text: DateFormat('yyyy-MM-dd HH:mm:ss').format(user.createdAt))),
-                              _buildInfoRow('Last login:', user.lastSignInAt != null ? _InfoPill(text: DateFormat('yyyy-MM-dd HH:mm:ss').format(user.lastSignInAt!)) : const Text("Never")),
-                              _buildInfoRow('Number of notes:', _InfoPill(text: user.fileCount.toString(), color: Colors.indigo[300])),
-                              _buildInfoRow('Number of published notes:', _InfoPill(text: user.publicFileCount.toString(), color: Colors.green)),
-                              // This is the row that was causing the error
-                              _buildInfoRow(
-                                'Storage used:',
-                                _buildStorageIndicator(user.storageUsed, user.storageLimit),
-                                expandValue: true, // THE FIX: This flag will wrap the pill in an Expanded widget
-                              ),
-                            ],
+                  final user = provider.selectedUserDetail!;
+                  
+                  return Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    color: Colors.grey[50],
+                    child: Padding(
+                      padding: const EdgeInsets.all(32.0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const CircleAvatar(
+                            radius: 70,
+                            backgroundColor: Colors.black12,
+                            child: Icon(Icons.person, size: 80, color: Colors.white70),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 40),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildInfoRow('User ID:', _InfoPill(text: user.id.substring(0, 8), color: Colors.blue)),
+                                _buildInfoRow('Account name:', _InfoPill(text: user.username, color: Colors.blue)),
+                                _buildInfoRow('Email:', _InfoPill(text: user.email, color: Colors.blue)),
+                                _buildInfoRow('Created At:', _InfoPill(text: DateFormat('yyyy-MM-dd HH:mm:ss').format(user.createdAt))),
+                                _buildInfoRow('Last login:', user.lastSignInAt != null ? _InfoPill(text: DateFormat('yyyy-MM-dd HH:mm:ss').format(user.lastSignInAt!)) : const Text("Never")),
+                                _buildInfoRow('Number of notes:', _InfoPill(text: user.fileCount.toString(), color: Colors.indigo[300])),
+                                _buildInfoRow('Number of published notes:', _InfoPill(text: user.publicFileCount.toString(), color: Colors.green)),
+                                _buildInfoRow(
+                                  'Storage used:',
+                                  _buildStorageIndicator(user.storageUsed, user.storageLimit),
+                                  expandValue: true,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              },
-            ),
-          ],
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // THE FIX IS HERE: Added an optional `expandValue` parameter.
   Widget _buildInfoRow(String label, Widget valueWidget, {bool expandValue = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -127,7 +132,6 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           SizedBox(width: 200, child: Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
-          // If expandValue is true, wrap the widget in Expanded to give it a bounded width.
           if (expandValue)
             Expanded(child: valueWidget)
           else
@@ -168,22 +172,19 @@ class _InfoPill extends StatelessWidget {
         color: pillColor.withOpacity(0.2),
         borderRadius: BorderRadius.circular(12),
       ),
-      // The Stack is what allows the text to be drawn on top of the progress bar
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Background Progress Bar
           if (progressBarValue != null)
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: LinearProgressIndicator(
                 value: progressBarValue!,
-                minHeight: 25, // Set a height for the progress bar
-                backgroundColor: Colors.transparent, // The container provides the transparent background
+                minHeight: 25,
+                backgroundColor: Colors.transparent,
                 valueColor: AlwaysStoppedAnimation<Color>(pillColor),
               ),
             ),
-          // Foreground Text
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4.0),
             child: Text(

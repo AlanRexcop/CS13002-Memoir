@@ -18,6 +18,10 @@ class UserProvider extends ChangeNotifier {
   final Set<String> _selectedUserIds = {};
   Set<String> get selectedUserIds => _selectedUserIds;
 
+  // --- NEW: State to manage which view is active (list vs detail) ---
+  String? _viewingUserId;
+  String? get viewingUserId => _viewingUserId;
+
   // --- NEW: State for the user detail screen ---
   UserProfile? _selectedUserDetail;
   UserProfile? get selectedUserDetail => _selectedUserDetail;
@@ -42,6 +46,20 @@ class UserProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  // --- NEW: Methods to control the view state ---
+  void viewUser(String userId) {
+    _viewingUserId = userId;
+    notifyListeners();
+  }
+
+  void viewUserList() {
+    _viewingUserId = null;
+    _selectedUserDetail = null; // Clear previously viewed user data
+    _detailError = null;
+    notifyListeners();
+  }
+  // --- End of new methods ---
 
   // --- NEW: Method to fetch a single user for the detail screen ---
   Future<void> fetchUserById(String userId) async {

@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../models/user_profile.dart';
 import '../providers/user_provider.dart';
-import '../screens/dashboard/user_details_screen.dart'; // IMPORTANT: Import the detail screen
+// No longer need to import UserDetailsScreen here, navigation is handled by the provider.
 
 class UserDataTable extends StatelessWidget {
   final List<UserProfile> users;
@@ -16,7 +16,7 @@ class UserDataTable extends StatelessWidget {
     final selectedIds = userProvider.selectedUserIds;
 
     return DataTable(
-      headingRowColor: WidgetStateProperty.all(Colors.grey[200]),
+      headingRowColor: MaterialStateProperty.all(Colors.grey[200]),
       // NEW: Adding a hover color to indicate rows are clickable
       dataRowColor: WidgetStateProperty.resolveWith<Color?>(
           (Set<WidgetState> states) {
@@ -42,30 +42,27 @@ class UserDataTable extends StatelessWidget {
       rows: users.map((user) {
         final isSelected = selectedIds.contains(user.id);
         return DataRow(
-          // Note: The onSelectChanged here is for the checkbox behavior.
-          // We add onTap to the cells for navigation.
           selected: isSelected,
-          onSelectChanged: (bool? selected) {
-            if (selected != null) {
-              userProvider.toggleUserSelection(user.id);
-            }
+          // This callback is triggered when the row is tapped. We use it for navigation.
+          // Tapping the checkbox itself will not trigger this.
+          onSelectChanged: (_) {
+            _navigateToDetails(context, user.id);
           },
           cells: [
+            // The checkbox's onChanged callback handles selection logic independently.
             DataCell(Checkbox(value: isSelected, onChanged: (v) => userProvider.toggleUserSelection(user.id))),
-            // NEW: Added onTap to the cells for navigation
-            DataCell(Text(user.username), onTap: () => _navigateToDetails(context, user.id)),
-            DataCell(Text(user.email), onTap: () => _navigateToDetails(context, user.id)),
-            DataCell(Text(DateFormat('yyyy-MM-dd HH:mm:ss').format(user.createdAt)), onTap: () => _navigateToDetails(context, user.id)),
+            // The cells themselves no longer need an onTap handler.
+            DataCell(Text(user.username)),
+            DataCell(Text(user.email)),
+            DataCell(Text(DateFormat('yyyy-MM-dd HH:mm:ss').format(user.createdAt))),
           ],
         );
       }).toList(),
     );
   }
 
-  // NEW: Navigation helper method
+  // UPDATED: Navigation helper now uses the provider to change view state.
   void _navigateToDetails(BuildContext context, String userId) {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (context) => UserDetailsScreen(userId: userId),
-    ));
+    context.read<UserProvider>().viewUser(userId);
   }
 }

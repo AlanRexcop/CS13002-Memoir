@@ -19,11 +19,13 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
   @override
   void initState() {
     super.initState();
+    // Fetch the user data when the screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<UserProvider>().fetchUserById(widget.userId);
     });
   }
 
+  // Helper to format bytes into a readable string (KB, MB, GB)
   String formatBytes(int bytes, int decimals) {
     if (bytes <= 0) return "0 B";
     const suffixes = ["B", "KB", "MB", "GB", "TB"];
@@ -40,6 +42,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Back button and Title
             InkWell(
               onTap: () => Navigator.of(context).pop(),
               child: const Row(
@@ -52,8 +55,10 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
               ),
             ),
             const SizedBox(height: 30),
+            // Main content area
             Consumer<UserProvider>(
               builder: (context, provider, child) {
+                // --- State Handling ---
                 if (provider.isDetailLoading) {
                   return const Expanded(child: Center(child: CircularProgressIndicator()));
                 }
@@ -63,6 +68,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                 if (provider.selectedUserDetail == null) {
                   return const Expanded(child: Center(child: Text('No user data found.')));
                 }
+                // --- End State Handling ---
 
                 final user = provider.selectedUserDetail!;
                 
@@ -77,9 +83,8 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                       children: [
                         const CircleAvatar(
                           radius: 70,
-                          // Placeholder avatar, as it's not in the schema
                           backgroundColor: Colors.black12,
-                          child: Icon(Icons.person, size: 80, color: Colors.white),
+                          child: Icon(Icons.person, size: 80, color: Colors.white70),
                         ),
                         const SizedBox(width: 40),
                         Expanded(
@@ -91,9 +96,14 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                               _buildInfoRow('Email:', _InfoPill(text: user.email, color: Colors.blue)),
                               _buildInfoRow('Created At:', _InfoPill(text: DateFormat('yyyy-MM-dd HH:mm:ss').format(user.createdAt))),
                               _buildInfoRow('Last login:', user.lastSignInAt != null ? _InfoPill(text: DateFormat('yyyy-MM-dd HH:mm:ss').format(user.lastSignInAt!)) : const Text("Never")),
-                              _buildInfoRow('Number of notes:', _InfoPill(text: user.fileCount.toString(), color: Colors.blue[300])),
+                              _buildInfoRow('Number of notes:', _InfoPill(text: user.fileCount.toString(), color: Colors.indigo[300])),
                               _buildInfoRow('Number of published notes:', _InfoPill(text: user.publicFileCount.toString(), color: Colors.green)),
-                              _buildInfoRow('Storage used:', _buildStorageIndicator(user.storageUsed, user.storageLimit)),
+                              // This is the row that was causing the error
+                              _buildInfoRow(
+                                'Storage used:',
+                                _buildStorageIndicator(user.storageUsed, user.storageLimit),
+                                expandValue: true, // THE FIX: This flag will wrap the pill in an Expanded widget
+                              ),
                             ],
                           ),
                         ),
@@ -109,13 +119,19 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
     );
   }
 
-  Widget _buildInfoRow(String label, Widget valueWidget) {
+  // THE FIX IS HERE: Added an optional `expandValue` parameter.
+  Widget _buildInfoRow(String label, Widget valueWidget, {bool expandValue = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           SizedBox(width: 200, child: Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
-          valueWidget,
+          // If expandValue is true, wrap the widget in Expanded to give it a bounded width.
+          if (expandValue)
+            Expanded(child: valueWidget)
+          else
+            valueWidget,
         ],
       ),
     );
@@ -143,27 +159,31 @@ class _InfoPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pillColor = color ?? Colors.grey[300];
-    final textColor = (color != null && color != Colors.grey[300]) ? Colors.white : Colors.black87;
+    final pillColor = color ?? Colors.grey[300]!;
+    final textColor = (progressBarValue == null && color != null) ? Colors.black87 : Colors.white;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: pillColor?.withOpacity(0.2),
+        color: pillColor.withOpacity(0.2),
         borderRadius: BorderRadius.circular(12),
       ),
+      // The Stack is what allows the text to be drawn on top of the progress bar
       child: Stack(
+        alignment: Alignment.center,
         children: [
+          // Background Progress Bar
           if (progressBarValue != null)
-            FractionallySizedBox(
-              widthFactor: progressBarValue,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: pillColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: LinearProgressIndicator(
+                value: progressBarValue!,
+                minHeight: 25, // Set a height for the progress bar
+                backgroundColor: Colors.transparent, // The container provides the transparent background
+                valueColor: AlwaysStoppedAnimation<Color>(pillColor),
               ),
             ),
+          // Foreground Text
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4.0),
             child: Text(
@@ -171,7 +191,7 @@ class _InfoPill extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
-                color: progressBarValue != null ? Colors.white : textColor,
+                color: textColor,
               ),
             ),
           ),

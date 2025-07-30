@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:markdown_widget/markdown_widget.dart';
 import 'package:memoir/models/note_model.dart';
 import 'package:memoir/providers/app_provider.dart';
+import 'package:memoir/providers/cloud_provider.dart';
 import 'package:memoir/screens/graph_view_screen.dart';
 import 'package:memoir/screens/note_editor_screen.dart';
 import 'package:memoir/services/markdown_analyzer_service.dart';
@@ -33,6 +34,7 @@ class _NoteViewScreenState extends ConsumerState<NoteViewScreen> {
   
   final indexTreeSet = SplayTreeSet<int>((a, b) => a - b);
   bool isForward = true;
+  bool _isSyncing = false;
 
   @override
   void initState() {
@@ -48,6 +50,53 @@ class _NoteViewScreenState extends ConsumerState<NoteViewScreen> {
     scrollController.dispose();
     super.dispose();
   }
+
+  Future<void> _handleUnsync(Note note) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Unsync'),
+        content: Text('Are you sure you want to remove "${note.title}" from the cloud? The local file will not be deleted.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Unsync', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isSyncing = true);
+    final success = await ref.read(cloudNotifierProvider.notifier).deleteFileByRelativePath(note.path);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(success ? 'Successfully unsynced from cloud.' : 'Failed to unsync.'),
+          backgroundColor: success ? Colors.blue : Colors.red,
+        ),
+      );
+      setState(() => _isSyncing = false);
+    }
+  }
+
+  Future<void> _handleUpload(Note note, String vaultRoot) async {
+     setState(() => _isSyncing = true);
+     final success = await ref.read(cloudNotifierProvider.notifier).uploadNote(note, vaultRoot);
+     if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success ? 'Note synced to cloud.' : 'Upload failed.'),
+            backgroundColor: success ? Colors.green : Colors.red,
+          ),
+        );
+      setState(() => _isSyncing = false);
+    }
+  }
+
 
   Widget _imageBuilder(String url, Map<String, String> attributes) {
     final vaultPath = ref.read(appProvider).storagePath;
@@ -112,16 +161,74 @@ class _NoteViewScreenState extends ConsumerState<NoteViewScreen> {
         if (person.info.path == widget.note.path) return person.info;
         try {
           return person.notes.firstWhere((n) => n.path == widget.note.path);
-        } catch (e) { /* not in this person */ }
+        } catch (e) { }
       }
-      return widget.note; // Fallback
+      return widget.note; 
     }));
+
+    final appState = ref.watch(appProvider);
+    final vaultRoot = appState.storagePath;
+    final isSignedIn = appState.isSignedIn;
+    final cloudFilesAsync = ref.watch(allCloudFilesProvider);
 
 
     return Scaffold(
       appBar: AppBar(
         title: Text(latestNote.title),
         actions: [
+          if (_isSyncing)
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white)),
+            )
+          else if (!isSignedIn)
+            IconButton(
+              icon: const Icon(Icons.cloud_off_outlined),
+              tooltip: 'Offline: Sign in to sync',
+              onPressed: () {
+                 ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Sign in via the Settings screen to enable cloud sync.')),
+                  );
+              },
+            )
+          else
+            cloudFilesAsync.when(
+              data: (cloudFiles) {
+                final normalizedLocalPath = latestNote.path.replaceAll(r'\', '/');
+                final isSynced = cloudFiles.any((cf) => cf.cloudPath?.endsWith(normalizedLocalPath) ?? false);
+                
+                if (isSynced) {
+                  return IconButton(
+                    icon: const Icon(Icons.cloud_done_outlined, color: Colors.greenAccent),
+                    tooltip: 'Note is Synced. Click to unsync.',
+                    onPressed: () => _handleUnsync(latestNote),
+                  );
+                } else {
+                  return IconButton(
+                    icon: const Icon(Icons.cloud_upload_outlined),
+                    tooltip: 'Upload to Cloud',
+                    onPressed: () {
+                      if (vaultRoot != null) {
+                        _handleUpload(latestNote, vaultRoot);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Error: Local vault path not found.')),
+                        );
+                      }
+                    },
+                  );
+                }
+              },
+              loading: () => const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white)),
+              ),
+              error: (err, stack) => IconButton(
+                icon: const Icon(Icons.error_outline, color: Colors.orange),
+                tooltip: 'Error checking sync status. Tap to retry.',
+                onPressed: () => ref.invalidate(allCloudFilesProvider),
+              ),
+            ),
           IconButton(
             icon: const Icon(Icons.hub_outlined),
             tooltip: 'View Local Graph',

@@ -4,7 +4,10 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/models/cloud_file.dart';
+import 'package:memoir/models/note_model.dart';
+import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/services/cloud_file_service.dart';
+import 'package:memoir/services/local_storage_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path/path.dart' as p;
 
@@ -80,7 +83,7 @@ class CloudNotifier extends StateNotifier<CloudState> {
 
       final results = await Future.wait([contentsFuture, pathFuture]);
       
-      final items = (results[0] as List<Map<String, dynamic>>)
+      final items = (results[0])
           .map((data) => CloudFile.fromSupabase(data))
           .toList();
       items.sort((a, b) {
@@ -88,7 +91,7 @@ class CloudNotifier extends StateNotifier<CloudState> {
         return a.name.compareTo(b.name);
       });
 
-      final breadcrumbs = (results[1] as List<Map<String, dynamic>>);
+      final breadcrumbs = results[1];
       if (breadcrumbs.isNotEmpty) {
         breadcrumbs[0]['name'] = 'root';
       }
@@ -128,7 +131,6 @@ class CloudNotifier extends StateNotifier<CloudState> {
           await _fetchFolderContents(parentId);
           return;
         } catch (innerError) {
-          // This parent also doesn't exist. The loop will continue to the next one.
         }
       }
       await initialize();
@@ -151,7 +153,6 @@ class CloudNotifier extends StateNotifier<CloudState> {
     }
   }
 
-  /// Deletes a file from the cloud using its local relative path.
   Future<bool> deleteFileByRelativePath(String relativePath) async {
     if (state.userRootPath == null) {
       state = state.copyWith(errorMessage: 'User root path not available. Cannot delete file.');
@@ -163,7 +164,6 @@ class CloudNotifier extends StateNotifier<CloudState> {
 
       await _cloudService.deleteFile(path: fullCloudPath);
       
-      // Invalidate the flat file list used for sync checks and refresh the browser view.
       _ref.invalidate(allCloudFilesProvider);
       await refreshCurrentFolder(); 
       
@@ -196,6 +196,31 @@ class CloudNotifier extends StateNotifier<CloudState> {
       return false;
     }
   }
+
+  Future<bool> uploadNote(Note note, String vaultRoot) async {
+    if (state.userRootPath == null) {
+      state = state.copyWith(errorMessage: 'User root path not available. Cannot upload file.');
+      return false;
+    }
+    try {
+      final localStorage = _ref.read(localStorageServiceProvider);
+      
+      final localRelativePath = note.path;
+      final cloudPath = '${state.userRootPath!}/${localRelativePath.replaceAll(r'\', '/')}';
+      final fileBytes = await localStorage.readRawFileByte(vaultRoot, localRelativePath);
+
+      await _cloudService.uploadFile(path: cloudPath, fileBytes: fileBytes);
+      
+      _ref.invalidate(allCloudFilesProvider);
+      await refreshCurrentFolder();
+
+      return true;
+    } catch(e) {
+      print("Upload failed for note ${note.path}: $e");
+      state = state.copyWith(errorMessage: 'Upload failed: ${e.toString()}');
+      return false;
+    }
+  }
 }
 
 final cloudNotifierProvider = StateNotifierProvider<CloudNotifier, CloudState>((ref) {
@@ -208,7 +233,6 @@ final cloudNotifierProvider = StateNotifierProvider<CloudNotifier, CloudState>((
   return CloudNotifier(cloudService, user, ref);
 });
 
-// A simple provider that gives a flat list of all cloud files for sync checking
 final allCloudFilesProvider = FutureProvider<List<CloudFile>>((ref) async {
   final cloudService = ref.read(cloudFileServiceProvider);
   final fileMaps = await cloudService.getAllFiles();

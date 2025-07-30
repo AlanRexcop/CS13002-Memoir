@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:memoir/models/person_model.dart';
 import 'package:path/path.dart' as p;
@@ -258,6 +259,21 @@ class LocalStorageService {
       final file = File(absolutePath);
       if (await file.exists()) {
         return await file.readAsString();
+      } else {
+        throw FileSystemException("File not found", absolutePath);
+      }
+    } catch (e) {
+      print("Error reading raw file content from $relativePath: $e");
+      rethrow;
+    }
+  }
+
+  Future<Uint8List> readRawFileByte(String vaultRoot, String relativePath) async {
+    try {
+      final absolutePath = p.join(vaultRoot, relativePath);
+      final file = File(absolutePath);
+      if (await file.exists()) {
+        return await file.readAsBytes();
       } else {
         throw FileSystemException("File not found", absolutePath);
       }

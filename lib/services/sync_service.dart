@@ -36,8 +36,7 @@ class SyncService {
         final cloudPath = '$userRootPath/$normalizedLocalPath';
 
         final localStorage = _ref.read(localStorageServiceProvider);
-        final fileContent = await localStorage.readRawFileContent(vaultRoot, note.path);
-        final fileBytes = Uint8List.fromList(fileContent.codeUnits);
+        final fileBytes = await localStorage.readRawFileByte(vaultRoot, note.path);
         
         await cloudService.uploadFile(path: cloudPath, fileBytes: fileBytes);
         print('Auto-sync: Upload complete for ${note.path}');

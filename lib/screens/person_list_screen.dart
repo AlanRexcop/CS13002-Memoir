@@ -1,8 +1,8 @@
-// C:\dev\memoir\lib\screens\person_list_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // import 'package:memoir/models/person_model.dart';
 import 'package:memoir/providers/app_provider.dart';
+import 'package:memoir/screens/notification_screen.dart';
 import 'package:memoir/screens/person_detail_screen.dart';
 import '../widgets/custom_float_button.dart';
 import '../widgets/tag.dart';
@@ -181,7 +181,7 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Nguyen Gia Huy',
+                      ref.watch(appProvider).currentUser?.userMetadata?['username'] ?? 'User',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: colorScheme.primary,
@@ -218,7 +218,11 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
                 ),
                 tooltip: 'Notifications',
                 onPressed: () {
-                  // TODO:
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const NotificationScreen()
+                      ));
                 },
               ),
             ],
@@ -290,14 +294,14 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
                 ],
               ),
             ),
+
             Expanded(
-              child: ListView.builder(
+              child: ListView.separated(
                 physics: const AlwaysScrollableScrollPhysics(),
                 itemCount: filteredPersons.length,
                 itemBuilder: (context, index) {
                   final person = filteredPersons[index];
                   const int maxTagsToShow = 1;
-
                   final isSelected = _selectedItems.contains(person.path);
 
                   return Dismissible(
@@ -337,94 +341,93 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
                         );
                       }
                     },
-                    child: Column(
-                      children: [
-                        ListTile(
-                          tileColor: isSelected ? colorScheme.secondary : null,
-                          leading: _isSelectionMode
-                              ? Checkbox(
-                            value: isSelected,
-                            onChanged: (bool? value) {
-                              _toggleSelection(person.path);
-                            },
-                          )
-                              : CircleAvatar(
-                            backgroundColor: Colors.white,
-                            child: Icon(
-                              Icons.person,
-                              color: colorScheme.primary,
+                    child: ListTile(
+                      tileColor: isSelected ? colorScheme.secondary.withOpacity(0.3) : null,
+                      leading: _isSelectionMode
+                          ? Checkbox(
+                        value: isSelected,
+                        onChanged: (bool? value) {
+                          _toggleSelection(person.path);
+                        },
+                      )
+                          : CircleAvatar(
+                        backgroundColor: Colors.white,
+                        child: Icon(
+                          Icons.person,
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                      title: Text(person.info.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text('${person.notes.length} notes', style: const TextStyle(fontSize: 14),),
+                          const SizedBox(width: 8),
+                          if (person.info.tags.isNotEmpty)
+                            Flexible(
+                              child: Wrap(
+                                spacing: 4.0,
+                                runSpacing: 4.0,
+                                children: [
+                                  ...(person.info.tags.length > maxTagsToShow
+                                      ? person.info.tags.sublist(0, maxTagsToShow)
+                                      : person.info.tags)
+                                      .map((tag) => Tag(label: _formatTagName(tag)))
+                                      .toList(),
+                                  if (person.info.tags.length > maxTagsToShow)
+                                    Tag(label: '+${person.info.tags.length - maxTagsToShow}'),
+                                ],
+                              ),
                             ),
-                          ),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.chevron_right, color: Colors.deepPurple),
+                        ],
+                      ),
+                      onTap: () async {
+                        if (_isSelectionMode) {
+                          _toggleSelection(person.path);
+                        } else if (widget.purpose == ScreenPurpose.select) {
+                          await Future.delayed(const Duration(milliseconds: 1));
+                          final result = await Navigator.of(context).push<Map<String, String>>(
 
-                          title: Text(person.info.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Text('${person.notes.length} notes', style: const TextStyle(fontSize: 14),),
-                              const SizedBox(width: 8),
-                              if (person.info.tags.isNotEmpty)
-                                Flexible(
-                                  child: Wrap(
-                                    spacing: 4.0,
-                                    runSpacing: 4.0,
-                                    children: [
-                                      ...(person.info.tags.length > maxTagsToShow
-                                          ? person.info.tags.sublist(0, maxTagsToShow)
-                                          : person.info.tags)
-                                          .map((tag) => Tag(label: _formatTagName(tag)))
-                                          .toList(),
-                                      if (person.info.tags.length > maxTagsToShow)
-                                        Tag(label: '+${person.info.tags.length - maxTagsToShow}'),
-                                    ],
-                                  ),
-                                ),
-                              const SizedBox(width: 8),
-                              const Icon(Icons.chevron_right, color: Colors.deepPurple),
-                            ],
-                          ),
-                          onTap: () async {
-                            if (_isSelectionMode) {
-                              _toggleSelection(person.path);
-                            } else if (widget.purpose == ScreenPurpose.select) {
-                              final result = await Navigator.of(context).push<Map<String, String>>(
-                                MaterialPageRoute(
-                                  builder: (context) => PersonDetailScreen(
-                                    person: person,
-                                    purpose: ScreenPurpose.select, // Pass the purpose down
-                                  ),
-                                ),
-                              );
-                              if (result != null && context.mounted) {
-                                Navigator.of(context).pop(result); // Pass the result up
-                              }
-                            } else {
-                              ref.read(detailSearchProvider.notifier).state = (text: '', tags: const []);
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => PersonDetailScreen(person: person),
-                                ),
-                              );
-                            }
-                          },
-                          onLongPress: () {
-                            if (widget.purpose == ScreenPurpose.view && !_isSelectionMode) {
-                              setState(() {
-                                _isSelectionMode = true;
-                                _selectedItems.add(person.path);
-                              });
-                            }
-                          },
-                        ),
-
-                        const Divider(
-                          height: 1,
-                          thickness: 1,
-                          indent: 10,
-                          endIndent: 16,
-                        ),
-                      ],
+                            MaterialPageRoute(
+                              builder: (context) => PersonDetailScreen(
+                                person: person,
+                                purpose: ScreenPurpose.select,
+                              ),
+                            ),
+                          );
+                          if (result != null && context.mounted) {
+                            Navigator.of(context).pop(result);
+                          }
+                        } else {
+                          ref.read(detailSearchProvider.notifier).state = (text: '', tags: const []);
+                        await Future.delayed(const Duration(milliseconds: 1));
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => PersonDetailScreen(person: person),
+                            ),
+                          );
+                        }
+                      },
+                      onLongPress: () {
+                        if (widget.purpose == ScreenPurpose.view && !_isSelectionMode) {
+                          setState(() {
+                            _isSelectionMode = true;
+                            _selectedItems.add(person.path);
+                          });
+                        }
+                      },
                     ),
+                  );
+                },
+                separatorBuilder: (context, index) {
+                  return const Divider(
+                    height: 1,
+                    thickness: 1,
+                    indent: 10,
+                    endIndent: 16,
                   );
                 },
               ),
@@ -432,14 +435,13 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
           ],
         ),
       ),
-
       floatingActionButton: widget.purpose == ScreenPurpose.view
-        ? CustomFloatButton(
+          ? CustomFloatButton(
           icon: Icons.add,
           tooltip: 'Add person',
           onTap: () => _showCreatePersonDialog(context, ref)
-          )
-        : null
+      )
+          : null
       ,
     );
   }

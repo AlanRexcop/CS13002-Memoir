@@ -200,108 +200,100 @@ class _GraphViewScreenState extends ConsumerState<GraphViewScreen> {
         body: const Center(child: CircularProgressIndicator()),
       );
     }
-
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: Text(appBarTitle)),
       body: ForceDirectedGraphWidget<String>(
-              controller: _controller,
-              onDraggingStart: (nodePath) => setState(() => _draggingNodePath = nodePath),
-              onDraggingEnd: (nodePath) => setState(() => _draggingNodePath = null),
-              
-              nodesBuilder: (context, path) {
-                final note = _notesByPath[path];
-                if (note == null) return const SizedBox.shrink();
+        controller: _controller,
+        onDraggingStart: (nodePath) => setState(() => _draggingNodePath = nodePath),
+        onDraggingEnd: (nodePath) => setState(() => _draggingNodePath = null),
 
-                final isInfoNote = p.basename(note.path) == 'info.md';
-                final double nodeSize = isInfoNote ? 60 : 40;
-                final Color nodeColor = isInfoNote ? Colors.amber[800]! : Colors.blueGrey[600]!;
-                
-                final bool isRootNode = path == widget.rootNotePath;
-                final double borderWidth = isRootNode ? 4.0 : 2.0;
-                final Color borderColor = isRootNode ? Colors.cyanAccent : Colors.white24;
+        nodesBuilder: (context, path) {
+          final note = _notesByPath[path];
+          if (note == null) return const SizedBox.shrink();
 
-                Widget nodeContent;
-                if (_currentScale > 0.4) {
-                  nodeContent = Stack(
-                    clipBehavior: Clip.none,
-                    alignment: Alignment.center,
-                    children: [
-                      Center(
-                        child: Icon(
-                          isInfoNote ? Icons.person_pin_circle_outlined : Icons.description_outlined,
-                          color: Colors.white,
-                          size: isInfoNote ? 24 : 18,
-                        ),
-                      ),
-                      Positioned(
-                        top: nodeSize,
-                        child: Text(
-                          note.title,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: nodeColor,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                } else {
-                  nodeContent = const SizedBox.shrink();
-                }
+          final isInfoNote = p.basename(note.path) == 'info.md';
+          final double nodeSize = isInfoNote ? 55 : 45;
+          final Color nodeColor = isInfoNote ? Color(0xFF99CCFF) : colorScheme.primary;
 
-                return GestureDetector(
-                  onTap: () {
-                    if (widget.rootNotePath == null || path == widget.rootNotePath) {
-                       Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => NoteViewScreen(note: note),
-                        ),
-                      );
-                    } else {
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(
-                          builder: (context) => GraphViewScreen(rootNotePath: path),
-                        ),
-                      );
-                    }
-                  },
-                  child: Tooltip(
-                    message: note.title,
-                    child: Container(
-                      width: nodeSize,
-                      height: nodeSize,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: nodeColor,
-                        border: Border.all(color: borderColor, width: borderWidth),
-                      ),
-                      child: nodeContent,
+          final bool isRootNode = path == widget.rootNotePath;
+          final double borderWidth = isRootNode ? 4.0 : 2.0;
+          final Color borderColor = isRootNode ? Colors.blueAccent : Colors.white24;
+
+          Widget nodeContent;
+          if (_currentScale > 0.4) {
+            nodeContent = Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: [
+                Center(
+                  child: Icon(
+                    isInfoNote ? Icons.person_2_outlined : Icons.sticky_note_2_outlined,
+                    color: Colors.white,
+                    size: isInfoNote ? 28 : 25,
+                  ),
+                ),
+                Positioned(
+                  top: nodeSize,
+                  child: Text(
+                    note.title,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: nodeColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                );
-              },
-              edgesBuilder: (context, pathA, pathB, distance) {
-                final isHighlighted = (pathA == _draggingNodePath || pathB == _draggingNodePath);
+                ),
+              ],
+            );
+          } else {
+            nodeContent = const SizedBox.shrink();
+          }
 
-                return Container(
-                  width: distance,
-                  height: isHighlighted ? 2.0 : 1.0,
-                  color: isHighlighted 
-                      ? Colors.amber.withOpacity(0.8) 
-                      : Theme.of(context).colorScheme.outline,
+          return GestureDetector(
+            onTap: () {
+              if (widget.rootNotePath == null || path == widget.rootNotePath) {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => NoteViewScreen(note: note),
+                  ),
                 );
-              },
+              } else {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (context) => GraphViewScreen(rootNotePath: path),
+                  ),
+                );
+              }
+            },
+            child: Tooltip(
+              message: note.title,
+              child: Container(
+                width: nodeSize,
+                height: nodeSize,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: nodeColor,
+                  border: Border.all(color: borderColor, width: borderWidth),
+                ),
+                child: nodeContent,
+              ),
             ),
-      // floatingActionButton: FloatingActionButton(
-      //   onPressed: () {
-      //     _controller.center();
-      //     _controller.scale = 1.0;
-      //   },
-      //   tooltip: 'Reset View',
-      //   child: const Icon(Icons.center_focus_strong),
-      // ),
+          );
+        },
+        edgesBuilder: (context, pathA, pathB, distance) {
+          final isHighlighted = (pathA == _draggingNodePath || pathB == _draggingNodePath);
+
+          return Container(
+            width: distance,
+            height: isHighlighted ? 2.0 : 1.0,
+            color: isHighlighted
+                ? Colors.amber.withOpacity(0.8)
+                : Theme.of(context).colorScheme.outline,
+          );
+        },
+      ),
       floatingActionButton: CustomFloatButton(
           icon: Icons.my_location,
           onTap: () {

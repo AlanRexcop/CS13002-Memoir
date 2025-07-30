@@ -2,10 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/providers/auth_provider.dart';
-import 'package:memoir/screens/auth_screen.dart';
+import 'package:memoir/screens/forgot_password_screen.dart';
 
 class ChangePasswordScreen extends ConsumerWidget {
-  const ChangePasswordScreen({Key? key}) : super(key: key);
+  const ChangePasswordScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -103,9 +103,8 @@ class ChangePasswordScreen extends ConsumerWidget {
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: () {
-                    // Navigate to the auth screen, which handles the forgot password flow
                     Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const AuthScreen()),
+                      MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
                     );
                   },
                   child: const Text('Forgot Password?'),

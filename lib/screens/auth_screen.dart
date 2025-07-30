@@ -2,12 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/providers/auth_provider.dart';
+import 'package:memoir/screens/forgot_password_screen.dart';
 import 'package:memoir/screens/otp_screen.dart';
 
-enum AuthView { signIn, signUp, forgotPassword, verifyOtp }
+enum AuthView { signIn, signUp, verifyOtp }
 
 class AuthScreen extends ConsumerStatefulWidget {
-  const AuthScreen({Key? key}) : super(key: key);
+  const AuthScreen({super.key});
 
   @override
   ConsumerState<AuthScreen> createState() => _AuthScreenState();
@@ -47,9 +48,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       case AuthView.signUp:
         authNotifier.signUp(email: email, password: password, username: username);
         break;
-      case AuthView.forgotPassword:
-        authNotifier.requestPasswordReset(email);
-        break;
       case AuthView.verifyOtp:
         authNotifier.verifySignUp(email: email, token: otp);
         break;
@@ -69,18 +67,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         notifier.resetStatus();
       } else if (current.status == AuthStatus.success) {
         if (mounted) Navigator.of(context).pop();
-      } else if (current.status == AuthStatus.otpSent) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Password reset OTP sent to your email.')),
-        );
-        // Navigate to the dedicated OTP screen for password recovery
-        if (mounted) {
-          Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => OtpScreen(email: _emailController.text.trim()),
-          ));
-        }
-        setState(() => _view = AuthView.signIn);
-        notifier.resetStatus();
       } else if (current.status == AuthStatus.awaitingVerification) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Verification OTP sent! Please check your email.')),
@@ -122,8 +108,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         return 'Sign In to Memoir Cloud';
       case AuthView.signUp:
         return 'Create Account';
-      case AuthView.forgotPassword:
-        return 'Reset Password';
       case AuthView.verifyOtp:
         return 'Verify Your Email';
     }
@@ -145,8 +129,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           const SizedBox(height: 8),
           _buildPasswordField(isSignUp: true),
         ];
-      case AuthView.forgotPassword:
-        return [_buildEmailField()];
       case AuthView.verifyOtp:
         return [
           Text(
@@ -167,7 +149,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           children: [
             _buildMainButton('Sign In'),
             _buildTextButton('Create an account', () => setState(() => _view = AuthView.signUp)),
-            _buildTextButton('Forgot Password?', () => setState(() => _view = AuthView.forgotPassword)),
+            _buildTextButton('Forgot Password?', () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
+              );
+            }),
           ],
         );
       case AuthView.signUp:
@@ -176,14 +162,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           children: [
             _buildMainButton('Sign Up'),
             _buildTextButton('Have an account? Sign In', () => setState(() => _view = AuthView.signIn)),
-          ],
-        );
-      case AuthView.forgotPassword:
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildMainButton('Send Reset Instructions'),
-            _buildTextButton('Back to Sign In', () => setState(() => _view = AuthView.signIn)),
           ],
         );
       case AuthView.verifyOtp:

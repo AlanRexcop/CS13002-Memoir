@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/providers/app_provider.dart';
+import 'package:memoir/widgets/tag.dart';
 
 // NEW: An enum to define the widget's behavior and appearance.
 enum TagInputPurpose { edit, filter }
@@ -79,7 +80,7 @@ class _TagEditorState extends ConsumerState<TagEditor> {
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: isEditMode ? 12.0 : 0.0,
-        vertical: 8.0,
+        vertical: 0.0,
       ),
       decoration: isEditMode
           ? BoxDecoration(
@@ -89,7 +90,7 @@ class _TagEditorState extends ConsumerState<TagEditor> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // CHANGED: Conditionally show the icon and label only in edit mode.
+
           if (isEditMode) ...[
             const Icon(Icons.label_outline, size: 20),
             const SizedBox(width: 8),
@@ -102,20 +103,27 @@ class _TagEditorState extends ConsumerState<TagEditor> {
               runSpacing: 4.0,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                ..._tags.map((tag) => Chip(
-                      label: Text(tag),
-                      labelPadding: const EdgeInsets.only(left: 8.0),
-                      deleteIcon: const Icon(Icons.close, size: 14),
-                      onDeleted: () => _removeTag(tag),
-                      visualDensity: VisualDensity.compact,
-                    )),
+                // ..._tags.map((tag) => Chip(
+                //       label: Text(tag),
+                //       labelPadding: const EdgeInsets.only(left: 8.0),
+                //       deleteIcon: const Icon(Icons.close, size: 14),
+                //       onDeleted: () => _removeTag(tag),
+                //       visualDensity: VisualDensity.compact,
+                //     )),
+                ..._tags.map((tag) => Tag(
+                  label: tag,
+                  onDeleted: () => _removeTag(tag),
+                )),
                 SizedBox(
                   width: 150,
                   child: Autocomplete<String>(
                     optionsBuilder: (TextEditingValue textEditingValue) {
                       final query = textEditingValue.text.toLowerCase();
+                      // if (query.isEmpty) {
+                      //   return allAvailableTags.where((tag) => !_tags.contains(tag));
+                      // }
                       if (query.isEmpty) {
-                        return allAvailableTags.where((tag) => !_tags.contains(tag));
+                        return const <String>[];
                       }
                       return allAvailableTags.where((tag) {
                         final isAlreadyAdded = _tags.contains(tag);
@@ -136,7 +144,6 @@ class _TagEditorState extends ConsumerState<TagEditor> {
                           isDense: true,
                           contentPadding: const EdgeInsets.symmetric(vertical: 8.0),
                           border: InputBorder.none,
-                          // CHANGED: Hint text now depends on the purpose.
                           hintText: isEditMode ? 'Add a tag...' : 'Filter by tag...',
                         ),
                         onSubmitted: (String value) {

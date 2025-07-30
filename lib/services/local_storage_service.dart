@@ -1,4 +1,3 @@
-// C:\dev\memoir\lib\services\local_storage_service.dart
 import 'dart:io';
 import 'dart:math';
 import 'package:file_picker/file_picker.dart';
@@ -68,47 +67,64 @@ class LocalStorageService {
     }
   }
 
+  Future<void> _updateFrontmatter(String absolutePath, Map<String, dynamic> updates, List<String> removals) async {
+      final file = File(absolutePath);
+      if (!await file.exists()) {
+        throw FileSystemException("File not found for updating frontmatter", absolutePath);
+      }
+      
+      final content = await file.readAsString();
+      String frontmatterRaw = '';
+      String body = content;
+
+      if (content.startsWith('---')) {
+          final parts = content.split('---');
+          if (parts.length >= 3) {
+              frontmatterRaw = parts[1];
+              body = parts.sublist(2).join('---').trim();
+          }
+      }
+
+      dynamic yamlMap;
+      try {
+        yamlMap = loadYaml(frontmatterRaw);
+      } catch (e) {
+        yamlMap = {};
+      }
+      
+      final newFrontmatter = (yamlMap is Map) ? Map<String, dynamic>.from(yamlMap) : <String, dynamic>{};
+      
+      newFrontmatter.addAll(updates);
+      for (final key in removals) {
+        newFrontmatter.remove(key);
+      }
+
+      final yamlWriter = YAMLWriter();
+      final newYamlString = yamlWriter.write(newFrontmatter);
+      
+      final fullContent = '---\n$newYamlString---\n\n$body';
+      await file.writeAsString(fullContent);
+  }
+
   Future<void> setNoteDeleted(String vaultRoot, String notePath, DateTime? deletedTime) async {
     final absolutePath = p.join(vaultRoot, notePath);
-    final file = File(absolutePath);
-    if (!await file.exists()) {
-      throw FileSystemException("File not found for updating deletion status", absolutePath);
-    }
-    
-    final content = await file.readAsString();
-    String frontmatterRaw = '';
-    String body = content;
-
-    if (content.startsWith('---')) {
-        final parts = content.split('---');
-        if (parts.length >= 3) {
-            frontmatterRaw = parts[1];
-            body = parts.sublist(2).join('---').trim();
-        }
-    }
-
-    dynamic yamlMap;
-    try {
-      yamlMap = loadYaml(frontmatterRaw);
-    } catch (e) {
-      yamlMap = {}; // If parsing fails, start with a fresh map
-    }
-    
-    // Ensure we have a mutable map
-    final newFrontmatter = (yamlMap is Map) ? Map<String, dynamic>.from(yamlMap) : <String, dynamic>{};
-    
     if (deletedTime != null) {
-      newFrontmatter['deleted_date'] = deletedTime.toIso8601String();
+      await _updateFrontmatter(absolutePath, {'deleted_date': deletedTime.toIso8601String()}, []);
     } else {
-      newFrontmatter.remove('deleted_date');
+      await _updateFrontmatter(absolutePath, {}, ['deleted_date']);
     }
-
-    final yamlWriter = YAMLWriter();
-    final newYamlString = yamlWriter.write(newFrontmatter);
-    
-    final fullContent = '---\n$newYamlString---\n\n$body';
-    await file.writeAsString(fullContent);
   }
+
+  Future<void> softDeletePerson(String vaultRoot, String personPath) async {
+    final infoFilePath = p.join(vaultRoot, personPath, 'info.md');
+    await _updateFrontmatter(infoFilePath, {'deleted_date': DateTime.now().toIso8601String()}, []);
+  }
+
+  Future<void> restorePerson(String vaultRoot, String personPath) async {
+      final infoFilePath = p.join(vaultRoot, personPath, 'info.md');
+      await _updateFrontmatter(infoFilePath, {}, ['deleted_date']);
+  }
+
 
   // Receives an absolute file and the vault root to produce a Note with relative paths.
   Future<Note> readNoteFromFile(File file, String vaultRoot) async {
@@ -252,7 +268,7 @@ class LocalStorageService {
   }
 
   // parentPath is the vault root
-  Future<void> createPerson({
+  Future<Person> createPerson({
     required String parentPath,
     required String personName,
   }) async {
@@ -281,9 +297,11 @@ class LocalStorageService {
         path: infoFileAbsolutePath, 
         note: newPersonNote, 
         markdownBody: "# ${personName.trim()}\n\nThis is the main information file for ${personName.trim()}.");
+        
+    return await readPersonFromDirectory(personDir, parentPath);
   }
 
-  Future<void> createNote({
+  Future<Note> createNote({
     required String vaultRoot, 
     required String personPath, // This will be relative
     required String noteName,
@@ -307,10 +325,12 @@ class LocalStorageService {
     );
     
     await writeNote(path: noteFileAbsolutePath.path, note: newNote, markdownBody: '# ${noteName.trim()}');
+    
+    return await readNoteFromFile(noteFileAbsolutePath, vaultRoot);
   }
 
   // Receives a relative path
-  Future<void> deletePerson(String vaultRoot, String personPath) async {
+  Future<void> deletePersonPermanently(String vaultRoot, String personPath) async {
     try {
       final absolutePath = p.join(vaultRoot, personPath);
       final dir = Directory(absolutePath);

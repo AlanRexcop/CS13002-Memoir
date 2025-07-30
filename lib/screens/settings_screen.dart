@@ -1,12 +1,12 @@
-// C:\dev\memoir\lib\screens\settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/screens/account_screen.dart';
 import 'package:memoir/screens/auth_screen.dart';
 import 'package:memoir/screens/change_password_screen.dart';
-import 'package:memoir/screens/cloud_management_screen.dart';
+import 'package:memoir/screens/cloud_file_browser_screen.dart';
 import 'package:memoir/screens/feedback_screen.dart';
+import 'package:memoir/screens/local_vault_browser_screen.dart';
 import 'package:memoir/screens/recycle_bin_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -81,6 +81,12 @@ class SettingsScreen extends ConsumerWidget {
         SettingGroup(
           title: 'Storage',
           children: [
+            // MODIFIED: Added Recycle Bin to the signed-out view
+            SettingItem(
+              title: 'Recycle bin',
+              icon: Icons.restore_from_trash_outlined,
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RecycleBinScreen())),
+            ),
             _buildStorageLocationItem(context, ref),
           ],
         ),
@@ -145,10 +151,16 @@ class SettingsScreen extends ConsumerWidget {
         SettingGroup(
           title: 'Storage',
           children: [
+            // MODIFICATION: Replaced 'Cloud Management' with two direct buttons.
             SettingItem(
-              title: 'Cloud Management',
-              icon: Icons.cloud_sync_outlined,
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CloudManagementScreen())),
+              title: 'Browse Cloud Files',
+              icon: Icons.cloud_download_outlined,
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CloudFileBrowserScreen())),
+            ),
+            SettingItem(
+              title: 'Upload Local Notes',
+              icon: Icons.cloud_upload_outlined,
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LocalVaultBrowserScreen())),
             ),
             SettingItem(
               title: 'Recycle bin',

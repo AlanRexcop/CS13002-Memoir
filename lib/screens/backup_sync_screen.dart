@@ -1,7 +1,9 @@
+// C:\dev\memoir\lib\screens\backup_sync_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/screens/account_screen.dart';
-import 'package:memoir/screens/cloud_management_screen.dart';
+import 'package:memoir/screens/cloud_file_browser_screen.dart';
+import 'package:memoir/screens/local_vault_browser_screen.dart';
 
 import '../widgets/info_item.dart';
 import '../widgets/storage_info.dart';
@@ -87,15 +89,45 @@ class BackupSyncScreen extends ConsumerWidget {
             const Divider(color: Colors.black26),
             const SizedBox(height: 32),
 
-            // This action now navigates to the functional Cloud Management screen
+            // MODIFICATION: This now opens a bottom sheet instead of navigating to a separate screen.
             _buildActionItem(
               context: context,
-              icon: Icons.cloud_sync_outlined, // <-- CORRECTED ICON
+              icon: Icons.cloud_sync_outlined,
               label: 'Manage Cloud Storage',
               onTap: () {
-                Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => const CloudManagementScreen(),
-                ));
+                showModalBottomSheet(
+                  context: context,
+                  builder: (ctx) {
+                    return SafeArea(
+                      child: Wrap(
+                        children: <Widget>[
+                          ListTile(
+                            leading: const Icon(Icons.cloud_download_outlined),
+                            title: const Text('Browse Cloud Files'),
+                            subtitle: const Text('View and download files from the cloud.'),
+                            onTap: () {
+                              Navigator.of(ctx).pop(); // Close sheet
+                              Navigator.of(context).push(MaterialPageRoute(
+                                builder: (_) => const CloudFileBrowserScreen(),
+                              ));
+                            },
+                          ),
+                          ListTile(
+                            leading: const Icon(Icons.cloud_upload_outlined),
+                            title: const Text('Upload Local Notes'),
+                            subtitle: const Text('Check sync status and upload local-only notes.'),
+                            onTap: () {
+                              Navigator.of(ctx).pop(); // Close sheet
+                              Navigator.of(context).push(MaterialPageRoute(
+                                builder: (_) => const LocalVaultBrowserScreen(),
+                              ));
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
               },
             ),
             const SizedBox(height: 24),

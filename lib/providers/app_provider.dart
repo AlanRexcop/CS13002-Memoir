@@ -18,6 +18,7 @@ class AppState {
   final String? storagePath;
   final List<Person> persons;
   final List<Note> deletedNotes;
+  final List<Note> deletedPersonsInfoNotes; // Renamed for clarity
   final bool isLoading;
   final ({String text, List<String> tags}) searchQuery;
   final User? currentUser;
@@ -26,6 +27,7 @@ class AppState {
     this.storagePath,
     this.persons = const [],
     this.deletedNotes = const [],
+    this.deletedPersonsInfoNotes = const [],
     this.isLoading = true,
     this.searchQuery = (text: '', tags: const []),
     this.currentUser,
@@ -54,6 +56,7 @@ class AppState {
     String? storagePath,
     List<Person>? persons,
     List<Note>? deletedNotes,
+    List<Note>? deletedPersonsInfoNotes,
     bool? isLoading,
     ({String text, List<String> tags})? searchQuery,
     User? currentUser,
@@ -64,6 +67,7 @@ class AppState {
       storagePath: clearStoragePath ? null : storagePath ?? this.storagePath,
       persons: persons ?? this.persons,
       deletedNotes: deletedNotes ?? this.deletedNotes,
+      deletedPersonsInfoNotes: deletedPersonsInfoNotes ?? this.deletedPersonsInfoNotes,
       isLoading: isLoading ?? this.isLoading,
       searchQuery: searchQuery ?? this.searchQuery,
       currentUser: clearCurrentUser ? null : currentUser ?? this.currentUser,
@@ -170,41 +174,61 @@ class AppNotifier extends StateNotifier<AppState> {
   Future<void> loadAllPersons(String path) async {
     state = state.copyWith(isLoading: true, storagePath: path);
     try {
-      final allPersons = await _localStorageService.readAllPersonsFromDirectory(path);
-      
+      final peopleDir = Directory(p.join(path, 'people'));
+      if (!await peopleDir.exists()) {
+        state = state.copyWith(persons: [], deletedNotes: [], deletedPersonsInfoNotes: [], isLoading: false);
+        return;
+      }
+
       final List<Person> activePersons = [];
       final List<Note> tempDeletedNotes = [];
-      // Set the deletion period to 10 days as requested
+      final List<Note> tempDeletedPersonInfos = [];
       const deletionPeriod = Duration(days: 10);
 
-      for (final person in allPersons) {
-        final List<Note> activeNotes = [];
-        for (final note in person.notes) {
-          if (note.deletedDate != null) {
-            // Check if the note is past its deletion deadline
-            if (DateTime.now().difference(note.deletedDate!) > deletionPeriod) {
-              // If it is, permanently delete the file from storage.
-              await _localStorageService.deleteNote(path, note.path);
-            } else {
-              // Otherwise, add it to the recycle bin list.
-              tempDeletedNotes.add(note);
-            }
+      final entities = await peopleDir.list().toList();
+      final personDirectories = entities.whereType<Directory>();
+
+      for (final dir in personDirectories) {
+        final infoFile = File(p.join(dir.path, 'info.md'));
+        if (!await infoFile.exists()) continue;
+
+        final infoNote = await _localStorageService.readNoteFromFile(infoFile, path);
+
+        if (infoNote.deletedDate != null) {
+          // This person is soft-deleted
+          if (DateTime.now().difference(infoNote.deletedDate!) > deletionPeriod) {
+            await _localStorageService.deletePersonPermanently(path, p.relative(dir.path, from: path));
           } else {
-            // If it's not marked for deletion, add it to the active notes.
-            activeNotes.add(note);
+            tempDeletedPersonInfos.add(infoNote);
           }
+        } else {
+          // This is an active person, process them fully
+          final fullPerson = await _localStorageService.readPersonFromDirectory(dir, path);
+          final List<Note> activeNotes = [];
+          for (final note in fullPerson.notes) {
+            if (note.deletedDate != null) {
+              if (DateTime.now().difference(note.deletedDate!) > deletionPeriod) {
+                await _localStorageService.deleteNote(path, note.path);
+              } else {
+                tempDeletedNotes.add(note);
+              }
+            } else {
+              activeNotes.add(note);
+            }
+          }
+          activePersons.add(Person(path: fullPerson.path, info: fullPerson.info, notes: activeNotes));
         }
-        // Assuming info.md cannot be soft-deleted. A person remains as long as their info note exists.
-        activePersons.add(Person(path: person.path, info: person.info, notes: activeNotes));
       }
 
       activePersons.sort((a, b) => a.info.title.compareTo(b.info.title));
       tempDeletedNotes.sort((a, b) => b.deletedDate!.compareTo(a.deletedDate!));
+      tempDeletedPersonInfos.sort((a, b) => b.deletedDate!.compareTo(a.deletedDate!));
       
       state = state.copyWith(
         persons: activePersons,
         deletedNotes: tempDeletedNotes,
-        isLoading: false
+        deletedPersonsInfoNotes: tempDeletedPersonInfos,
+        isLoading: false,
       );
       
       await _scheduleAllReminders(activePersons);
@@ -235,11 +259,15 @@ class AppNotifier extends StateNotifier<AppState> {
   Future<bool> createNewPerson(String name) async {
     if (state.storagePath == null) return false;
     try {
-      await _localStorageService.createPerson(
+      final newPerson = await _localStorageService.createPerson(
         parentPath: state.storagePath!,
         personName: name,
       );
-      await loadAllPersons(state.storagePath!);
+      
+      final updatedPersons = List<Person>.from(state.persons)..add(newPerson);
+      updatedPersons.sort((a, b) => a.info.title.compareTo(b.info.title));
+      
+      state = state.copyWith(persons: updatedPersons);
       return true;
     } catch (e) {
       print("Failed to create person: $e");
@@ -250,12 +278,21 @@ class AppNotifier extends StateNotifier<AppState> {
   Future<bool> createNewNoteForPerson(Person person, String noteName) async {
      if (state.storagePath == null) return false;
     try {
-      await _localStorageService.createNote(
+      final newNote = await _localStorageService.createNote(
         vaultRoot: state.storagePath!,
         personPath: person.path,
         noteName: noteName,
       );
-      await loadAllPersons(state.storagePath!);
+
+      final updatedPersons = state.persons.map((p) {
+        if (p.path == person.path) {
+          final updatedNotes = List<Note>.from(p.notes)..add(newNote);
+          return Person(path: p.path, info: p.info, notes: updatedNotes);
+        }
+        return p;
+      }).toList();
+      
+      state = state.copyWith(persons: updatedPersons);
       return true;
     } catch (e) {
       print("Failed to create note: $e");
@@ -269,13 +306,80 @@ class AppNotifier extends StateNotifier<AppState> {
       for (final note in [person.info, ...person.notes]) {
         await _notificationService.cancelAllNotificationsForNote(note);
       }
-      await _localStorageService.deletePerson(state.storagePath!, person.path);
+      await _localStorageService.softDeletePerson(state.storagePath!, person.path);
+      
+      final infoFile = File(p.join(state.storagePath!, person.info.path));
+      final updatedInfoNote = await _localStorageService.readNoteFromFile(infoFile, state.storagePath!);
+
+      final newPersonsList = state.persons.where((p) => p.path != person.path).toList();
+      final newDeletedPersonInfos = List<Note>.from(state.deletedPersonsInfoNotes)..add(updatedInfoNote);
+      newDeletedPersonInfos.sort((a, b) => b.deletedDate!.compareTo(a.deletedDate!));
+
       state = state.copyWith(
-        persons: state.persons.where((p) => p.path != person.path).toList(),
+        persons: newPersonsList,
+        deletedPersonsInfoNotes: newDeletedPersonInfos,
       );
       return true;
     } catch (e) {
-      print("Failed to delete person: $e");
+      print("Failed to soft-delete person: $e");
+      return false;
+    }
+  }
+
+  Future<bool> restorePerson(Note personInfoNote) async {
+    if (state.storagePath == null) return false;
+    try {
+      final personPath = p.dirname(personInfoNote.path);
+      await _localStorageService.restorePerson(state.storagePath!, personPath);
+  
+      // This reads the person with ALL notes, including soft-deleted ones.
+      final personDir = Directory(p.join(state.storagePath!, personPath));
+      final unfilteredRestoredPerson = await _localStorageService.readPersonFromDirectory(personDir, state.storagePath!);
+      
+      // --- THE FIX ---
+      // We must filter out the notes that are still meant to be deleted.
+      // Only notes without a deletedDate are considered active.
+      final activeNotesForRestoredPerson = unfilteredRestoredPerson.notes
+          .where((note) => note.deletedDate == null)
+          .toList();
+  
+      // Create a "clean" person object with only the active notes.
+      final cleanRestoredPerson = Person(
+        path: unfilteredRestoredPerson.path,
+        info: unfilteredRestoredPerson.info,
+        notes: activeNotesForRestoredPerson,
+      );
+      // --- END OF FIX ---
+      
+      final newPersonsList = List<Person>.from(state.persons)..add(cleanRestoredPerson); // Use the clean object
+      newPersonsList.sort((a,b) => a.info.title.compareTo(b.info.title));
+      
+      final newDeletedPersonInfos = state.deletedPersonsInfoNotes.where((n) => n.path != personInfoNote.path).toList();
+      
+      state = state.copyWith(
+        persons: newPersonsList,
+        deletedPersonsInfoNotes: newDeletedPersonInfos,
+      );
+      
+      await _scheduleAllReminders([cleanRestoredPerson]); // Schedule reminders for the clean object
+      return true;
+    } catch(e) {
+      print("Failed to restore person: $e");
+      return false;
+    }
+  }
+
+  Future<bool> deletePersonPermanently(Note personInfoNote) async {
+    if (state.storagePath == null) return false;
+    try {
+      final personPath = p.dirname(personInfoNote.path);
+      await _localStorageService.deletePersonPermanently(state.storagePath!, personPath);
+      
+      final newDeletedPersonInfos = state.deletedPersonsInfoNotes.where((n) => n.path != personInfoNote.path).toList();
+      state = state.copyWith(deletedPersonsInfoNotes: newDeletedPersonInfos);
+      return true;
+    } catch (e) {
+      print("Failed to permanently delete person: $e");
       return false;
     }
   }
@@ -330,7 +434,7 @@ class AppNotifier extends StateNotifier<AppState> {
   Future<bool> deleteNote(Note noteToDelete) async {
     if (state.storagePath == null) return false;
     try {
-      await _syncService.autoDelete(noteToDelete); // IS THIS SOFT DELETE ?
+      await _syncService.autoDelete(noteToDelete);
       await _notificationService.cancelAllNotificationsForNote(noteToDelete);
       
       final now = DateTime.now();

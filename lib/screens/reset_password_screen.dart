@@ -1,9 +1,7 @@
-// C:\dev\memoir\lib\screens\reset_password_screen.dart
+// lib/screens/reset_password_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:memoir/providers/auth_provider.dart';
-import 'package:memoir/widgets/app_logo_header.dart';
 import 'package:memoir/widgets/custom_text_field.dart';
 import 'package:memoir/widgets/primary_button.dart';
 
@@ -16,9 +14,7 @@ class ResetPasswordScreen extends ConsumerWidget {
 
   void _updatePassword(WidgetRef ref) {
     if (_formKey.currentState!.validate()) {
-      ref
-          .read(authNotifierProvider.notifier)
-          .setNewPassword(_passwordController.text);
+      ref.read(authNotifierProvider.notifier).setNewPassword(_passwordController.text);
     }
   }
 
@@ -47,73 +43,49 @@ class ResetPasswordScreen extends ConsumerWidget {
     });
 
     final authState = ref.watch(authNotifierProvider);
-    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.secondary,
-      appBar: AppBar(
-        backgroundColor: colorScheme.secondary,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        automaticallyImplyLeading: false, // Prevents back button
-      ),
-      body: SafeArea(
+      appBar: AppBar(title: const Text('Set New Password')),
+      body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          padding: const EdgeInsets.all(16.0),
           child: Form(
             key: _formKey,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                CustomTextField(
+                    controller: _passwordController,
+                    hintText: 'New Password',
+                    isPassword: true,
+                    validator: (value) {
+                      if (value == null || value.length < 6) {
+                        return 'Password must be at least 6 characters long';
+                      }
+                      return null;
+                    },
+                ),
                 const SizedBox(height: 20),
-                AppLogoHeader(
-                  size: 30,
-                  logoAsset: 'assets/Logo.png',
-                  title: 'Memoir',
-                  textColor: colorScheme.primary,
+                CustomTextField(
+                    controller: _confirmPasswordController,
+                    hintText: 'Confirm New Password',
+                    isPassword: true,
+                    validator: (value) {
+                      if (value != _passwordController.text) {
+                        return 'Passwords do not match';
+                      }
+                      return null;
+                    },
                 ),
-                const SizedBox(height: 8),
-                Center(
-                  child: Text(
-                    'Set a new password',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      color: colorScheme.primary,
-                    ),
+                const SizedBox(height: 20),
+                if (authState.isLoading)
+                  const CircularProgressIndicator()
+                else
+                  PrimaryButton(
+                      text: 'Reset Password',
+                      background: Theme.of(context).colorScheme.primary,
+                      onPress: () => _updatePassword(ref)
                   ),
-                ),
-                const SizedBox(height: 70),
-                CustomTextField(
-                  controller: _passwordController,
-                  hintText: 'New Password',
-                  isPassword: true,
-                  validator: (value) {
-                    if (value == null || value.length < 6) {
-                      return 'Password must be at least 6 characters long';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                CustomTextField(
-                  controller: _confirmPasswordController,
-                  hintText: 'Confirm New Password',
-                  isPassword: true,
-                  validator: (value) {
-                    if (value != _passwordController.text) {
-                      return 'Passwords do not match';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 40),
-                authState.isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : PrimaryButton(
-                        text: 'Reset Password',
-                        background: colorScheme.primary,
-                        onPress: () => _updatePassword(ref),
-                      ),
               ],
             ),
           ),

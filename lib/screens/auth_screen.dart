@@ -1,26 +1,28 @@
-// C:\dev\memoir\lib\screens\auth_screen.dart
-import 'package:flutter/gestures.dart';
+// lib/screens/auth_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:memoir/providers/auth_provider.dart';
-import 'package:memoir/screens/forgot_password_screen.dart';
+import 'package:memoir/screens/otp_screen.dart';
+import 'package:memoir/widgets/custom_float_button.dart';
+import 'package:memoir/widgets/custom_pinput.dart';
 import 'package:memoir/widgets/custom_text_field.dart';
 import 'package:memoir/widgets/primary_button.dart';
-import '../widgets/app_logo_header.dart';
-import 'otp_screen.dart'; // Keep for signup verification
 
-enum AuthView { signIn, signUp, verifyOtp }
+import '../widgets/app_logo_header.dart';
+
+enum AuthView { signIn, signUp, forgotPassword, verifyOtp }
 
 class AuthScreen extends ConsumerStatefulWidget {
-  const AuthScreen({super.key});
+  final AuthView initialView;
+  const AuthScreen({super.key, this.initialView = AuthView.signIn});
 
   @override
   ConsumerState<AuthScreen> createState() => _AuthScreenState();
 }
 
 class _AuthScreenState extends ConsumerState<AuthScreen> {
-  AuthView _view = AuthView.signIn;
+  late AuthView _view;
 
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
@@ -28,6 +30,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   final _usernameController = TextEditingController();
   final _otpController = TextEditingController();
 
+  @override
+  void initState() {
+    super.initState();
+    _view = widget.initialView;
+  }
+  
   @override
   void dispose() {
     _emailController.dispose();
@@ -51,8 +59,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         authNotifier.signIn(email: email, password: password);
         break;
       case AuthView.signUp:
-        authNotifier.signUp(
-            email: email, password: password, username: username);
+        authNotifier.signUp(email: email, password: password, username: username);
+        break;
+      case AuthView.forgotPassword:
+        authNotifier.requestPasswordReset(email);
         break;
       case AuthView.verifyOtp:
         authNotifier.verifySignUp(email: email, token: otp);
@@ -67,19 +77,27 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       if (current.status == AuthStatus.failure) {
         if (current.errorMessage != null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(current.errorMessage!),
-                backgroundColor: Colors.red),
+            SnackBar(content: Text(current.errorMessage!), backgroundColor: Colors.red),
           );
         }
         notifier.resetStatus();
       } else if (current.status == AuthStatus.success) {
-        // This will pop the AuthScreen and return to the previous screen (e.g., Settings)
         if (mounted) Navigator.of(context).pop();
+      } else if (current.status == AuthStatus.otpSent) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Password reset OTP sent to your email.')),
+        );
+        // Navigate to the dedicated OTP screen for password recovery
+        if (mounted) {
+          Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => OtpScreen(email: _emailController.text.trim()),
+          ));
+        }
+        setState(() => _view = AuthView.signIn);
+        notifier.resetStatus();
       } else if (current.status == AuthStatus.awaitingVerification) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Verification OTP sent! Please check your email.')),
+          const SnackBar(content: Text('Verification OTP sent! Please check your email.')),
         );
         setState(() => _view = AuthView.verifyOtp);
         notifier.resetStatus();
@@ -88,52 +106,40 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
     final authState = ref.watch(authNotifierProvider);
     final colorScheme = Theme.of(context).colorScheme;
-
     return Scaffold(
+      appBar: AppBar(title: Text(_getAppBarTitle())),
       backgroundColor: colorScheme.secondary,
-      appBar: AppBar(
-        backgroundColor: colorScheme.secondary,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                ..._buildFormFields(),
-                const SizedBox(height: 40),
-                if (authState.isLoading)
-                  const Center(child: CircularProgressIndicator())
-                else
-                  _buildButtons(),
-                
-                if (_view == AuthView.signIn)
-                  const SizedBox(height: 150),
-                
-                if (_view == AuthView.signIn)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 20.0, top: 20),
-                    child: _buildFooterText(),
-                  ),
-
-                if (_view == AuthView.signUp)
-                  const SizedBox(height: 150),
-
-                if (_view == AuthView.signUp)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 20.0, top: 20),
-                    child: _buildFooterText(),
-                  ),
-              ],
-            ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              ..._buildFormFields(),
+              const SizedBox(height: 40),
+              if (authState.isLoading)
+                const CircularProgressIndicator()
+              else
+                _buildButtons(),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  String _getAppBarTitle() {
+    switch (_view) {
+      case AuthView.signIn:
+        return '';
+      case AuthView.signUp:
+        return '';
+      case AuthView.forgotPassword:
+        return '';
+      case AuthView.verifyOtp:
+        return 'Verify Your Email';
+    }
   }
 
   List<Widget> _buildFormFields() {
@@ -148,6 +154,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             textColor: colorScheme.primary,
           ),
           const SizedBox(height: 20),
+
           Text(
             'Welcome Back',
             style: GoogleFonts.nunito(
@@ -165,19 +172,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             ),
           ),
           const SizedBox(height: 40),
-          CustomTextField(
-            controller: _emailController,
-            hintText: 'Email',
-            prefixIcon: Icons.email_outlined,
-            keyboardType: TextInputType.emailAddress,
-          ),
-          const SizedBox(height: 16),
-          CustomTextField(
-            controller: _passwordController,
-            hintText: 'Password',
-            isPassword: true,
-            prefixIcon: Icons.lock_outline,
-          ),
+          _buildEmailField(),
+          const SizedBox(height: 20),
+          _buildPasswordField(),
         ];
       case AuthView.signUp:
         return [
@@ -195,32 +192,16 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               color: colorScheme.primary,
             ),
           ),
-          const SizedBox(
-            height: 50,
-          ),
-          CustomTextField(
-            controller: _usernameController,
-            hintText: 'Username',
-            prefixIcon: Icons.person_outline,
-          ),
-          const SizedBox(height: 16),
-          CustomTextField(
-            controller: _emailController,
-            hintText: 'Email',
-            prefixIcon: Icons.email_outlined,
-            keyboardType: TextInputType.emailAddress,
-          ),
-          const SizedBox(height: 16),
-          CustomTextField(
-            controller: _passwordController,
-            hintText: 'Password',
-            isPassword: true,
-            prefixIcon: Icons.lock_outline,
-          ),
-        ];
-      case AuthView.verifyOtp:
-        return [
+          const SizedBox(height: 50,),
+
+          _buildUsernameField(),
           const SizedBox(height: 20),
+          _buildEmailField(),
+          const SizedBox(height: 20),
+          _buildPasswordField(isSignUp: true),
+        ];
+      case AuthView.forgotPassword:
+        return [
           AppLogoHeader(
             size: 30,
             logoAsset: 'assets/Logo.png',
@@ -229,118 +210,106 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Verify your Email',
+            'Recovery your password',
             style: GoogleFonts.poppins(
-              fontSize: 16,
+              fontSize: 14,
               color: colorScheme.primary,
             ),
           ),
-          const SizedBox(height: 48),
+          const SizedBox(height: 70,),
+          _buildEmailField()
+        ];
+      case AuthView.verifyOtp:
+        return [
           Text(
-            'Enter the 6-digit verification code sent to ${_emailController.text}',
+            'Enter the OTP sent to ${_emailController.text}',
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 24),
-          // Using a standard text field for OTP for now
-          CustomTextField(
-            controller: _otpController,
-            hintText: 'OTP Code',
-            keyboardType: TextInputType.number,
-          ),
+          const SizedBox(height: 16),
+          CustomPinput(controller: _otpController),
         ];
     }
   }
 
   Widget _buildButtons() {
-    final colorScheme = Theme.of(context).colorScheme;
     switch (_view) {
       case AuthView.signIn:
         return Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            PrimaryButton(
-              text: 'Login',
-              background: colorScheme.primary,
-              onPress: _handleAuthAction,
-            ),
-            const SizedBox(height: 16),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => const ForgotPasswordScreen()));
-              },
-              child: Text(
-                'Forgot password?',
-                style: GoogleFonts.poppins(
-                  color: colorScheme.primary,
-                  decoration: TextDecoration.underline,
-                  decorationColor: colorScheme.primary,
-                  fontSize: 16,
-                ),
-              ),
-            ),
+            _buildMainButton('Sign In'),
+            _buildTextButton('Create an account', () => setState(() => _view = AuthView.signUp)),
+            _buildTextButton('Forgot Password?', () => setState(() => _view = AuthView.forgotPassword)),
           ],
         );
       case AuthView.signUp:
-        return PrimaryButton(
-          text: 'Sign Up',
-          background: colorScheme.primary,
-          onPress: _handleAuthAction,
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildMainButton('Sign Up'),
+            _buildTextButton('Have an account? Sign In', () => setState(() => _view = AuthView.signIn)),
+          ],
+        );
+      case AuthView.forgotPassword:
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildMainButton('Send Reset Instructions'),
+            _buildTextButton('Back to Sign In', () => setState(() => _view = AuthView.signIn)),
+          ],
         );
       case AuthView.verifyOtp:
-        return PrimaryButton(
-          text: 'Verify',
-          background: colorScheme.primary,
-          onPress: _handleAuthAction,
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildMainButton('Verify and Sign In'),
+            _buildTextButton('Back to Sign In', () => setState(() => _view = AuthView.signIn)),
+          ],
         );
     }
   }
-
-  Widget _buildFooterText() {
+  
+  Widget _buildMainButton(String text) {
     final colorScheme = Theme.of(context).colorScheme;
-    if (_view == AuthView.signIn) {
-      return Text.rich(
-        TextSpan(
-          text: 'Don\'t have an account? ',
-          style: GoogleFonts.poppins(color: colorScheme.primary, fontSize: 14),
-          children: [
-            TextSpan(
-              text: 'Sign Up',
-              style: GoogleFonts.poppins(
-                color: colorScheme.primary,
-                fontWeight: FontWeight.bold,
-                decoration: TextDecoration.underline,
-                decorationColor: colorScheme.primary,
-              ),
-              recognizer: TapGestureRecognizer()
-                ..onTap = () => setState(() => _view = AuthView.signUp),
-            ),
-          ],
-        ),
-        textAlign: TextAlign.center,
-      );
-    }
-    if (_view == AuthView.signUp) {
-      return Text.rich(
-        TextSpan(
-          text: 'Already have an account? ',
-          style: GoogleFonts.poppins(color: colorScheme.primary, fontSize: 14),
-          children: [
-            TextSpan(
-              text: 'Sign In',
-              style: GoogleFonts.poppins(
-                color: colorScheme.primary,
-                fontWeight: FontWeight.bold,
-                decoration: TextDecoration.underline,
-                decorationColor: colorScheme.primary,
-              ),
-              recognizer: TapGestureRecognizer()
-                ..onTap = () => setState(() => _view = AuthView.signIn),
-            ),
-          ],
-        ),
-        textAlign: TextAlign.center,
-      );
-    }
-    return const SizedBox.shrink(); // No footer for verify OTP
+    return PrimaryButton(
+        text: text,
+        background: colorScheme.primary,
+        onPress: _handleAuthAction,
+    );
   }
+
+  Widget _buildTextButton(String text, VoidCallback onPressed) {
+    return TextButton(onPressed: onPressed, child: Text(text));
+  }
+
+  Widget _buildEmailField() {
+    return CustomTextField(
+        hintText: 'Email',
+        controller: _emailController,
+        validator: (value) => (value == null || !value.contains('@')) ? 'Please enter a valid email' : null,
+        keyboardType: TextInputType.emailAddress,
+    );
+  }
+
+  Widget _buildPasswordField({bool isSignUp = false}) {
+    return CustomTextField(
+        controller: _passwordController,
+        isPassword: true,
+        hintText: 'Password',
+        validator: (value) {
+          if (value == null || value.isEmpty) return 'Password cannot be empty';
+          if (isSignUp && value.length < 6) return 'Password must be at least 6 characters';
+          return null;
+        },
+    );
+  }
+
+  Widget _buildUsernameField() {
+    return CustomTextField(
+        controller: _usernameController,
+        hintText: "Username",
+        validator: (value) => (value == null || value.isEmpty) ? 'Please enter a username' : null
+    );
+  }
+
 }

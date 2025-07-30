@@ -1,86 +1,131 @@
-// C:\dev\memoir\lib\widgets\note_metadata_card.dart
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:memoir/models/note_model.dart';
+import 'package:memoir/widgets/tag.dart';
+
+import '../screens/graph_view_screen.dart';
 
 class NoteMetadataCard extends StatelessWidget {
   final Note note;
 
   const NoteMetadataCard({super.key, required this.note});
-  
-  // Helper to build a consistent row for each metadata item
-  Widget _buildMetadataRow(BuildContext context, {required IconData icon, required String label, required Widget value}) {
-    final labelStyle = TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 13);
-    
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 18.0, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 100, // Fixed width for alignment
-            child: Text(label, style: labelStyle),
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: value),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 1,
-      margin: const EdgeInsets.all(16).copyWith(bottom: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Only show the Tags row if there are any tags
-            if (note.tags.isNotEmpty)
-              _buildMetadataRow(
-                context,
-                icon: Icons.label_outline,
-                label: 'Tags',
-                value: Wrap(
-                  spacing: 6.0,
-                  runSpacing: 4.0,
-                  children: note.tags.map((tag) => Chip(
-                    label: Text(tag),
-                    padding: EdgeInsets.zero,
-                    visualDensity: VisualDensity.compact,
-                  )).toList(),
+    final metadataTextStyle = TextStyle(
+      color: Colors.grey[700],
+      fontSize: 14,
+    );
+
+    final DateFormat formatter = DateFormat('dd/MM/yyyy');
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 1.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  note.title,
+                  style: GoogleFonts.inter(
+                    fontSize: 25,
+                    color: Colors.black,
+                    fontWeight: FontWeight.w500
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ),
-            
-            // Creation Date
-            _buildMetadataRow(
-              context,
-              icon: Icons.calendar_today_outlined,
-              label: 'Created',
-              value: Text(
-                DateFormat.yMMMd().add_jm().format(note.creationDate.toLocal()),
-                style: const TextStyle(fontSize: 13),
+              const SizedBox(width: 10),
+              OutlinedButton(
+                onPressed: () {
+                  // TODO: Handle publish
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.grey[600],
+                  side: BorderSide(color: Colors.grey.shade400),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                ),
+                child: const Text('publish'),
               ),
-            ),
-            
-            // Last Modified Date
-             _buildMetadataRow(
-              context,
-              icon: Icons.edit_calendar_outlined,
-              label: 'Modified',
-              value: Text(
-                DateFormat.yMMMd().add_jm().format(note.lastModified.toLocal()),
-                style: const TextStyle(fontSize: 13),
+            ],
+          ),
+
+          Row(
+            children: [
+              Expanded(
+                child: Wrap(
+                  spacing: 8.0,
+                  runSpacing: 4.0,
+                  children: note.tags.map((tag) {
+                    return Tag(label: tag);
+                  }).toList(),
+                ),
               ),
-            ),
-          ],
-        ),
+              const SizedBox(width: 8),
+            ],
+          ),
+
+          const SizedBox(height: 15),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Created: ${formatter.format(note.creationDate.toLocal())}',
+                    style: metadataTextStyle,
+                  ),
+                  Text(
+                    'Modified: ${formatter.format(note.lastModified.toLocal())}',
+                    style: metadataTextStyle,
+                  ),
+                ],
+              ),
+
+              const Spacer(),
+
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => GraphViewScreen(rootNotePath: note.path),
+                    ),
+                  );
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.purple.shade300,
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.hub_outlined, size: 20),
+                    const SizedBox(width: 4),
+                    const Text(
+                      'Graph',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    const Icon(Icons.chevron_right, size: 22),
+                  ],
+                ),
+              )
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Divider(
+            height: 1,
+            thickness: 1,
+          )
+        ],
       ),
     );
   }

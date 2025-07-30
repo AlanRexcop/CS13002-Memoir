@@ -120,19 +120,26 @@ class _NoteViewScreenState extends ConsumerState<NoteViewScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(latestNote.title),
+        // title: Text(latestNote.title),
+        leading: IconButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+          icon: const Icon(Icons.chevron_left_outlined, size: 30,),
+        ),
+        backgroundColor: Colors.transparent,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.hub_outlined),
-            tooltip: 'View Local Graph',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => GraphViewScreen(rootNotePath: latestNote.path),
-                ),
-              );
-            },
-          ),
+          // IconButton(
+          //   icon: const Icon(Icons.hub_outlined),
+          //   tooltip: 'View Local Graph',
+          //   onPressed: () {
+          //     Navigator.of(context).push(
+          //       MaterialPageRoute(
+          //         builder: (context) => GraphViewScreen(rootNotePath: latestNote.path),
+          //       ),
+          //     );
+          //   },
+          // ),
           IconButton(
             icon: const Icon(Icons.edit),
             tooltip: 'Edit Note',
@@ -187,7 +194,7 @@ class _NoteViewScreenState extends ConsumerState<NoteViewScreen> {
                   controller: scrollController,
                   slivers: [
                     SliverPadding(
-                      padding: const EdgeInsets.all(16).copyWith(bottom: 8),
+                      padding: const EdgeInsets.all(1),
                       sliver: SliverToBoxAdapter(child: NoteMetadataCard(note: latestNote)),
                     ),
                     SliverPadding(

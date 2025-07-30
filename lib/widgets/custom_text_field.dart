@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 
 class CustomTextField extends StatefulWidget {
@@ -5,6 +6,8 @@ class CustomTextField extends StatefulWidget {
   final TextEditingController? controller;
   final bool isPassword;
   final IconData? prefixIcon;
+  final String? Function(String?)? validator;
+  final TextInputType? keyboardType;
 
   const CustomTextField({
     super.key,
@@ -12,6 +15,8 @@ class CustomTextField extends StatefulWidget {
     this.controller,
     this.isPassword = false,
     this.prefixIcon,
+    this.validator,
+    this.keyboardType,
   });
 
   @override
@@ -25,7 +30,6 @@ class _CustomTextFieldState extends State<CustomTextField> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-
       decoration: BoxDecoration(
         boxShadow: [
           BoxShadow(
@@ -40,24 +44,30 @@ class _CustomTextFieldState extends State<CustomTextField> {
       child: TextFormField(
         controller: widget.controller,
         obscureText: widget.isPassword && _isObscured,
+        validator: widget.validator,
+        keyboardType: widget.keyboardType,
         decoration: InputDecoration(
           hintText: widget.hintText,
           filled: true,
           fillColor: Colors.white,
           contentPadding:
           const EdgeInsets.symmetric(vertical: 10.0, horizontal: 20.0),
-
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,
           ),
-
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            // Hiển thị viền màu tím
-            borderSide: const BorderSide(color: Color(0xFFE2D1F9), width: 2),
+            borderSide: BorderSide(color: colorScheme.outline, width: 2),
           ),
-
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Colors.redAccent, width: 2),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Colors.redAccent, width: 2),
+          ),
           prefixIcon: widget.prefixIcon != null
               ? Icon(widget.prefixIcon, color: colorScheme.primary)
               : null,

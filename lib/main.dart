@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:memoir/screens/home_wrapper.dart';
-import 'package:memoir/screens/login_screen.dart';
-import 'package:memoir/screens/signup_screen.dart';
+import 'package:memoir/screens/notification_screen.dart';
 import 'package:memoir/services/notification_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timezone/data/latest_10y.dart' as tz;
@@ -59,6 +58,8 @@ class MyApp extends StatelessWidget {
 
           surface: Colors.white,
           onSurface: const Color(0xFF5C29A2),
+
+          outline: Color(0xFFE2D1F9),
         ),
 
         appBarTheme: AppBarTheme(
@@ -98,11 +99,12 @@ class MyApp extends StatelessWidget {
             }
             )
         ),
+
+
       ),
       debugShowCheckedModeBanner: false,
 
-      // home: const HomeWrapper(),
-      home: LoginScreen(),
+      home: const HomeWrapper(),
     );
 
   }

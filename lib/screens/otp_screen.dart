@@ -6,7 +6,7 @@ import 'package:memoir/screens/reset_password_screen.dart';
 
 class OtpScreen extends ConsumerWidget {
   final String email;
-  OtpScreen({Key? key, required this.email}) : super(key: key);
+  OtpScreen({super.key, required this.email});
 
   final _formKey = GlobalKey<FormState>();
   final _otpController = TextEditingController();

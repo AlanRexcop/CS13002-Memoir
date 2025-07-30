@@ -174,7 +174,14 @@ class _NoteViewScreenState extends ConsumerState<NoteViewScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(latestNote.title),
+        // title: Text(latestNote.title),
+        leading: IconButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+          icon: const Icon(Icons.chevron_left_outlined, size: 30,),
+        ),
+        backgroundColor: Colors.transparent,
         actions: [
           if (_isSyncing)
             const Padding(
@@ -294,7 +301,7 @@ class _NoteViewScreenState extends ConsumerState<NoteViewScreen> {
                   controller: scrollController,
                   slivers: [
                     SliverPadding(
-                      padding: const EdgeInsets.all(16).copyWith(bottom: 8),
+                      padding: const EdgeInsets.all(1),
                       sliver: SliverToBoxAdapter(child: NoteMetadataCard(note: latestNote)),
                     ),
                     SliverPadding(
@@ -335,8 +342,8 @@ class _NoteViewScreenState extends ConsumerState<NoteViewScreen> {
         },
       ),
       floatingActionButton: CustomFloatButton(
-          icon: Icons.add,
-          tooltip: 'Add note',
+          icon: Icons.format_list_bulleted,
+          tooltip: 'Table of content',
           onTap: () => {
           showModalBottomSheet(
                 context: context,

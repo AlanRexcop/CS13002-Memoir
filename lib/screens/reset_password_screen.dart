@@ -1,10 +1,14 @@
-// lib/screens/reset_password_screen.dart
+// C:\dev\memoir\lib\screens\reset_password_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:memoir/providers/auth_provider.dart';
+import 'package:memoir/widgets/app_logo_header.dart';
+import 'package:memoir/widgets/custom_text_field.dart';
+import 'package:memoir/widgets/primary_button.dart';
 
 class ResetPasswordScreen extends ConsumerWidget {
-  ResetPasswordScreen({Key? key}) : super(key: key);
+  ResetPasswordScreen({super.key});
 
   final _formKey = GlobalKey<FormState>();
   final _passwordController = TextEditingController();
@@ -12,7 +16,9 @@ class ResetPasswordScreen extends ConsumerWidget {
 
   void _updatePassword(WidgetRef ref) {
     if (_formKey.currentState!.validate()) {
-      ref.read(authNotifierProvider.notifier).setNewPassword(_passwordController.text);
+      ref
+          .read(authNotifierProvider.notifier)
+          .setNewPassword(_passwordController.text);
     }
   }
 
@@ -41,21 +47,46 @@ class ResetPasswordScreen extends ConsumerWidget {
     });
 
     final authState = ref.watch(authNotifierProvider);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Set New Password')),
-      body: Center(
+      backgroundColor: colorScheme.secondary,
+      appBar: AppBar(
+        backgroundColor: colorScheme.secondary,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false, // Prevents back button
+      ),
+      body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
           child: Form(
             key: _formKey,
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                TextFormField(
+                const SizedBox(height: 20),
+                AppLogoHeader(
+                  size: 30,
+                  logoAsset: 'assets/Logo.png',
+                  title: 'Memoir',
+                  textColor: colorScheme.primary,
+                ),
+                const SizedBox(height: 8),
+                Center(
+                  child: Text(
+                    'Set a new password',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 70),
+                CustomTextField(
                   controller: _passwordController,
-                  decoration: const InputDecoration(labelText: 'New Password'),
-                  obscureText: true,
+                  hintText: 'New Password',
+                  isPassword: true,
                   validator: (value) {
                     if (value == null || value.length < 6) {
                       return 'Password must be at least 6 characters long';
@@ -63,11 +94,11 @@ class ResetPasswordScreen extends ConsumerWidget {
                     return null;
                   },
                 ),
-                const SizedBox(height: 8),
-                TextFormField(
+                const SizedBox(height: 16),
+                CustomTextField(
                   controller: _confirmPasswordController,
-                  decoration: const InputDecoration(labelText: 'Confirm New Password'),
-                  obscureText: true,
+                  hintText: 'Confirm New Password',
+                  isPassword: true,
                   validator: (value) {
                     if (value != _passwordController.text) {
                       return 'Passwords do not match';
@@ -75,15 +106,14 @@ class ResetPasswordScreen extends ConsumerWidget {
                     return null;
                   },
                 ),
-                const SizedBox(height: 20),
-                if (authState.isLoading)
-                  const CircularProgressIndicator()
-                else
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 40)),
-                    onPressed: () => _updatePassword(ref),
-                    child: const Text('Reset Password'),
-                  ),
+                const SizedBox(height: 40),
+                authState.isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : PrimaryButton(
+                        text: 'Reset Password',
+                        background: colorScheme.primary,
+                        onPress: () => _updatePassword(ref),
+                      ),
               ],
             ),
           ),

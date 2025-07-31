@@ -39,7 +39,7 @@ class NoteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     const int maxTagsToShow = 4;
-
+    final sortedTags = note.tags.toList()..sort();
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
       color: isSelected ? colorScheme.outline : colorScheme.secondary,
@@ -71,21 +71,21 @@ class NoteCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 5),
-              if (note.tags.isNotEmpty)
+              if (sortedTags.isNotEmpty)
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
-                      ...(note.tags.length > maxTagsToShow
-                          ? note.tags.sublist(0, maxTagsToShow)
-                          : note.tags)
+                      ...(sortedTags.length > maxTagsToShow
+                          ? sortedTags.sublist(0, maxTagsToShow)
+                          : sortedTags)
                           .map((tag) => Padding(
                         padding: const EdgeInsets.only(right: 4.0),
                         child: Tag(label: _formatTagName(tag)),
                       ))
                           .toList(),
-                      if (note.tags.length > maxTagsToShow)
-                        Tag(label: '+${note.tags.length - maxTagsToShow}'),
+                      if (sortedTags.length > maxTagsToShow)
+                        Tag(label: '+${sortedTags.length - maxTagsToShow}'),
                     ],
                   ),
                 ),

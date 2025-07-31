@@ -91,12 +91,12 @@ class _TagEditorState extends ConsumerState<TagEditor> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
 
-          if (isEditMode) ...[
-            const Icon(Icons.label_outline, size: 20),
-            const SizedBox(width: 8),
-            const Text('Tags', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(width: 16),
-          ],
+          // if (isEditMode) ...[
+          //   const Icon(Icons.label_outline, size: 20),
+          //   const SizedBox(width: 8),
+          //   const Text('Tags', style: TextStyle(fontWeight: FontWeight.bold)),
+          //   const SizedBox(width: 16),
+          // ],
           Expanded(
             child: Wrap(
               spacing: 8.0,

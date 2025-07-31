@@ -42,22 +42,15 @@ class NoteMetadataCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               OutlinedButton(
-                onPressed: () {
-                  // TODO: Handle publish
-                },
+                  onPressed: () => {},
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.grey[600],
-                  side: BorderSide(color: Colors.grey.shade400),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8.0),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 0)
                 ),
-                child: const Text('publish'),
-              ),
+                  child: Text('Publish', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),),
+              )
             ],
           ),
-
+          const SizedBox(height: 10,),
           Row(
             children: [
               Expanded(
@@ -73,7 +66,7 @@ class NoteMetadataCard extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 15),
+          const SizedBox(height: 20),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:memoir/models/note_model.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/screens/event_creation_screen.dart';
@@ -85,12 +86,12 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     _bodyFocusNode.requestFocus();
     final currentText = _bodyController.text;
     final selection = _bodyController.selection;
-    
+
     if (selection.isCollapsed) {
       final newText = currentText.substring(0, selection.start) +
-                    prefix +
-                    suffix +
-                    currentText.substring(selection.end);
+          prefix +
+          suffix +
+          currentText.substring(selection.end);
       _bodyController.value = TextEditingValue(
         text: newText,
         selection: TextSelection.collapsed(offset: selection.start + prefix.length),
@@ -98,10 +99,10 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     } else {
       final selectedText = currentText.substring(selection.start, selection.end);
       final newText = currentText.substring(0, selection.start) +
-                    prefix +
-                    selectedText +
-                    suffix +
-                    currentText.substring(selection.end);
+          prefix +
+          selectedText +
+          suffix +
+          currentText.substring(selection.end);
       _bodyController.value = TextEditingValue(
         text: newText,
         selection: TextSelection.fromPosition(TextPosition(offset: selection.start + prefix.length + selectedText.length + suffix.length)),
@@ -109,18 +110,18 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     }
     _onNoteContentChanged();
   }
-  
+
   void _insertBlockSyntax(String block) {
     _bodyFocusNode.requestFocus();
     final currentText = _bodyController.text;
     final selection = _bodyController.selection;
-    
+
     final prefix = (selection.start == 0 || currentText.isEmpty || currentText[selection.start - 1] == '\n') ? '' : '\n\n';
     final suffix = '\n';
     final textToInsert = prefix + block + suffix;
 
     final newText = currentText.replaceRange(selection.start, selection.end, textToInsert);
-    
+
     _bodyController.value = TextEditingValue(
       text: newText,
       selection: TextSelection.collapsed(offset: selection.start + textToInsert.length),
@@ -134,23 +135,23 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     final selection = _bodyController.selection;
 
     if (selection.isCollapsed) {
-        final needsNewline = selection.start > 0 && currentText[selection.start - 1] != '\n';
-        final textToInsert = (needsNewline ? '\n' : '') + prefix;
-        final newText = currentText.substring(0, selection.start) + textToInsert + currentText.substring(selection.end);
-        _bodyController.value = TextEditingValue(
-            text: newText,
-            selection: TextSelection.collapsed(offset: selection.start + textToInsert.length),
-        );
+      final needsNewline = selection.start > 0 && currentText[selection.start - 1] != '\n';
+      final textToInsert = (needsNewline ? '\n' : '') + prefix;
+      final newText = currentText.substring(0, selection.start) + textToInsert + currentText.substring(selection.end);
+      _bodyController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: selection.start + textToInsert.length),
+      );
     } else {
-        final selectedText = currentText.substring(selection.start, selection.end);
-        final lines = selectedText.split('\n');
-        final prefixedLines = lines.map((line) => line.isEmpty ? '' : prefix + line).join('\n');
-        
-        final newText = currentText.substring(0, selection.start) + prefixedLines + currentText.substring(selection.end);
-        _bodyController.value = TextEditingValue(
-            text: newText,
-            selection: TextSelection(baseOffset: selection.start, extentOffset: selection.start + prefixedLines.length),
-        );
+      final selectedText = currentText.substring(selection.start, selection.end);
+      final lines = selectedText.split('\n');
+      final prefixedLines = lines.map((line) => line.isEmpty ? '' : prefix + line).join('\n');
+
+      final newText = currentText.substring(0, selection.start) + prefixedLines + currentText.substring(selection.end);
+      _bodyController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection(baseOffset: selection.start, extentOffset: selection.start + prefixedLines.length),
+      );
     }
     _onNoteContentChanged();
   }
@@ -163,41 +164,41 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   }
 
   Future<void> _showLinkDialog() async {
-      _bodyFocusNode.requestFocus();
-      final selection = _bodyController.selection;
-      final selectedText = selection.isCollapsed ? '' : _bodyController.text.substring(selection.start, selection.end);
+    _bodyFocusNode.requestFocus();
+    final selection = _bodyController.selection;
+    final selectedText = selection.isCollapsed ? '' : _bodyController.text.substring(selection.start, selection.end);
 
-      final urlController = TextEditingController();
-      final url = await showDialog<String>(
-          context: context,
-          builder: (context) => AlertDialog(
-              title: const Text('Insert Link'),
-              content: TextField(
-                  controller: urlController,
-                  autofocus: true,
-                  decoration: const InputDecoration(labelText: 'URL'),
-              ),
-              actions: [
-                  TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-                  FilledButton(
-                      onPressed: () => Navigator.of(context).pop(urlController.text),
-                      child: const Text('Insert'),
-                  ),
-              ],
+    final urlController = TextEditingController();
+    final url = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Insert Link'),
+        content: TextField(
+          controller: urlController,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'URL'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(urlController.text),
+            child: const Text('Insert'),
           ),
-      );
+        ],
+      ),
+    );
 
-      if (url != null && url.isNotEmpty) {
-          final linkText = selectedText.isEmpty ? 'link text' : selectedText;
-          final textToInsert = '[$linkText]($url)';
-          
-          final newText = _bodyController.text.replaceRange(selection.start, selection.end, textToInsert);
-          _bodyController.value = TextEditingValue(
-            text: newText,
-            selection: TextSelection.collapsed(offset: selection.start + textToInsert.length),
-          );
-          _onNoteContentChanged();
-      }
+    if (url != null && url.isNotEmpty) {
+      final linkText = selectedText.isEmpty ? 'link text' : selectedText;
+      final textToInsert = '[$linkText]($url)';
+
+      final newText = _bodyController.text.replaceRange(selection.start, selection.end, textToInsert);
+      _bodyController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: selection.start + textToInsert.length),
+      );
+      _onNoteContentChanged();
+    }
   }
 
   Future<void> _showMentionFlow() async {
@@ -292,7 +293,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     }
 
     if (mounted) setState(() => _isSaving = true);
-    
+
     final originalNoteAsync = ref.read(noteProvider(widget.notePath));
     originalNoteAsync.whenData((originalNote) async {
       try {
@@ -308,20 +309,20 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
         final absolutePath = p.join(vaultRoot, widget.notePath);
         await service.writeNote(
-          path: absolutePath, 
-          note: updatedNote, 
-          markdownBody: _bodyController.text
+            path: absolutePath,
+            note: updatedNote,
+            markdownBody: _bodyController.text
         );
-        
+
         _initialTitle = _titleController.text.trim();
         _initialBody = _bodyController.text;
         _initialTags = List<String>.from(_currentTags);
 
         await ref.read(appProvider.notifier).updateNote(widget.notePath);
-        
+
         ref.refresh(rawNoteContentProvider(widget.notePath));
         ref.refresh(noteProvider(widget.notePath));
-        
+
         if (mounted) {
           setState(() => _lastSavedStatus = "All changes saved");
         }
@@ -349,17 +350,17 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   Future<bool> _onWillPop() async {
     _debounce?.cancel();
     if (_hasUnsavedChanges) {
-       await _performSave();
+      await _performSave();
     }
     return true;
   }
 
   void _handleMarkdownAction(MarkdownAction action) {
     const tableTemplate = '| Header 1 | Header 2 |\n'
-                        '| :--- | :--- |\n'
-                        '| Cell 1   | Cell 2   |\n'
-                        '| Cell 3   | Cell 4   |';
-    
+        '| :--- | :--- |\n'
+        '| Cell 1   | Cell 2   |\n'
+        '| Cell 3   | Cell 4   |';
+
     switch (action) {
       case MarkdownAction.bold:
         _wrapSelectionWithSyntax(prefix: '**', suffix: '**');
@@ -433,12 +434,13 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   @override
   Widget build(BuildContext context) {
     final asyncNote = ref.watch(noteProvider(widget.notePath));
-    
+
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text("Editor"),
+          // title: const Text("Editor"),
+          backgroundColor: Colors.transparent,
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(4.0),
             child: _isSaving ? const LinearProgressIndicator() : const SizedBox.shrink(),
@@ -456,9 +458,9 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                   _currentTags = List<String>.from(note.tags);
                   _initialTags = List<String>.from(note.tags);
 
-                  final body = rawContent.startsWith('---') 
-                    ? rawContent.split('---').sublist(2).join('---').trim() 
-                    : rawContent;
+                  final body = rawContent.startsWith('---')
+                      ? rawContent.split('---').sublist(2).join('---').trim()
+                      : rawContent;
                   _bodyController.text = body;
                   _initialBody = body;
                   _isContentLoaded = true;
@@ -470,71 +472,76 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                     }
                   });
                 }
-                
+
                 return LayoutBuilder(
-                  builder: (context, constraints) {
-                    return SingleChildScrollView(
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          minHeight: constraints.maxHeight,
-                        ),
-                        child: IntrinsicHeight(
-                          child: Column(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                                child: TextField(
-                                  controller: _titleController,
-                                  onChanged: (_) => _onNoteContentChanged(),
-                                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                                  decoration: const InputDecoration(
-                                    border: InputBorder.none,
-                                    hintText: 'Note Title...',
-                                  ),
-                                ),
-                              ),
-                              const Divider(height: 1),
-                              TagEditor(
-                                initialTags: _initialTags,
-                                onTagsChanged: (newTags) {
-                                  setState(() => _currentTags = newTags);
-                                  _onNoteContentChanged();
-                                }
-                              ),
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16.0),
+                    builder: (context, constraints) {
+                      return SingleChildScrollView(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: constraints.maxHeight,
+                          ),
+                          child: IntrinsicHeight(
+                            child: Column(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                                   child: TextField(
-                                    focusNode: _bodyFocusNode,
-                                    controller: _bodyController,
+                                    controller: _titleController,
                                     onChanged: (_) => _onNoteContentChanged(),
-                                    expands: true,
-                                    maxLines: null,
-                                    minLines: null,
-                                    keyboardType: TextInputType.multiline,
+                                    style: GoogleFonts.inter(
+                                        fontSize: 25,
+                                        color: Colors.black,
+                                        fontWeight: FontWeight.w500
+                                    ),
                                     decoration: const InputDecoration(
                                       border: InputBorder.none,
-                                      hintText: 'Start writing...',
+                                      hintText: 'Note Title...',
                                     ),
                                   ),
                                 ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                                color: Theme.of(context).bottomAppBarTheme.color,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    Text(_lastSavedStatus, style: Theme.of(context).textTheme.bodySmall)
-                                  ],
+                                // const Divider(height: 1),
+                                TagEditor(
+                                    initialTags: _initialTags,
+                                    onTagsChanged: (newTags) {
+                                      setState(() => _currentTags = newTags);
+                                      _onNoteContentChanged();
+                                    }
                                 ),
-                              ),
-                            ],
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: TextField(
+                                      focusNode: _bodyFocusNode,
+                                      controller: _bodyController,
+                                      onChanged: (_) => _onNoteContentChanged(),
+                                      expands: true,
+                                      maxLines: null,
+                                      minLines: null,
+                                      keyboardType: TextInputType.multiline,
+                                      style: const TextStyle(color: Colors.black),
+                                      decoration: const InputDecoration(
+                                        border: InputBorder.none,
+                                        hintText: 'Start writing...',
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                  color: Theme.of(context).bottomAppBarTheme.color,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      Text(_lastSavedStatus, style: Theme.of(context).textTheme.bodySmall)
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  }
+                      );
+                    }
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -545,9 +552,9 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
           error: (err, stack) => Center(child: Text('Error: $err')),
         ),
         floatingActionButton: CustomFloatButton(
-          icon: Icons.add,
-          tooltip: 'Add content',
-          onTap: () => _showAddContentMenu(context)
+            icon: Icons.add,
+            tooltip: 'Add content',
+            onTap: () => _showAddContentMenu(context)
         ),
       ),
     );

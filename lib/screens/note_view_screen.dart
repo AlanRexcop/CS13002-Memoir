@@ -9,7 +9,7 @@ import 'package:markdown_widget/markdown_widget.dart';
 import 'package:memoir/models/note_model.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/providers/cloud_provider.dart';
-import 'package:memoir/screens/graph_view_screen.dart';
+// import 'package:memoir/screens/graph_view_screen.dart';
 import 'package:memoir/screens/note_editor_screen.dart';
 import 'package:memoir/services/markdown_analyzer_service.dart';
 import 'package:memoir/widgets/custom_float_button.dart';
@@ -236,19 +236,19 @@ class _NoteViewScreenState extends ConsumerState<NoteViewScreen> {
                 onPressed: () => ref.invalidate(allCloudFilesProvider),
               ),
             ),
+          // IconButton(
+          //   icon: const Icon(Icons.hub_outlined),
+          //   tooltip: 'View Local Graph',
+          //   onPressed: () {
+          //     Navigator.of(context).push(
+          //       MaterialPageRoute(
+          //         builder: (context) => GraphViewScreen(rootNotePath: latestNote.path),
+          //       ),
+          //     );
+          //   },
+          // ),
           IconButton(
-            icon: const Icon(Icons.hub_outlined),
-            tooltip: 'View Local Graph',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => GraphViewScreen(rootNotePath: latestNote.path),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.edit),
+            icon: const Icon(Icons.edit,),
             tooltip: 'Edit Note',
             onPressed: () {
               Navigator.of(context).push(
@@ -279,8 +279,19 @@ class _NoteViewScreenState extends ConsumerState<NoteViewScreen> {
               );
               
               final imgConfig = ImgConfig(builder: _imageBuilder);
-              final markdownConfig = MarkdownConfig.defaultConfig.copy(configs: [imgConfig]);
-              
+              // final markdownConfig = MarkdownConfig.defaultConfig.copy(configs: [imgConfig],);
+              final markdownConfig = MarkdownConfig.defaultConfig.copy(
+                configs: [
+                  imgConfig,
+                  PConfig(
+                    textStyle: TextStyle(
+                      fontSize: 16,
+                      height: 1.5,
+                      color: Colors.black
+                    ),
+                  ),
+                ],
+              );
               final mainContent = content.startsWith('---') 
                 ? content.split('---').sublist(2).join('---').trim() 
                 : content;

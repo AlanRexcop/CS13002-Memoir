@@ -76,7 +76,7 @@ class MarkdownToolbar extends StatelessWidget {
       ),
       (
         label: 'Code Block',
-        icon: Icons.code_off_outlined,
+        icon: Icons.data_object,
         action: MarkdownAction.codeBlock
       ),
       (label: 'Header 1', icon: Icons.looks_one_outlined, action: MarkdownAction.h1),
@@ -93,7 +93,7 @@ class MarkdownToolbar extends StatelessWidget {
         action: MarkdownAction.ul
       ),
       (
-        label: 'Numbered List',
+        label: 'Num List',
         icon: Icons.format_list_numbered,
         action: MarkdownAction.ol
       ),
@@ -127,10 +127,10 @@ class MarkdownToolbar extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(item.icon),
+                Icon(item.icon, size: 28, color: Theme.of(context).colorScheme.primary,),
                 const SizedBox(height: 4),
                 Text(item.label,
-                    style: const TextStyle(fontSize: 12),
+                    style: const TextStyle(fontSize: 15),
                     textAlign: TextAlign.center),
               ],
             ),

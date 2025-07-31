@@ -119,6 +119,18 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Calendar'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.today, size: 30,),
+            tooltip: 'Go to Today',
+            onPressed: () {
+              setState(() {
+                _focusedDay = DateTime.now();
+                _selectedDay = DateTime.now();
+              });
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -238,77 +250,87 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               itemBuilder: (context, index) {
                 final entry = selectedDayEvents[index];
                 return Card(
-                  margin:
-                  const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
-                  child: ListTile(
-                    leading: const Icon(Icons.alarm),
-                    title: Text(entry.event.info,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 20)),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12.0, vertical: 6.0),
-                              decoration: BoxDecoration(
-                                color: Colors.deepPurple[50],
-                                borderRadius: BorderRadius.circular(20.0),
-                              ),
-                              child: Text(
-                                DateFormat('MMM d, yyyy')
-                                    .format(entry.event.time.toLocal()),
-                                style: TextStyle(
-                                  color: Colors.deepPurple[400],
-                                  fontWeight: FontWeight.w500,
+                  // color: colorScheme.secondary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    side: BorderSide(color: colorScheme.outline, width: 1),
+                  ),
+                  elevation: 1,
+                  margin: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                    child: ListTile(
+                      leading: const Icon(Icons.alarm),
+                      title: Text(entry.event.info,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 20)),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 10,),
+                          Row(
+                            children: [
+
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12.0, vertical: 4.0),
+                                decoration: BoxDecoration(
+                                  color: Colors.deepPurple[50],
+                                  borderRadius: BorderRadius.circular(20.0),
+                                ),
+                                child: Text(
+                                  DateFormat('MMM d, yyyy')
+                                      .format(entry.event.time.toLocal()),
+                                  style: TextStyle(
+                                    color: Colors.deepPurple[400],
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12.0, vertical: 6.0),
-                              decoration: BoxDecoration(
-                                color: Colors.deepPurple[50],
-                                borderRadius: BorderRadius.circular(20.0),
-                              ),
-                              child: Text(
-                                DateFormat('h:mm a')
-                                    .format(entry.event.time.toLocal()),
-                                style: TextStyle(
-                                  color: Colors.deepPurple[400],
-                                  fontWeight: FontWeight.w500,
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12.0, vertical: 4.0),
+                                decoration: BoxDecoration(
+                                  color: Colors.deepPurple[50],
+                                  borderRadius: BorderRadius.circular(20.0),
+                                ),
+                                child: Text(
+                                  DateFormat('h:mm a')
+                                      .format(entry.event.time.toLocal()),
+                                  style: TextStyle(
+                                    color: Colors.deepPurple[400],
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        if (entry.parentNote.tags.isNotEmpty)
-                          Wrap(
-                            spacing: 4.0,
-                            runSpacing: 4.0,
-                            children: entry.parentNote.tags
-                                .map((tag) => Chip(
-                              label: Text(tag),
-                              padding: EdgeInsets.zero,
-                              visualDensity: VisualDensity.compact,
-                              labelStyle: const TextStyle(fontSize: 10),
-                            ))
-                                .toList(),
+                            ],
                           ),
-                      ],
+                          const SizedBox(height: 4),
+                          // if (entry.parentNote.tags.isNotEmpty)
+                          //   Wrap(
+                          //     spacing: 4.0,
+                          //     runSpacing: 4.0,
+                          //     children: entry.parentNote.tags
+                          //         .map((tag) => Chip(
+                          //       label: Text(tag),
+                          //       padding: EdgeInsets.zero,
+                          //       visualDensity: VisualDensity.compact,
+                          //       labelStyle: const TextStyle(fontSize: 10),
+                          //     ))
+                          //         .toList(),
+                          //   ),
+                        ],
+                      ),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                NoteViewScreen(note: entry.parentNote),
+                          ),
+                        );
+                      },
                     ),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              NoteViewScreen(note: entry.parentNote),
-                        ),
-                      );
-                    },
                   ),
                 );
               },

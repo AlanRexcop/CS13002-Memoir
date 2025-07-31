@@ -1,6 +1,7 @@
 // C:\dev\memoir\lib\screens\event_creation_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:rrule_generator/rrule_generator.dart';
 
@@ -84,9 +85,10 @@ class _EventCreationScreenState extends State<EventCreationScreen> {
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
-      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-          ),
+      style: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontSize: 18
+      )
     );
   }
 

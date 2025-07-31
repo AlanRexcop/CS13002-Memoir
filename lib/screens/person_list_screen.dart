@@ -247,7 +247,7 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 0),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
               child: TextField(
                 decoration: InputDecoration(
                     hintText: 'Search by name...',
@@ -264,25 +264,11 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
             ),
 
 
-            const SizedBox(height: 20,),
+
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              padding: const EdgeInsets.symmetric(horizontal: 15),
               child: Row(
                 children: [
-                  GestureDetector(
-                    onTap: () {
-                      // TODO: Implement sort action
-                    },
-                    child: Icon(Icons.swap_vert, color: Colors.deepPurple.shade300, size: 24),
-                  ),
-                  const SizedBox(width: 12),
-                  GestureDetector(
-                    onTap: () {
-                      // TODO: Implement filter action
-                    },
-                    child: Icon(Icons.sort, color: Colors.deepPurple.shade300, size: 24),
-                  ),
-                  const SizedBox(width: 16),
                   Text(
                     'Contacts (${filteredPersons.length})',
                     style: TextStyle(
@@ -291,6 +277,28 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
                       color: Colors.grey[800],
                     ),
                   ),
+
+                  const Spacer(),
+
+                  if (_isSelectionMode)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Checkbox(
+                          value: filteredPersons.isNotEmpty && _selectedItems.length == filteredPersons.length,
+                          onChanged: (bool? selected) {
+                            setState(() {
+                              if (selected == true) {
+                                _selectedItems.addAll(filteredPersons.map((p) => p.path));
+                              } else {
+                                _selectedItems.clear();
+                              }
+                            });
+                          },
+                        ),
+                        const Text('Select All', style: TextStyle(fontSize: 14),),
+                      ],
+                    ),
                 ],
               ),
             ),
@@ -301,7 +309,7 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
                 itemCount: filteredPersons.length,
                 itemBuilder: (context, index) {
                   final person = filteredPersons[index];
-                  const int maxTagsToShow = 1;
+                  const int maxTagsToShow = 2;
                   final isSelected = _selectedItems.contains(person.path);
 
                   return Dismissible(

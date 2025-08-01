@@ -127,10 +127,10 @@ class MarkdownToolbar extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(item.icon, size: 28, color: Theme.of(context).colorScheme.primary,),
+                Icon(item.icon, size: 26, color: Theme.of(context).colorScheme.primary,),
                 const SizedBox(height: 4),
                 Text(item.label,
-                    style: const TextStyle(fontSize: 15),
+                    style: const TextStyle(fontSize: 14),
                     textAlign: TextAlign.center),
               ],
             ),

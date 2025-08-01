@@ -148,7 +148,9 @@ class _TagEditorState extends ConsumerState<TagEditor> {
                         ),
                         onSubmitted: (String value) {
                           onFieldSubmitted();
-                          _addTag(value);
+                          if (widget.purpose == TagInputPurpose.edit) {
+                            _addTag(value);
+                          }
                           controller.clear();
                         },
                       );

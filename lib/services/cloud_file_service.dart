@@ -56,11 +56,12 @@ class CloudFileService {
   Future<void> uploadFile({
     required String path,
     required Uint8List fileBytes,
+    FileOptions? fileOptions,
   }) async {
     await _supabaseClient.storage.from(supabaseBucket).uploadBinary(
           path,
           fileBytes,
-          fileOptions: const FileOptions(upsert: true),
+          fileOptions: fileOptions ?? const FileOptions(upsert: true),
         );
   }
 

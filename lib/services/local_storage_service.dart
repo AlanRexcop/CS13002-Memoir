@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:memoir/models/person_model.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:yaml/yaml.dart';
 import 'package:memoir/services/markdown_analyzer_service.dart';
 import 'package:memoir/models/note_model.dart';
@@ -407,5 +408,26 @@ class LocalStorageService {
     
     // Return the relative path for use in Markdown
     return p.join('images', uniqueFilename);
+  }
+
+  Future<File> getLocalAvatarFile() async {
+    final directory = await getApplicationSupportDirectory();
+    return File(p.join(directory.path, 'avatar.png'));
+  }
+
+  Future<File> saveLocalAvatar(Uint8List bytes) async {
+    final file = await getLocalAvatarFile();
+    return await file.writeAsBytes(bytes);
+  }
+
+  Future<void> deleteLocalAvatar() async {
+    try {
+      final file = await getLocalAvatarFile();
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (e) {
+      print("Error deleting local avatar: $e");
+    }
   }
 }

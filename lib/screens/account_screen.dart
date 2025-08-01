@@ -1,9 +1,12 @@
 // C:\dev\memoir\lib\screens\account_screen.dart
 import 'dart:developer';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:memoir/providers/app_provider.dart';
+import 'package:memoir/providers/cloud_provider.dart';
 import 'package:memoir/services/cloud_file_service.dart';
 import 'package:memoir/screens/change_password_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -30,6 +33,7 @@ class AccountScreen extends ConsumerStatefulWidget {
 
 class _AccountScreenState extends ConsumerState<AccountScreen> {
   bool _isSigningOut = false;
+  bool _isUploadingAvatar = false;
 
   // Sign out logic from Alan's branch
   Future<void> _signOut() async {
@@ -55,6 +59,50 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     } finally {
       if (mounted) {
         setState(() { _isSigningOut = false; });
+      }
+    }
+  }
+
+  Future<void> _pickAndUploadAvatar() async {
+    if (_isUploadingAvatar) return;
+
+    setState(() { _isUploadingAvatar = true; });
+
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 512,
+        maxHeight: 512,
+      );
+
+      if (pickedFile != null && mounted) {
+        final imageFile = File(pickedFile.path);
+        // The notifier now handles invalidation via the version provider
+        final success = await ref.read(cloudNotifierProvider.notifier).uploadAvatar(imageFile);
+
+        if (mounted) {
+          if (success) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Avatar updated successfully!')),
+            );
+          } else {
+             ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(ref.read(cloudNotifierProvider).errorMessage ?? 'Avatar upload failed.')),
+            );
+           }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('An error occurred while picking image: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() { _isUploadingAvatar = false; });
       }
     }
   }
@@ -89,6 +137,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                   child: Column(
                     children: [
                       ProfileHeader(
+                        onAvatarEditPressed: _pickAndUploadAvatar,
                         onBackButtonPressed: () {
                           if (Navigator.canPop(context)) {
                             Navigator.pop(context);
@@ -158,7 +207,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
               },
             ),
 
-          if (_isSigningOut)
+          if (_isSigningOut || _isUploadingAvatar)
             Container(
               color: Colors.black.withOpacity(0.5),
               child: const Center(child: CircularProgressIndicator()),

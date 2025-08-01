@@ -1,5 +1,6 @@
 // lib/providers/cloud_provider.dart
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -52,9 +53,10 @@ class CloudNotifier extends StateNotifier<CloudState> {
   final CloudFileService _cloudService;
   final User _currentUser;
   final Ref _ref;
+  late final Future<void> initializationComplete;
 
   CloudNotifier(this._cloudService, this._currentUser, this._ref) : super(const CloudState()) {
-    initialize();
+    initializationComplete = initialize();
   }
 
   Future<void> initialize() async {
@@ -154,6 +156,7 @@ class CloudNotifier extends StateNotifier<CloudState> {
   }
 
   Future<bool> deleteFileByRelativePath(String relativePath) async {
+    await initializationComplete; // Wait for initialization
     if (state.userRootPath == null) {
       state = state.copyWith(errorMessage: 'User root path not available. Cannot delete file.');
       return false;
@@ -198,6 +201,7 @@ class CloudNotifier extends StateNotifier<CloudState> {
   }
 
   Future<bool> uploadNote(Note note, String vaultRoot) async {
+    await initializationComplete; // Wait for initialization
     if (state.userRootPath == null) {
       state = state.copyWith(errorMessage: 'User root path not available. Cannot upload file.');
       return false;
@@ -221,6 +225,38 @@ class CloudNotifier extends StateNotifier<CloudState> {
       return false;
     }
   }
+
+  Future<bool> uploadAvatar(File imageFile) async {
+    await initializationComplete; // Wait for initialization
+    if (state.userRootPath == null) {
+      state = state.copyWith(errorMessage: 'User root path not available. Cannot upload avatar.');
+      return false;
+    }
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      final cloudPath = '${state.userRootPath!}profile/avatar.png';
+      final fileBytes = await imageFile.readAsBytes();
+
+      await _cloudService.uploadFile(
+        path: cloudPath,
+        fileBytes: fileBytes,
+        fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
+      );
+
+      // Optimistically update local cache to avoid a re-download
+      await _ref.read(localStorageServiceProvider).saveLocalAvatar(fileBytes);
+      
+      // Trigger the version provider to force UI to reload the new avatar
+      _ref.read(avatarVersionProvider.notifier).update((s) => s + 1);
+
+      state = state.copyWith(isLoading: false);
+      return true;
+    } catch (e) {
+      print("Avatar upload failed: $e");
+      state = state.copyWith(isLoading: false, errorMessage: 'Avatar upload failed: ${e.toString()}');
+      return false;
+    }
+  }
 }
 
 final cloudNotifierProvider = StateNotifierProvider<CloudNotifier, CloudState>((ref) {
@@ -237,4 +273,29 @@ final allCloudFilesProvider = FutureProvider<List<CloudFile>>((ref) async {
   final cloudService = ref.read(cloudFileServiceProvider);
   final fileMaps = await cloudService.getAllFiles();
   return fileMaps.map((data) => CloudFile.fromSupabase(data)).toList();
+});
+
+/// A simple provider that acts as a version counter or trigger.
+/// When its value changes, dependent providers will refetch.
+final avatarVersionProvider = StateProvider<int>((ref) => 0);
+
+final localAvatarProvider = FutureProvider<Uint8List?>((ref) async {
+  // Depend on the version provider. When it changes, this provider re-runs.
+  ref.watch(avatarVersionProvider);
+
+  final currentUser = Supabase.instance.client.auth.currentUser;
+  if (currentUser == null) {
+    return null;
+  }
+  
+  final localStorage = ref.read(localStorageServiceProvider);
+  // Get the file with the CORRECT path (no query parameters)
+  final file = await localStorage.getLocalAvatarFile();
+
+  if (await file.exists()) {
+    // Read the file's raw bytes and return them.
+    return await file.readAsBytes();
+  }
+  
+  return null;
 });

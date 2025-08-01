@@ -123,12 +123,14 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> with Si
                           // Handle publish action
                         },
                         style: ElevatedButton.styleFrom(
-                          // backgroundColor: Colors.purple,
+                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                          elevation: 5,
+                          backgroundColor: Theme.of(context).colorScheme.primary,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        child: const Text('publish'),
+                        child: const Text('publish', style: TextStyle(color: Colors.white, fontSize: 17),),
                       ),
                     ]
                 ),

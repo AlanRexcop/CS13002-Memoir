@@ -218,11 +218,22 @@ class _CloudFileBrowserScreenState extends ConsumerState<CloudFileBrowserScreen>
         final subtitleText = person.hasInfoMd
             ? '${person.folderName}\n${person.noteCount} note(s) synced'
             : '${person.noteCount} note(s) synced';
-
+        final colorScheme = Theme.of(context).colorScheme;
         return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          color: colorScheme.secondary,
+          elevation: 5,
+          shape: RoundedRectangleBorder(
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(5),
+              topRight: Radius.circular(25),
+              bottomLeft: Radius.circular(25),
+              bottomRight: Radius.circular(5),
+            ),
+            side: BorderSide(color: colorScheme.outline, width: 2),
+          ),
           child: ListTile(
-            leading: const Icon(Icons.person_outline, size: 40),
+            // leading: const Icon(Icons.person_outline, size: 40),
             title: Text(person.name,
                 style: const TextStyle(fontWeight: FontWeight.bold)),
             subtitle: Text(subtitleText),
@@ -262,9 +273,20 @@ class _CloudFileBrowserScreenState extends ConsumerState<CloudFileBrowserScreen>
       itemBuilder: (context, index) {
         final item = person.notes[index];
         final isInfoNote = item.cloudPath?.endsWith('info.md') ?? false;
-
+        final colorScheme = Theme.of(context).colorScheme;
         return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          color: colorScheme.secondary,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(5),
+              topRight: Radius.circular(25),
+              bottomLeft: Radius.circular(25),
+              bottomRight: Radius.circular(5),
+            ),
+            side: BorderSide(color: colorScheme.outline, width: 2),
+          ),
           child: ListTile(
             leading:
                 Icon(isInfoNote ? Icons.info_outline : Icons.description_outlined),

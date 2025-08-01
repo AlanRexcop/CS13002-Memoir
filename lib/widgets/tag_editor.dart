@@ -147,9 +147,10 @@ class _TagEditorState extends ConsumerState<TagEditor> {
                           hintText: isEditMode ? 'Add a tag...' : 'Filter by tag...',
                         ),
                         onSubmitted: (String value) {
-                          onFieldSubmitted();
                           if (widget.purpose == TagInputPurpose.edit) {
                             _addTag(value);
+                          } else {
+                            onFieldSubmitted();
                           }
                           controller.clear();
                         },

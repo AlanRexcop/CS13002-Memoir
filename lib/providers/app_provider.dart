@@ -304,8 +304,10 @@ class AppNotifier extends StateNotifier<AppState> {
     if (state.storagePath == null) return false;
     try {
       for (final note in [person.info, ...person.notes]) {
+        await _syncService.autoTrash(note);
         await _notificationService.cancelAllNotificationsForNote(note);
       }
+      
       await _localStorageService.softDeletePerson(state.storagePath!, person.path);
       
       final infoFile = File(p.join(state.storagePath!, person.info.path));
@@ -332,26 +334,28 @@ class AppNotifier extends StateNotifier<AppState> {
       final personPath = p.dirname(personInfoNote.path);
       await _localStorageService.restorePerson(state.storagePath!, personPath);
   
-      // This reads the person with ALL notes, including soft-deleted ones.
       final personDir = Directory(p.join(state.storagePath!, personPath));
       final unfilteredRestoredPerson = await _localStorageService.readPersonFromDirectory(personDir, state.storagePath!);
       
-      // --- THE FIX ---
-      // We must filter out the notes that are still meant to be deleted.
-      // Only notes without a deletedDate are considered active.
+      await _syncService.autoRestore(unfilteredRestoredPerson.info);
+      for (final note in unfilteredRestoredPerson.notes) {
+        if (note.deletedDate == null) {
+          await _syncService.autoRestore(note);
+        }
+      }
+
+      // Filter out notes that are still meant to be in the trash for the final state update.
       final activeNotesForRestoredPerson = unfilteredRestoredPerson.notes
           .where((note) => note.deletedDate == null)
           .toList();
   
-      // Create a "clean" person object with only the active notes.
       final cleanRestoredPerson = Person(
         path: unfilteredRestoredPerson.path,
         info: unfilteredRestoredPerson.info,
         notes: activeNotesForRestoredPerson,
       );
-      // --- END OF FIX ---
       
-      final newPersonsList = List<Person>.from(state.persons)..add(cleanRestoredPerson); // Use the clean object
+      final newPersonsList = List<Person>.from(state.persons)..add(cleanRestoredPerson);
       newPersonsList.sort((a,b) => a.info.title.compareTo(b.info.title));
       
       final newDeletedPersonInfos = state.deletedPersonsInfoNotes.where((n) => n.path != personInfoNote.path).toList();
@@ -361,7 +365,7 @@ class AppNotifier extends StateNotifier<AppState> {
         deletedPersonsInfoNotes: newDeletedPersonInfos,
       );
       
-      await _scheduleAllReminders([cleanRestoredPerson]); // Schedule reminders for the clean object
+      await _scheduleAllReminders([cleanRestoredPerson]);
       return true;
     } catch(e) {
       print("Failed to restore person: $e");
@@ -373,6 +377,19 @@ class AppNotifier extends StateNotifier<AppState> {
     if (state.storagePath == null) return false;
     try {
       final personPath = p.dirname(personInfoNote.path);
+      
+      // To ensure cloud files are deleted, we must read the directory before deleting it locally.
+      final personDir = Directory(p.join(state.storagePath!, personPath));
+      if (await personDir.exists()) {
+        final personToDelete = await _localStorageService.readPersonFromDirectory(personDir, state.storagePath!);
+        for (final note in [personToDelete.info, ...personToDelete.notes]) {
+          await _syncService.autoDeletePermanently(note);
+        }
+      } else {
+        // Fallback if directory is already gone, at least try to delete the info note.
+        await _syncService.autoDeletePermanently(personInfoNote);
+      }
+
       await _localStorageService.deletePersonPermanently(state.storagePath!, personPath);
       
       final newDeletedPersonInfos = state.deletedPersonsInfoNotes.where((n) => n.path != personInfoNote.path).toList();
@@ -434,7 +451,7 @@ class AppNotifier extends StateNotifier<AppState> {
   Future<bool> deleteNote(Note noteToDelete) async {
     if (state.storagePath == null) return false;
     try {
-      await _syncService.autoDelete(noteToDelete);
+      await _syncService.autoTrash(noteToDelete);
       await _notificationService.cancelAllNotificationsForNote(noteToDelete);
       
       final now = DateTime.now();
@@ -462,14 +479,21 @@ class AppNotifier extends StateNotifier<AppState> {
   Future<bool> restoreNote(Note noteToRestore) async {
     if (state.storagePath == null) return false;
     try {
+      // Safety check to prevent restoring a note if its parent person is also deleted.
+      final personPath = p.dirname(p.dirname(noteToRestore.path));
+      final isPersonDeleted = state.deletedPersonsInfoNotes.any((info) => p.dirname(info.path) == personPath);
+      if (isPersonDeleted) {
+        print("Cannot restore note because its parent person is also in the trash. Please restore the person first.");
+        return false;
+      }
+      
+      await _syncService.autoRestore(noteToRestore);
       await _localStorageService.setNoteDeleted(state.storagePath!, noteToRestore.path, null);
 
       final file = File(p.join(state.storagePath!, noteToRestore.path));
       final restoredNote = await _localStorageService.readNoteFromFile(file, state.storagePath!);
       
       final newDeletedNotes = state.deletedNotes.where((n) => n.path != noteToRestore.path).toList();
-      
-      String personPath = p.dirname(p.dirname(noteToRestore.path));
       
       final newPersonsList = state.persons.map((person) {
         if (person.path == personPath) {
@@ -494,6 +518,7 @@ class AppNotifier extends StateNotifier<AppState> {
   Future<bool> deleteNotePermanently(Note noteToDelete) async {
     if (state.storagePath == null) return false;
     try {
+      await _syncService.autoDeletePermanently(noteToDelete);
       await _notificationService.cancelAllNotificationsForNote(noteToDelete);
       await _localStorageService.deleteNote(state.storagePath!, noteToDelete.path);
       

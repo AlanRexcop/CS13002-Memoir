@@ -1,9 +1,10 @@
+// C:\dev\memoir\lib\screens\person_list_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // import 'package:memoir/models/person_model.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/screens/notification_screen.dart';
-import 'package:memoir/screens/person_detail_screen.dart';
+import 'package:memoir/screens/person_detail/person_detail_screen.dart';
 import '../widgets/custom_float_button.dart';
 import '../widgets/tag.dart';
 import 'package:memoir/screens/graph_view_screen.dart';
@@ -382,7 +383,7 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
                                       ? person.info.tags.sublist(0, maxTagsToShow)
                                       : person.info.tags)
                                       .map((tag) => Tag(label: _formatTagName(tag)))
-                                      .toList(),
+                                      ,
                                   if (person.info.tags.length > maxTagsToShow)
                                     Tag(label: '+${person.info.tags.length - maxTagsToShow}'),
                                 ],

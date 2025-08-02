@@ -1,3 +1,4 @@
+// C:\dev\memoir\lib\screens\calendar_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -63,9 +64,18 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final Map<DateTime, List<CalendarEventEntry>> eventsSource = {};
 
     // Get the visible range from the calendar to optimize instance generation.
+    // Instead of just the focused month, we need the entire visible grid range,
+    // which for `CalendarFormat.month` is typically 6 weeks.
     final firstDayOfMonth = DateTime.utc(_focusedDay.year, _focusedDay.month, 1);
-    final lastDayOfMonth =
-    DateTime.utc(_focusedDay.year, _focusedDay.month + 1, 0, 23, 59, 59);
+    
+    // The calendar's default starting day is Sunday. `DateTime.weekday` is 7 for Sunday.
+    // This calculation finds the Sunday on or before the first day of the month.
+    final daysToSubtract = firstDayOfMonth.weekday % 7;
+    final firstVisibleDay = firstDayOfMonth.subtract(Duration(days: daysToSubtract));
+
+    // The end of the visible range is 6 weeks (42 days) after the start.
+    final lastVisibleDay = firstVisibleDay.add(const Duration(days: 42));
+
 
     for (var person in allPersons) {
       for (var note in [person.info, ...person.notes]) {
@@ -85,7 +95,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               final rrule = RecurrenceRule.from(rruleString);
               if (rrule != null) {
                 final instances = rrule.between(
-                    firstDayOfMonth.toUtc(), lastDayOfMonth.toUtc());
+                    firstVisibleDay.toUtc(), lastVisibleDay.toUtc());
                 for (final instance in instances) {
                   final dayKey =
                   DateTime.utc(instance.year, instance.month, instance.day);

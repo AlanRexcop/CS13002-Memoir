@@ -60,7 +60,7 @@ Future<void> main() async {
   if (Supabase.instance.client.auth.currentSession != null) {
     container.read(cloudNotifierProvider);
   }
-  
+   
   // Use UncontrolledProviderScope to pass our pre-configured container to the app.
   runApp(
     UncontrolledProviderScope(

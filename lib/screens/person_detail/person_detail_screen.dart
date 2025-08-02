@@ -1,12 +1,15 @@
 // C:\dev\memoir\lib\screens\person_detail\person_detail_screen.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/models/person_model.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/screens/person_list_screen.dart';
+import 'package:memoir/widgets/image_viewer.dart';
 import 'package:memoir/widgets/tag.dart';
 import 'info_tab.dart';
 import 'notes_tab.dart';
+import 'package:path/path.dart' as p;
 
 class PersonDetailScreen extends ConsumerStatefulWidget {
   final Person person;
@@ -33,17 +36,22 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> with Si
     super.dispose();
   }
 
-  // NEW: Function to handle mentioning the person directly
   void _mentionThisPerson() {
     final person = widget.person;
-    // Prepare the result map that the note editor expects
     final result = {
       'text': person.info.title,
       'path': person.info.path,
     };
-    // Pop the screen and return the result
     Navigator.of(context).pop(result);
   }
+
+  void _showImageViewer(BuildContext context, Widget imageWidget, String heroTag) {
+    Navigator.of(context).push(PageRouteBuilder(
+      opaque: false,
+      pageBuilder: (_, __, ___) => ImageViewer(heroTag: heroTag, child: imageWidget),
+    ));
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -52,6 +60,46 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> with Si
           orElse: () => widget.person,
         );
     final colorScheme = Theme.of(context).colorScheme;
+    final vaultRoot = ref.watch(appProvider).storagePath;
+    final infoNote = updatedPerson.info;
+    
+    File? avatarFile;
+    if (vaultRoot != null && infoNote.images.isNotEmpty) {
+      final decodedPath = Uri.decodeFull(infoNote.images.first);
+      final file = File(p.join(vaultRoot, decodedPath));
+      if (file.existsSync()) {
+        avatarFile = file;
+      }
+    }
+
+    Widget avatarDisplay;
+    if (avatarFile != null) {
+      avatarDisplay = CircleAvatar(
+        radius: 25,
+        backgroundImage: FileImage(avatarFile),
+      );
+    } else {
+      avatarDisplay = CircleAvatar(
+        radius: 25,
+        backgroundColor: Colors.white,
+        child: Icon(
+          infoNote.images.isNotEmpty ? Icons.broken_image : Icons.person,
+          size: 30,
+          color: colorScheme.primary
+        ),
+      );
+    }
+    
+    // Create the tappable avatar widget
+    Widget interactiveAvatar = GestureDetector(
+      onTap: () {
+        if (avatarFile != null) {
+          _showImageViewer(context, Image.file(avatarFile), avatarFile.path);
+        }
+      },
+      child: avatarDisplay,
+    );
+
 
     return Scaffold(
       appBar: AppBar(
@@ -71,15 +119,10 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> with Si
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: Colors.white,
-                    child: Icon(
-                      Icons.person,
-                      size: 45,
-                      color: colorScheme.primary,
-                    ),
-                  ),
+                  // Use the Hero widget only if we have a valid avatar file
+                  avatarFile != null 
+                    ? Hero(tag: avatarFile.path, child: interactiveAvatar) 
+                    : interactiveAvatar,
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(
@@ -104,7 +147,6 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> with Si
                       ],
                     ),
                   ),
-                  // MODIFIED: Conditionally show buttons based on the purpose
                   if (widget.purpose == ScreenPurpose.select)
                     ElevatedButton.icon(
                       icon: const Icon(Icons.alternate_email, size: 18),

@@ -1,5 +1,6 @@
 // C:\dev\memoir\lib\screens\note_editor_screen.dart
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +11,7 @@ import 'package:memoir/screens/event_creation_screen.dart';
 import 'package:memoir/screens/image_gallery_screen.dart';
 import 'package:memoir/screens/map_screen.dart';
 import 'package:memoir/screens/person_list_screen.dart';
+import 'package:memoir/services/markdown_analyzer_service.dart';
 import 'package:memoir/widgets/markdown_toolbar.dart';
 import 'package:memoir/widgets/tag_editor.dart';
 import 'package:path/path.dart' as p;
@@ -51,8 +53,12 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   late List<String> _currentTags;
   String _initialBody = '';
   late List<String> _initialTags;
+  
+  String? _initialAvatarPath;
+  String? _selectedAvatarPath;
 
   bool _isContentLoaded = false;
+  late bool _isInfoNote;
 
   @override
   void initState() {
@@ -62,6 +68,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     _bodyFocusNode = FocusNode();
     _currentTags = [];
     _initialTags = [];
+    _isInfoNote = p.basename(widget.notePath) == 'info.md';
   }
 
   bool get _hasUnsavedChanges {
@@ -69,7 +76,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     final titleChanged = _titleController.text != _initialTitle;
     final tagsChanged = !listEquals(_currentTags, _initialTags);
     final bodyChanged = _bodyController.text != _initialBody;
-    return titleChanged || tagsChanged || bodyChanged;
+    final avatarChanged = _selectedAvatarPath != _initialAvatarPath;
+    return titleChanged || tagsChanged || bodyChanged || avatarChanged;
   }
 
   void _onNoteContentChanged() {
@@ -82,6 +90,21 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     _debounce = Timer(const Duration(seconds: 2), _autoSaveNote);
   }
 
+  Future<void> _selectAvatar() async {
+    final relativePath = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (context) => const ImageGalleryScreen(purpose: ScreenPurpose.select),
+      ),
+    );
+
+    if (relativePath != null) {
+      setState(() {
+        _selectedAvatarPath = relativePath;
+      });
+      _onNoteContentChanged(); // Trigger save logic
+    }
+  }
+  
   void _wrapSelectionWithSyntax({required String prefix, String suffix = ''}) {
     _bodyFocusNode.requestFocus();
     final currentText = _bodyController.text;
@@ -298,25 +321,44 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     originalNoteAsync.whenData((originalNote) async {
       try {
         final service = ref.read(localStorageServiceProvider);
+        final newMarkdownBody = _bodyController.text;
 
+        // Analyze the new body to get all images
+        final analysis = analyzeMarkdown(newMarkdownBody);
+        
+        // Construct the final ordered list of images.
+        // The explicitly selected avatar always comes first.
+        final List<String> finalImages = [];
+        if (_selectedAvatarPath != null) {
+          finalImages.add(_selectedAvatarPath!);
+        }
+        for (final img in analysis.images) {
+          if (img != _selectedAvatarPath) {
+            finalImages.add(img);
+          }
+        }
+        
         final updatedNote = Note(
           path: originalNote.path,
           title: _titleController.text.trim(),
           creationDate: originalNote.creationDate,
           lastModified: DateTime.now(),
           tags: _currentTags,
+          images: finalImages,
         );
+
 
         final absolutePath = p.join(vaultRoot, widget.notePath);
         await service.writeNote(
             path: absolutePath,
             note: updatedNote,
-            markdownBody: _bodyController.text
+            markdownBody: newMarkdownBody
         );
 
         _initialTitle = _titleController.text.trim();
         _initialBody = _bodyController.text;
         _initialTags = List<String>.from(_currentTags);
+        _initialAvatarPath = _selectedAvatarPath;
 
         await ref.read(appProvider.notifier).updateNote(widget.notePath);
 
@@ -434,6 +476,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   @override
   Widget build(BuildContext context) {
     final asyncNote = ref.watch(noteProvider(widget.notePath));
+    final vaultRoot = ref.watch(appProvider).storagePath;
 
     return WillPopScope(
       onWillPop: _onWillPop,
@@ -458,6 +501,9 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                   _currentTags = List<String>.from(note.tags);
                   _initialTags = List<String>.from(note.tags);
 
+                  _initialAvatarPath = note.images.isNotEmpty ? note.images.first : null;
+                  _selectedAvatarPath = _initialAvatarPath;
+
                   final body = rawContent.startsWith('---')
                       ? rawContent.split('---').sublist(2).join('---').trim()
                       : rawContent;
@@ -472,6 +518,16 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                     }
                   });
                 }
+                
+                Widget avatarWidget;
+                if (vaultRoot != null && _selectedAvatarPath != null) {
+                  final avatarFile = File(p.join(vaultRoot, _selectedAvatarPath!));
+                  avatarWidget = avatarFile.existsSync()
+                      ? CircleAvatar(backgroundImage: FileImage(avatarFile), radius: 40)
+                      : CircleAvatar(radius: 40, child: Icon(Icons.broken_image));
+                } else {
+                  avatarWidget = CircleAvatar(radius: 40, child: Icon(Icons.person_add_alt_1));
+                }
 
                 return LayoutBuilder(
                     builder: (context, constraints) {
@@ -483,6 +539,49 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                           child: IntrinsicHeight(
                             child: Column(
                               children: [
+                                if (_isInfoNote)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 16.0),
+                                    child: Center(
+                                      child: Stack(
+                                        clipBehavior: Clip.none,
+                                        children: [
+                                          GestureDetector(
+                                            onTap: _selectAvatar,
+                                            child: avatarWidget,
+                                          ),
+                                          Positioned(
+                                            bottom: -4,
+                                            right: -4,
+                                            child: GestureDetector(
+                                              onTap: _selectAvatar,
+                                              child: CircleAvatar(
+                                                radius: 15,
+                                                backgroundColor: Theme.of(context).colorScheme.primary,
+                                                child: const Icon(Icons.edit, size: 16, color: Colors.white),
+                                              ),
+                                            ),
+                                          ),
+                                          if (_selectedAvatarPath != null)
+                                            Positioned(
+                                              top: -4,
+                                              left: -4,
+                                              child: GestureDetector(
+                                                onTap: () {
+                                                  setState(() => _selectedAvatarPath = null);
+                                                  _onNoteContentChanged();
+                                                },
+                                                child: const CircleAvatar(
+                                                  radius: 15,
+                                                  backgroundColor: Colors.red,
+                                                  child: Icon(Icons.close, size: 16, color: Colors.white),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                                 Padding(
                                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                                   child: TextField(

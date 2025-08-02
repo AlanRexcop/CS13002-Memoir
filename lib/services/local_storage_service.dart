@@ -1,3 +1,4 @@
+// C:\dev\memoir\lib\services\local_storage_service.dart
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
@@ -53,6 +54,10 @@ class LocalStorageService {
         'LastModified': note.lastModified.toIso8601String(),
         'Tags': note.tags,
       };
+
+      if (note.images.isNotEmpty) {
+        frontmatter['Avatar'] = note.images.first;
+      }
 
       // Use a writer for clean YAML output
       final yamlWriter = YAMLWriter();
@@ -138,6 +143,7 @@ class LocalStorageService {
     String noteMainContent = fileContent;
     List<String> tags = [];
     DateTime? deletedDate;
+    String? avatarPath;
 
     if (fileContent.startsWith('---')) {
       final parts = fileContent.split('---');
@@ -166,6 +172,10 @@ class LocalStorageService {
             if (yamlMap['deleted_date'] != null) {
               deletedDate = DateTime.tryParse(yamlMap['deleted_date'].toString());
             }
+
+            if (yamlMap['Avatar'] != null) {
+              avatarPath = yamlMap['Avatar'].toString();
+            }
           }
         } catch (e) {
           print("Error parsing YAML for file ${file.path}: $e");
@@ -174,12 +184,26 @@ class LocalStorageService {
     }
 
     final analysis = analyzeMarkdown(noteMainContent);
+    final List<String> orderedImages = [];
+    if (avatarPath != null) {
+      orderedImages.add(avatarPath);
+      // Add other images, ensuring no duplicates
+      for (final img in analysis.images) {
+        if (img != avatarPath) {
+          orderedImages.add(img);
+        }
+      }
+    } else {
+      orderedImages.addAll(analysis.images);
+    }
+    
     return Note(
       path: p.relative(file.path, from: vaultRoot), 
       title: noteTitle,
       creationDate: creationDate, 
       lastModified: lastModified,
       tags: tags,
+      images: orderedImages,
       events: analysis.events,
       mentions: analysis.mentions,
       locations: analysis.locations,
@@ -300,19 +324,42 @@ class LocalStorageService {
 
     final infoFileAbsolutePath = p.join(personDir.path, 'info.md');
     final now = DateTime.now();
+    final trimmedName = personName.trim();
 
     // The note's title is the human-readable name, but its path is based on the generated ID.
     final newPersonNote = Note(
         path: p.relative(infoFileAbsolutePath, from: parentPath),
-        title: personName.trim(), 
+        title: trimmedName, 
         creationDate: now,
         lastModified: now,
-        tags: const ['new']);
+        tags: const []);
+        
+    // Format it to YYYY-MM-DDTHH:MM:SS
+    final formattedDate = now.toIso8601String().split('.').first;
+
+    // Create the default markdown body using the new template
+    final markdownBody = """
+❤️ First met on:
+
+ {event}[first met $trimmedName]($formattedDate) 
+
+🎂Birthday:
+
+...
+
+📞Phone:
+
+...
+
+🗺️Address:
+
+...
+""";
 
     await writeNote(
         path: infoFileAbsolutePath, 
         note: newPersonNote, 
-        markdownBody: "# ${personName.trim()}\n\nThis is the main information file for ${personName.trim()}.");
+        markdownBody: markdownBody);
         
     return await readPersonFromDirectory(personDir, parentPath);
   }

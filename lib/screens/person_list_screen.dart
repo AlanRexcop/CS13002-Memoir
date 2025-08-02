@@ -1,7 +1,8 @@
 // C:\dev\memoir\lib\screens\person_list_screen.dart
+import 'dart:io';
+import 'package:path/path.dart' as p;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-// import 'package:memoir/models/person_model.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/screens/notification_screen.dart';
 import 'package:memoir/screens/person_detail/person_detail_screen.dart';
@@ -313,6 +314,36 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
                   const int maxTagsToShow = 2;
                   final isSelected = _selectedItems.contains(person.path);
 
+                  // --- AVATAR LOGIC ---
+                  final vaultRoot = appState.storagePath;
+                  final infoNote = person.info;
+                  Widget avatarWidget;
+
+                  if (vaultRoot != null && infoNote.images.isNotEmpty) {
+                    final decodedPath = Uri.decodeFull(infoNote.images.first);
+                    final avatarFile = File(p.join(vaultRoot, decodedPath));
+
+                    if (avatarFile.existsSync()) {
+                      avatarWidget = CircleAvatar(
+                        backgroundImage: FileImage(avatarFile),
+                      );
+                    } else {
+                      avatarWidget = CircleAvatar(
+                        backgroundColor: Colors.white,
+                        child: Icon(Icons.broken_image, color: colorScheme.primary),
+                      );
+                    }
+                  } else {
+                    avatarWidget = CircleAvatar(
+                      backgroundColor: Colors.white,
+                      child: Icon(
+                        Icons.person,
+                        color: colorScheme.primary,
+                      ),
+                    );
+                  }
+                  // --- END AVATAR LOGIC ---
+
                   return Dismissible(
                     key: ValueKey(person.path),
                     direction: (widget.purpose == ScreenPurpose.view && !_isSelectionMode)
@@ -359,13 +390,7 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
                           _toggleSelection(person.path);
                         },
                       )
-                          : CircleAvatar(
-                        backgroundColor: Colors.white,
-                        child: Icon(
-                          Icons.person,
-                          color: colorScheme.primary,
-                        ),
-                      ),
+                          : avatarWidget,
                       title: Text(person.info.title, style: const TextStyle(fontWeight: FontWeight.bold)),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,

@@ -123,10 +123,26 @@ class LocationSyntax extends md.InlineSyntax {
   }
 }
 
+class ImageSyntax extends md.InlineSyntax {
+  ImageSyntax() : super(r'!\[(.*?)\]\((.*?)\)');
+
+  @override
+  bool onMatch(md.InlineParser parser, Match match) {
+    final String src = match.group(2)!;
+
+    final element = md.Element.withTag('mimage');
+    element.attributes['data-src'] = src;
+
+    parser.addNode(element);
+    return true;
+  }
+}
+
 class MarkdownAstVisitor implements md.NodeVisitor {
   final List<Mention> mentions = [];
   final List<Event> events = [];
   final List<Location> locations = [];
+  final List<String> images = [];
 
   @override
   bool visitElementBefore(md.Element element) {
@@ -174,6 +190,10 @@ class MarkdownAstVisitor implements md.NodeVisitor {
         final value = element.attributes['data-value']!;
         mentions.add(Mention(info: text, path: value));
         break;
+      case 'mimage':
+        final src = element.attributes['data-src']!;
+        images.add(src);
+        break;
     }
   }
 }
@@ -185,6 +205,7 @@ MarkdownAstVisitor analyzeMarkdown(String markdownContent) {
       LocationSyntax(),
       EventSyntax(),
       MentionSyntax(),
+      ImageSyntax(),
     ],
     extensionSet: md.ExtensionSet.gitHubFlavored,
   );

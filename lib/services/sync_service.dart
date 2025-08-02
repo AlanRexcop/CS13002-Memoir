@@ -14,31 +14,54 @@ class SyncService {
 
   SyncService(this._ref);
 
+  /// Helper to find a CloudFile by its local relative path.
+  Future<CloudFile?> _findCloudFileByPath(String relativePath) async {
+    try {
+      await _ref.refresh(allCloudFilesProvider.future);
+      final allCloudFiles = await _ref.read(allCloudFilesProvider.future);
+      final normalizedLocalPath = relativePath.replaceAll(r'\', '/');
+      
+      return allCloudFiles.firstWhere(
+        (cf) => (cf.cloudPath?.endsWith(normalizedLocalPath) ?? false) && !cf.isFolder,
+      );
+    } catch (e) {
+      return null;
+    }
+  }
+  
+  /// Helper to find a CloudFolder by its local relative path.
+  Future<CloudFile?> _findCloudFolderByPath(String relativePath) async {
+    try {
+      await _ref.refresh(allCloudFilesProvider.future);
+      final allCloudFiles = await _ref.read(allCloudFilesProvider.future);
+      // Folder paths in the cloud won't have a trailing slash
+      final normalizedLocalPath = relativePath.replaceAll(r'\', '/').replaceAll(RegExp(r'/$'), '');
+      
+      return allCloudFiles.firstWhere(
+        (cf) => (cf.cloudPath?.endsWith(normalizedLocalPath) ?? false) && cf.isFolder,
+      );
+    } catch (e) {
+      return null;
+    }
+  }
+
   Future<void> autoUpload(Note note, String vaultRoot) async {
     // Read necessary providers within the method
     final user = _ref.read(supabaseProvider).auth.currentUser;
     if (user == null) return; // Not signed in, do nothing
 
     try {
-      // Refresh the list to ensure it's up-to-date before checking
-      await _ref.refresh(allCloudFilesProvider.future);
-      final allCloudFiles = await _ref.read(allCloudFilesProvider.future);
-      final normalizedLocalPath = note.path.replaceAll(r'\', '/');
-      final isSynced = allCloudFiles.any((cf) => cf.cloudPath?.endsWith(normalizedLocalPath) ?? false);
+      final cloudFile = await _findCloudFileByPath(note.path);
 
       // If the note exists in the cloud, upload the new version
-      if (isSynced) {
+      if (cloudFile?.cloudPath != null) {
         print('Auto-sync: Uploading changes for ${note.path}');
         final cloudService = _ref.read(cloudFileServiceProvider);
         
-        final rootFolder = await cloudService.getUserRootFolder(user.id);
-        final userRootPath = rootFolder['path'] as String;
-        final cloudPath = '$userRootPath/$normalizedLocalPath';
-
         final localStorage = _ref.read(localStorageServiceProvider);
         final fileBytes = await localStorage.readRawFileByte(vaultRoot, note.path);
         
-        await cloudService.uploadFile(path: cloudPath, fileBytes: fileBytes);
+        await cloudService.uploadFile(path: cloudFile!.cloudPath!, fileBytes: fileBytes);
         print('Auto-sync: Upload complete for ${note.path}');
       }
     } catch (e) {
@@ -46,33 +69,102 @@ class SyncService {
     }
   }
 
-  Future<void> autoDelete(Note note) async {
+  Future<void> autoTrash(Note note) async {
     final user = _ref.read(supabaseProvider).auth.currentUser;
-    if (user == null) return; // Not signed in, do nothing
+    if (user == null) return;
 
     try {
-      // Refresh the list to ensure it's up-to-date before checking
-      await _ref.refresh(allCloudFilesProvider.future);
-      final allCloudFiles = await _ref.read(allCloudFilesProvider.future);
-      final normalizedLocalPath = note.path.replaceAll(r'\', '/');
-      
-      final cloudFile = allCloudFiles.firstWhere(
-        (cf) => cf.cloudPath?.endsWith(normalizedLocalPath) ?? false,
-        orElse: () => CloudFile(name: '', size: 0, lastModified: DateTime.now()), // Dummy
-      );
+      final cloudFile = await _findCloudFileByPath(note.path);
 
-      if (cloudFile.cloudPath != null) {
-        print('Auto-sync: Deleting ${cloudFile.cloudPath} from cloud storage.');
+      if (cloudFile?.id != null) {
+        print('Auto-sync: Trashing ${cloudFile!.cloudPath} in cloud storage.');
+        final cloudService = _ref.read(cloudFileServiceProvider);
+        
+        await cloudService.trashFile(fileId: cloudFile.id!);
+        print('Auto-sync: Cloud trash complete for ${cloudFile.cloudPath}.');
+        
+        _ref.invalidate(allCloudFilesProvider);
+      }
+    } catch (e) {
+      print('Auto-sync: Failed to trash cloud file for ${note.path}. Error: $e');
+    }
+  }
+  
+  Future<void> autoRestore(Note note) async {
+    final user = _ref.read(supabaseProvider).auth.currentUser;
+    if (user == null) return;
+
+    try {
+      final cloudFile = await _findCloudFileByPath(note.path);
+
+      if (cloudFile?.id != null) {
+        print('Auto-sync: Restoring ${cloudFile!.cloudPath} from cloud trash.');
+        final cloudService = _ref.read(cloudFileServiceProvider);
+        
+        await cloudService.restoreFile(fileId: cloudFile.id!);
+        print('Auto-sync: Cloud restore complete for ${cloudFile.cloudPath}.');
+        
+        _ref.invalidate(allCloudFilesProvider);
+      }
+    } catch (e) {
+      print('Auto-sync: Failed to restore cloud file for ${note.path}. Error: $e');
+    }
+  }
+
+  Future<void> autoDeletePermanently(Note note) async {
+    final user = _ref.read(supabaseProvider).auth.currentUser;
+    if (user == null) return;
+
+    try {
+      final cloudFile = await _findCloudFileByPath(note.path);
+
+      if (cloudFile?.cloudPath != null) {
+        print('Auto-sync: Deleting ${cloudFile!.cloudPath} from cloud storage.');
         final cloudService = _ref.read(cloudFileServiceProvider);
         
         await cloudService.deleteFile(path: cloudFile.cloudPath!);
         print('Auto-sync: Cloud deletion complete for ${cloudFile.cloudPath}.');
         
-        // Invalidate the provider so the UI shows the correct status on the next build
         _ref.invalidate(allCloudFilesProvider);
       }
     } catch (e) {
       print('Auto-sync: Failed to delete cloud file for ${note.path}. Error: $e');
+    }
+  }
+
+  // NEW: Trashes an entire folder recursively using its relative path.
+  Future<void> autoTrashByPath(String relativePath) async {
+    final user = _ref.read(supabaseProvider).auth.currentUser;
+    if (user == null) return;
+
+    try {
+      final cloudFolder = await _findCloudFolderByPath(relativePath);
+      if (cloudFolder?.id != null) {
+        print('Auto-sync: Recursively trashing folder ${cloudFolder!.cloudPath}');
+        final cloudService = _ref.read(cloudFileServiceProvider);
+        await cloudService.trashFile(fileId: cloudFolder.id!);
+        _ref.invalidate(allCloudFilesProvider);
+      }
+    } catch (e) {
+       print('Auto-sync: Failed to trash folder for path $relativePath. Error: $e');
+    }
+  }
+
+  // NEW: Restores an entire folder recursively using its relative path.
+  Future<void> autoRestoreByPath(String relativePath) async {
+    final user = _ref.read(supabaseProvider).auth.currentUser;
+    if (user == null) return;
+
+    try {
+      final cloudFolder = await _findCloudFolderByPath(relativePath);
+      if (cloudFolder?.id != null) {
+        print('Auto-sync: Recursively restoring folder ${cloudFolder!.cloudPath}');
+        final cloudService = _ref.read(cloudFileServiceProvider);
+        await cloudService.restoreFile(fileId: cloudFolder.id!);
+        _ref.invalidate(allCloudFilesProvider);
+      }
+    } catch (e) {
+       print('Auto-sync: Failed to restore folder for path $relativePath. Error: $e');
     }
   }
 }

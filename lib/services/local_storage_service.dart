@@ -430,4 +430,25 @@ class LocalStorageService {
       print("Error deleting local avatar: $e");
     }
   }
+
+  Future<File> getLocalBackgroundFile() async {
+    final directory = await getApplicationSupportDirectory();
+    return File(p.join(directory.path, 'background.png'));
+  }
+
+  Future<File> saveLocalBackground(Uint8List bytes) async {
+    final file = await getLocalBackgroundFile();
+    return await file.writeAsBytes(bytes);
+  }
+
+  Future<void> deleteLocalBackground() async {
+    try {
+      final file = await getLocalBackgroundFile();
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (e) {
+      print("Error deleting local background: $e");
+    }
+  }
 }

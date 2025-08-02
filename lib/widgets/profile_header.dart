@@ -6,24 +6,35 @@ import 'package:memoir/providers/cloud_provider.dart';
 class ProfileHeader extends ConsumerWidget {
   final VoidCallback? onBackButtonPressed;
   final VoidCallback? onAvatarEditPressed;
+  final VoidCallback? onBackgroundEditPressed;
 
   const ProfileHeader({
     super.key,
     this.onBackButtonPressed,
     this.onAvatarEditPressed,
+    this.onBackgroundEditPressed,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final avatarAsync = ref.watch(localAvatarProvider);
+    final backgroundAsync = ref.watch(localBackgroundProvider);
 
     final avatarImage = avatarAsync.when(
       data: (bytes) => (bytes != null)
-          ? MemoryImage(bytes) as ImageProvider // Use MemoryImage for the bytes
+          ? MemoryImage(bytes) as ImageProvider
           : const AssetImage('assets/avatar.png'),
       loading: () => const AssetImage('assets/avatar.png'),
       error: (_, __) => const AssetImage('assets/avatar.png'),
+    );
+
+    final backgroundImage = backgroundAsync.when(
+      data: (bytes) => (bytes != null)
+          ? MemoryImage(bytes) as ImageProvider
+          : const AssetImage('assets/bgProfile.png'),
+      loading: () => const AssetImage('assets/bgProfile.png'),
+      error: (_, __) => const AssetImage('assets/bgProfile.png'),
     );
 
     return Stack(
@@ -33,9 +44,9 @@ class ProfileHeader extends ConsumerWidget {
         Container(
           height: 200,
           width: double.infinity,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             image: DecorationImage(
-              image: AssetImage('assets/bgProfile.png'),
+              image: backgroundImage,
               fit: BoxFit.cover,
             ),
           ),
@@ -54,6 +65,25 @@ class ProfileHeader extends ConsumerWidget {
               onPressed: onBackButtonPressed,
             ),
           )
+        ),
+        
+        Positioned(
+          top: 0,
+          right: 0,
+          child: SafeArea(
+            child: IconButton(
+              icon: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.4),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.edit, color: Colors.white, size: 20),
+              ),
+              onPressed: onBackgroundEditPressed,
+              tooltip: 'Change background image',
+            ),
+          ),
         ),
 
         Positioned(

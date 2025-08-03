@@ -455,4 +455,9 @@ class LocalStorageService {
     // Return the relative path for use in Markdown
     return p.join('images', uniqueFilename);
   }
+
+  Future<bool> imageExists(String vaultRoot, String relativeImagePath) async {
+    final absolutePath = p.join(vaultRoot, relativeImagePath);
+    return await File(absolutePath).exists();
+  }
 }

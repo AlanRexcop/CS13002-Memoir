@@ -1,6 +1,7 @@
-// lib/providers/cloud_provider.dart
+// C:\dev\memoir\lib\providers\cloud_provider.dart
 import 'dart:io';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/models/cloud_file.dart';
@@ -197,6 +198,46 @@ class CloudNotifier extends StateNotifier<CloudState> {
     }
   }
 
+  Future<bool> downloadNoteAndImages(CloudFile noteFile, String vaultRoot) async {
+    if (noteFile.cloudPath == null || state.userRootPath == null) return false;
+    try {
+      // 1. Download the main note file
+      await downloadFile(noteFile, vaultRoot);
+
+      // 2. Read the newly downloaded note to get its image list
+      final localStorage = _ref.read(localStorageServiceProvider);
+      final relativeNotePath = noteFile.cloudPath!.replaceFirst(state.userRootPath!, '');
+      final localNoteFile = File(p.join(vaultRoot, relativeNotePath));
+      final note = await localStorage.readNoteFromFile(localNoteFile, vaultRoot);
+
+      // 3. Download missing images
+      if (note.images.isNotEmpty) {
+        // --- FIX: Refresh the cloud file list to ensure we have the latest data ---
+        await _ref.refresh(allCloudFilesProvider.future);
+        final allCloudFiles = await _ref.read(allCloudFilesProvider.future);
+        // --- END FIX ---
+
+        for (final relativeImagePath in note.images) {
+          final localImageExists = await localStorage.imageExists(vaultRoot, relativeImagePath);
+          if (!localImageExists) {
+            final cloudImagePath = '${state.userRootPath!}${relativeImagePath.replaceAll(r'\', '/')}';
+            final cloudImageFile = allCloudFiles.firstWhereOrNull((f) => f.cloudPath == cloudImagePath);
+            if (cloudImageFile != null) {
+              print('Downloading missing image: $relativeImagePath');
+              await downloadFile(cloudImageFile, vaultRoot);
+            } else {
+              print('Could not find cloud file for image: $relativeImagePath');
+            }
+          }
+        }
+      }
+      return true;
+    } catch (e) {
+      print('Error downloading note and images: $e');
+      return false;
+    }
+  }
+
   Future<bool> uploadNote(Note note, String vaultRoot) async {
     if (state.userRootPath == null) {
       state = state.copyWith(errorMessage: 'User root path not available. Cannot upload file.');
@@ -205,12 +246,31 @@ class CloudNotifier extends StateNotifier<CloudState> {
     try {
       final localStorage = _ref.read(localStorageServiceProvider);
       
+      // 1. Upload the main note file
       final localRelativePath = note.path;
-      final cloudPath = '${state.userRootPath!}/${localRelativePath.replaceAll(r'\', '/')}';
+      final cloudPath = '${state.userRootPath!}${localRelativePath.replaceAll(r'\', '/')}';
       final fileBytes = await localStorage.readRawFileByte(vaultRoot, localRelativePath);
 
       await _cloudService.uploadFile(path: cloudPath, fileBytes: fileBytes);
-      
+
+      // 2. Upload any associated images that don't exist in the cloud
+      if (note.images.isNotEmpty) {
+        // Get an up-to-date list of all cloud files
+        await _ref.refresh(allCloudFilesProvider.future);
+        final allCloudFiles = await _ref.read(allCloudFilesProvider.future);
+        
+        for (final relativeImagePath in note.images) {
+          final cloudImagePath = '${state.userRootPath!}${relativeImagePath.replaceAll(r'\', '/')}';
+          final cloudFileExists = allCloudFiles.any((cf) => cf.cloudPath == cloudImagePath);
+
+          if (!cloudFileExists) {
+            print('Uploading new image: $relativeImagePath');
+            final imageBytes = await localStorage.readRawFileByte(vaultRoot, relativeImagePath);
+            await _cloudService.uploadFile(path: cloudImagePath, fileBytes: imageBytes);
+          }
+        }
+      }
+
       _ref.invalidate(allCloudFilesProvider);
       await refreshCurrentFolder();
 

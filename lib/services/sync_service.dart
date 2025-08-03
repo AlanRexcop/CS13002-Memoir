@@ -1,4 +1,4 @@
-// lib/services/sync_service.dart
+// C:\dev\memoir\lib\services\sync_service.dart
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -46,31 +46,54 @@ class SyncService {
   }
 
   Future<void> autoUpload(Note note, String vaultRoot) async {
-    // Read necessary providers within the method
-    final user = _ref.read(supabaseProvider).auth.currentUser;
-    if (user == null) return; // Not signed in, do nothing
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return; 
+
+    final cloudState = _ref.read(cloudNotifierProvider);
+    final userRootPath = cloudState.userRootPath;
+    if (userRootPath == null) return;
+
+    final localStorage = _ref.read(localStorageServiceProvider);
+    final cloudService = _ref.read(cloudFileServiceProvider);
 
     try {
+      // 1. Upload the main note file if it exists in the cloud, otherwise it's a new file.
+      // This logic assumes a note is only auto-uploaded if it has a corresponding cloud entry.
+      // A more robust system might create the entry if it's missing.
       final cloudFile = await _findCloudFileByPath(note.path);
-
-      // If the note exists in the cloud, upload the new version
       if (cloudFile?.cloudPath != null) {
         print('Auto-sync: Uploading changes for ${note.path}');
-        final cloudService = _ref.read(cloudFileServiceProvider);
-        
-        final localStorage = _ref.read(localStorageServiceProvider);
         final fileBytes = await localStorage.readRawFileByte(vaultRoot, note.path);
-        
         await cloudService.uploadFile(path: cloudFile!.cloudPath!, fileBytes: fileBytes);
         print('Auto-sync: Upload complete for ${note.path}');
       }
+
+      // 2. Sync associated images
+      if (note.images.isNotEmpty) {
+        await _ref.refresh(allCloudFilesProvider.future);
+        final allCloudFiles = await _ref.read(allCloudFilesProvider.future);
+
+        for (final relativeImagePath in note.images) {
+          final cloudImagePath = '$userRootPath/${relativeImagePath.replaceAll(r'\', '/')}';
+          final cloudFileExists = allCloudFiles.any((cf) => cf.cloudPath == cloudImagePath);
+
+          if (!cloudFileExists) {
+            print('Auto-sync: Uploading new image: $relativeImagePath');
+            final imageBytes = await localStorage.readRawFileByte(vaultRoot, relativeImagePath);
+            await cloudService.uploadFile(path: cloudImagePath, fileBytes: imageBytes);
+          }
+        }
+      }
+      
+      _ref.invalidate(allCloudFilesProvider);
+
     } catch (e) {
       print('Auto-sync: Failed to upload changes for ${note.path}. Error: $e');
     }
   }
 
   Future<void> autoTrash(Note note) async {
-    final user = _ref.read(supabaseProvider).auth.currentUser;
+    final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
 
     try {
@@ -91,7 +114,7 @@ class SyncService {
   }
   
   Future<void> autoRestore(Note note) async {
-    final user = _ref.read(supabaseProvider).auth.currentUser;
+    final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
 
     try {
@@ -112,7 +135,7 @@ class SyncService {
   }
 
   Future<void> autoDeletePermanently(Note note) async {
-    final user = _ref.read(supabaseProvider).auth.currentUser;
+    final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
 
     try {
@@ -134,7 +157,7 @@ class SyncService {
 
   // NEW: Trashes an entire folder recursively using its relative path.
   Future<void> autoTrashByPath(String relativePath) async {
-    final user = _ref.read(supabaseProvider).auth.currentUser;
+    final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
 
     try {
@@ -152,7 +175,7 @@ class SyncService {
 
   // NEW: Restores an entire folder recursively using its relative path.
   Future<void> autoRestoreByPath(String relativePath) async {
-    final user = _ref.read(supabaseProvider).auth.currentUser;
+    final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
 
     try {
@@ -168,8 +191,6 @@ class SyncService {
     }
   }
 }
-
-final supabaseProvider = Provider((ref) => Supabase.instance.client);
 
 final syncServiceProvider = Provider<SyncService>((ref) {
   return SyncService(ref);

@@ -5,6 +5,9 @@ import 'package:memoir/models/cloud_file.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/providers/cloud_provider.dart';
 import 'package:path/path.dart' as p;
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+enum _ViewMode { people, images }
 
 typedef _CloudPerson = ({
   String name,
@@ -27,6 +30,9 @@ class _CloudFileBrowserScreenState extends ConsumerState<CloudFileBrowserScreen>
   _CloudPerson? _selectedPerson;
   final _searchController = TextEditingController();
   String _searchQuery = '';
+  _ViewMode _currentView = _ViewMode.people;
+
+  final _imageExtensions = const ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp'];
 
   @override
   void initState() {
@@ -42,6 +48,15 @@ class _CloudFileBrowserScreenState extends ConsumerState<CloudFileBrowserScreen>
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _toggleView() {
+    setState(() {
+      _currentView = _currentView == _ViewMode.people ? _ViewMode.images : _ViewMode.people;
+      // Reset selections and search when switching views
+      _selectedPerson = null;
+      _searchController.clear();
+    });
   }
 
   @override
@@ -60,6 +75,15 @@ class _CloudFileBrowserScreenState extends ConsumerState<CloudFileBrowserScreen>
       }
     });
 
+    final String appBarTitle;
+    if (_currentView == _ViewMode.images) {
+      appBarTitle = 'Cloud Images';
+    } else if (_selectedPerson != null) {
+      appBarTitle = _selectedPerson!.name;
+    } else {
+      appBarTitle = 'Cloud People';
+    }
+
     return Scaffold(
       appBar: AppBar(
         leading: _selectedPerson != null
@@ -68,16 +92,19 @@ class _CloudFileBrowserScreenState extends ConsumerState<CloudFileBrowserScreen>
                 onPressed: () => setState(() => _selectedPerson = null),
               )
             : null,
-        title: Text(_selectedPerson?.name ?? 'Cloud People'),
+        title: Text(appBarTitle),
         actions: [
+          IconButton(
+            icon: Icon(_currentView == _ViewMode.people ? Icons.image_outlined : Icons.people_outline),
+            tooltip: _currentView == _ViewMode.people ? 'View Images' : 'View People',
+            onPressed: _toggleView,
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
               ref.invalidate(allCloudFilesProvider);
               if (_selectedPerson != null) {
-                setState(() {
-                  _selectedPerson = null;
-                });
+                setState(() => _selectedPerson = null);
               }
             },
           )
@@ -100,56 +127,126 @@ class _CloudFileBrowserScreenState extends ConsumerState<CloudFileBrowserScreen>
             if (allFiles.isEmpty) {
               return const Center(child: Text("No cloud files found."));
             }
-
-            final people = _processFilesIntoPeople(allFiles);
-
-            if (_selectedPerson == null) {
-              final filteredPeople = people.where((person) {
-                return person.name
-                    .toLowerCase()
-                    .contains(_searchQuery.toLowerCase());
-              }).toList();
-
-              return Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Search people...',
-                        prefixIcon: const Icon(Icons.search),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        filled: true,
-                        fillColor:
-                            Theme.of(context).scaffoldBackgroundColor,
-                        suffixIcon: _searchQuery.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear),
-                                onPressed: () => _searchController.clear(),
-                              )
-                            : null,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: _buildPeopleList(filteredPeople),
-                  ),
-                ],
-              );
-            } else {
-              final updatedPerson = people.firstWhere(
-                (p) => p.pathPrefix == _selectedPerson!.pathPrefix,
-                orElse: () => _selectedPerson!,
-              );
-              return _buildNotesList(updatedPerson, vaultRoot, cloudNotifier);
+            if (_currentView == _ViewMode.images) {
+              return _buildImageView(allFiles, vaultRoot, cloudNotifier);
             }
+            return _buildPeopleView(allFiles, vaultRoot, cloudNotifier);
           },
         ),
       ),
+    );
+  }
+
+  Widget _buildPeopleView(List<CloudFile> allFiles, String? vaultRoot, CloudNotifier cloudNotifier) {
+    final people = _processFilesIntoPeople(allFiles);
+
+    if (_selectedPerson == null) {
+      final filteredPeople = people.where((person) {
+        return person.name
+            .toLowerCase()
+            .contains(_searchQuery.toLowerCase());
+      }).toList();
+
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search people...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                filled: true,
+                fillColor:
+                    Theme.of(context).scaffoldBackgroundColor,
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () => _searchController.clear(),
+                      )
+                    : null,
+              ),
+            ),
+          ),
+          Expanded(
+            child: _buildPeopleList(filteredPeople),
+          ),
+        ],
+      );
+    } else {
+      final updatedPerson = people.firstWhere(
+        (p) => p.pathPrefix == _selectedPerson!.pathPrefix,
+        orElse: () => _selectedPerson!,
+      );
+      return _buildNotesList(updatedPerson, vaultRoot, cloudNotifier);
+    }
+  }
+
+  Widget _buildImageView(List<CloudFile> allFiles, String? vaultRoot, CloudNotifier cloudNotifier) {
+    final images = allFiles.where((file) {
+      if (file.cloudPath == null) return false;
+      final extension = p.extension(file.cloudPath!).toLowerCase();
+      return _imageExtensions.contains(extension);
+    }).toList();
+
+    if (images.isEmpty) {
+      return const Center(child: Text("No cloud images found."));
+    }
+
+    return GridView.builder(
+      padding: const EdgeInsets.all(8),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+      ),
+      itemCount: images.length,
+      itemBuilder: (context, index) {
+        final imageFile = images[index];
+        
+        // --- FIX: Use a FutureBuilder to download image data directly ---
+        return FutureBuilder(
+          future: Supabase.instance.client.storage
+              .from('user-files')
+              .download(imageFile.cloudPath!),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError || !snapshot.hasData) {
+              return const Icon(Icons.broken_image);
+            }
+
+            final imageData = snapshot.data!;
+            return GridTile(
+              footer: GridTileBar(
+                backgroundColor: Colors.black45,
+                leading: IconButton(
+                  icon: const Icon(Icons.download_outlined, color: Colors.white),
+                  tooltip: 'Download Image',
+                  onPressed: () => _downloadSingleFile(imageFile, vaultRoot, cloudNotifier),
+                ),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.white),
+                  tooltip: 'Delete Image',
+                  onPressed: () => _deleteSingleFile(imageFile, cloudNotifier),
+                ),
+              ),
+              child: InkWell(
+                onTap: () { /* Could open a full-screen preview here */ },
+                child: Image.memory(
+                  imageData,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -233,7 +330,6 @@ class _CloudFileBrowserScreenState extends ConsumerState<CloudFileBrowserScreen>
             side: BorderSide(color: colorScheme.outline, width: 2),
           ),
           child: ListTile(
-            // leading: const Icon(Icons.person_outline, size: 40),
             title: Text(person.name,
                 style: const TextStyle(fontWeight: FontWeight.bold)),
             subtitle: Text(subtitleText),
@@ -249,6 +345,66 @@ class _CloudFileBrowserScreenState extends ConsumerState<CloudFileBrowserScreen>
       },
     );
   }
+
+  Future<void> _downloadSingleFile(CloudFile item, String? vaultRoot, CloudNotifier cloudNotifier) async {
+    if (vaultRoot == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Local vault path not set!')));
+      return;
+    }
+
+    final isMarkdown = item.cloudPath?.endsWith('.md') ?? false;
+    final bool success;
+    if (isMarkdown) {
+      success = await cloudNotifier.downloadNoteAndImages(item, vaultRoot);
+    } else {
+      success = await cloudNotifier.downloadFile(item, vaultRoot);
+    }
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(success ? 'Downloaded: ${item.name}' : 'Download failed!'),
+          backgroundColor: success ? Colors.green : Colors.red,
+        ),
+      );
+      if (success) {
+        ref.read(appProvider.notifier).refreshVault();
+      }
+    }
+  }
+
+  Future<void> _deleteSingleFile(CloudFile item, CloudNotifier cloudNotifier) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Deletion'),
+        content: Text('Are you sure you want to permanently delete "${item.name}" from the cloud? This action cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final success = await cloudNotifier.deleteFile(item);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success ? 'File deleted from cloud.' : 'Failed to delete file.'),
+            backgroundColor: success ? Colors.green : Colors.red,
+          ),
+        );
+        if (success) {
+          ref.invalidate(allCloudFilesProvider);
+        }
+      }
+    }
+  }
+
 
   Widget _buildNotesList(
     _CloudPerson person,
@@ -304,73 +460,13 @@ class _CloudFileBrowserScreenState extends ConsumerState<CloudFileBrowserScreen>
                 IconButton(
                   icon: const Icon(Icons.download_outlined),
                   tooltip: 'Download',
-                  onPressed: () async {
-                    if (vaultRoot == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Local vault path not set!')),
-                      );
-                      return;
-                    }
-                    final success =
-                        await cloudNotifier.downloadFile(item, vaultRoot);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(success
-                              ? 'Downloaded: ${item.name}'
-                              : 'Download failed!'),
-                          backgroundColor: success ? Colors.green : Colors.red,
-                        ),
-                      );
-                      if (success) {
-                        ref.read(appProvider.notifier).refreshVault();
-                      }
-                    }
-                  },
+                  onPressed: () => _downloadSingleFile(item, vaultRoot, cloudNotifier),
                 ),
                 IconButton(
                   icon: Icon(Icons.delete_forever_outlined,
                       color: Colors.red.shade700),
                   tooltip: 'Delete from Cloud',
-                  onPressed: () async {
-                    final confirmed = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Confirm Deletion'),
-                        content: Text(
-                            'Are you sure you want to permanently delete "${item.name}" from the cloud? This action cannot be undone.'),
-                        actions: [
-                          TextButton(
-                              onPressed: () =>
-                                  Navigator.of(context).pop(false),
-                              child: const Text('Cancel')),
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(true),
-                            child: const Text('Delete',
-                                style: TextStyle(color: Colors.red)),
-                          ),
-                        ],
-                      ),
-                    );
-
-                    if (confirmed == true) {
-                      final success = await cloudNotifier.deleteFile(item);
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(success
-                                ? 'File deleted from cloud.'
-                                : 'Failed to delete file.'),
-                            backgroundColor: success ? Colors.green : Colors.red,
-                          ),
-                        );
-                        if (success) {
-                          ref.invalidate(allCloudFilesProvider);
-                        }
-                      }
-                    }
-                  },
+                  onPressed: () => _deleteSingleFile(item, cloudNotifier),
                 )
               ],
             ),

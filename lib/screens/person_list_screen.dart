@@ -1,5 +1,6 @@
 // C:\dev\memoir\lib\screens\person_list_screen.dart
 import 'dart:io';
+import 'package:memoir/screens/image_gallery_screen.dart';
 import 'package:path/path.dart' as p;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -200,6 +201,13 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
                     ),
                   ],
                 ),
+              ),
+              IconButton(
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const ImageGalleryScreen()));
+                },
+                icon: Icon(Icons.photo_library_outlined, color: colorScheme.primary, size: 25),
+                tooltip: 'Image Vault',
               ),
               IconButton(
                 onPressed: () {

@@ -1,0 +1,4 @@
+architecture doc:
+- update ER model, delete password out of admin entity
+- adjust user frontend controller to align with implementation
+- update deployment view and implementation view

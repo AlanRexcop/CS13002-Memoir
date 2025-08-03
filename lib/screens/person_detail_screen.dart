@@ -7,9 +7,7 @@ import 'package:memoir/models/person_model.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/screens/note_view_screen.dart';
 import 'package:memoir/screens/person_list_screen.dart';
-import 'package:memoir/widgets/custom_search_bar.dart';
 import 'package:memoir/widgets/primary_button.dart';
-import 'package:memoir/widgets/tag_editor.dart';
 import '../widgets/custom_float_button.dart';
 import '../widgets/note_card.dart';
 import '../widgets/tag.dart';
@@ -385,123 +383,161 @@ class _NotesTabState extends ConsumerState<_NotesTab> {
   bool _isSelectionMode = false;
   final Set<String> _selectedItems = {};
 
-  bool _isSearchExpanded = false;
-  bool _isFilterExpanded = false;
-  final FocusNode _searchFocusNode = FocusNode();
+  FocusNode? _searchFocusNode;
+  final _tagController = TextEditingController();
+  final _searchController = TextEditingController();
+  List<String> _selectedTags = [];
+  TextEditingController? _autocompleteController;
 
   @override
   void initState() {
     super.initState();
-    _searchFocusNode.addListener(() {
-      if (!_searchFocusNode.hasFocus && _isSearchExpanded) {
-        setState(() {
-          _isSearchExpanded = false;
-        });
-      }
-    });
+    final initialQuery = ref.read(detailSearchProvider);
+    _searchController.text = initialQuery.text;
+    _selectedTags = List.from(initialQuery.tags);
   }
 
   @override
   void dispose() {
-    _searchFocusNode.dispose();
+    _tagController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
+  void _updateSearch({String? text, List<String>? tags}) {
+    final currentQuery = ref.read(detailSearchProvider);
+    ref.read(detailSearchProvider.notifier).state = (
+    text: text ?? currentQuery.text,
+    tags: tags ?? currentQuery.tags
+    );
+  }
 
-  Widget _buildSearchAndFilterControls() {
-    if (_isSearchExpanded) {
-      return Container(
-        key: const ValueKey('search_bar_wrapper'),
+
+  Widget _buildUnifiedSearchField() {
+    final allNotes = widget.person.notes;
+    final uniqueTags = <String>{};
+    for (final note in allNotes) {
+      uniqueTags.addAll(note.tags);
+    }
+    final allAvailableTags = uniqueTags.toList()..sort();
+    final colorScheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: () {
+        _searchFocusNode?.requestFocus();
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 5),
+        decoration: BoxDecoration(
+          color: Colors.deepPurple[50],
+          borderRadius: BorderRadius.circular(30.0),
+        ),
         child: Row(
           children: [
+            Icon(Icons.search, color: colorScheme.primary, size: 30,),
+            const SizedBox(width: 8),
             Expanded(
-              child: CustomSearchBar(
-                focusNode: _searchFocusNode,
-                onChange: (value) => _updateSearch(text: value),
-                hintText: 'Search notes by title...',
+              child: Row(
+                spacing: 6.0,
+                // runSpacing: 4.0,
+                // crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  ..._selectedTags.map((tag) => Tag(
+                    label: '#$tag',
+                    onDeleted: () {
+                      setState(() { _selectedTags.remove(tag); });
+                      _updateSearch(tags: _selectedTags);
+                    },
+                  )),
+                  Expanded(
+                    child: Autocomplete<String>(
+                      optionsBuilder: (TextEditingValue textEditingValue) {
+                        final query = textEditingValue.text.toLowerCase();
+                        if (!query.startsWith('#') || query.length <= 1) {
+                          return const <String>[];
+                        }
+
+                        final tagQuery = query.substring(1);
+                        return allAvailableTags.where((tag) {
+                          final isAlreadySelected = _selectedTags.contains(tag);
+                          final matchesQuery = tag.toLowerCase().contains(tagQuery);
+                          return !isAlreadySelected && matchesQuery;
+                        });
+                      },
+                      onSelected: (String selection) {
+                        setState(() {
+                          _selectedTags.add(selection);
+                        });
+                        _autocompleteController?.clear();
+                        _updateSearch(tags: _selectedTags);
+                        _searchFocusNode?.requestFocus();
+                      },
+                      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                        _searchFocusNode = focusNode;
+                        _autocompleteController = controller;
+
+                        final currentSearchText = ref.watch(detailSearchProvider).text;
+                        if (controller.text != currentSearchText && !controller.text.startsWith('#')) {
+                          controller.text = currentSearchText;
+                        }
+
+                        return TextField(
+                          controller: controller,
+                          focusNode: focusNode,
+                          decoration: InputDecoration(
+                            isDense: true,
+                            border: InputBorder.none,
+                            hintText: _selectedTags.isEmpty && _searchController.text.isEmpty ? 'Search by name or #tag...' : '... or add another',
+                          ),
+                          onChanged: (value) {
+                            if (!value.contains('#')) {
+                              _searchController.text = value;
+                              _updateSearch(text: value);
+                            }
+                          },
+                          onSubmitted: (value) {
+                            final trimmedValue = value.trim();
+                            if (trimmedValue.startsWith('#') && trimmedValue.length > 1) {
+                              onFieldSubmitted();
+                            } else {
+                              _searchController.text = trimmedValue;
+                              _updateSearch(text: trimmedValue);
+                            }
+                          },
+                        );
+                      },
+                      optionsViewBuilder: (context, onSelected, options) {
+                        return Align(
+                          alignment: Alignment.topLeft,
+                          child: Material(
+                            elevation: 4.0,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxHeight: 200, maxWidth: 250),
+                              child: ListView.builder(
+                                padding: EdgeInsets.zero,
+                                shrinkWrap: true,
+                                itemCount: options.length,
+                                itemBuilder: (BuildContext context, int index) {
+                                  final String option = options.elementAt(index);
+                                  return InkWell(
+                                    onTap: () => onSelected(option),
+                                    child: ListTile(title: Text(option), dense: true),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.close),
-              tooltip: 'Close Search',
-              onPressed: () {
-                setState(() {
-                  _isSearchExpanded = false;
-                  _updateSearch(text: "");
-                });
-              },
             ),
           ],
         ),
-      );
-    }
-    else if (_isFilterExpanded) {
-      return Container(
-        key: const ValueKey('filter_bar'),
-        child: Row(
-          children: [
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12.0,),
-                decoration: BoxDecoration(
-                  color: Colors.deepPurple[50],
-                  border: Border.all(color: Colors.transparent),
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: TagEditor(
-                  purpose: TagInputPurpose.filter,
-                  initialTags: ref.read(detailSearchProvider).tags,
-                  onTagsChanged: (newTags) {
-                    _updateSearch(tags: newTags);
-                  },
-                ),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.close),
-              tooltip: 'Close Filter',
-              onPressed: () {
-                _updateSearch(tags: []);
-                setState(() {
-                  _isFilterExpanded = false;
-                });
-              },
-            ),
-          ],
-        ),
-      );
-    }
-    else {
-      return Row(
-        key: const ValueKey('icons_row'),
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            tooltip: 'Search',
-            onPressed: () {
-              setState(() {
-                _isSearchExpanded = true;
-                _isFilterExpanded = false;
-              });
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                _searchFocusNode.requestFocus();
-              });
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            tooltip: 'Filter by Tags',
-            onPressed: () {
-              setState(() {
-                _isFilterExpanded = true;
-                _isSearchExpanded = false;
-              });
-            },
-          ),
-        ],
-      );
-    }
+      ),
+    );
   }
 
 
@@ -594,13 +630,6 @@ class _NotesTabState extends ConsumerState<_NotesTab> {
     });
   }
 
-  void _updateSearch({String? text, List<String>? tags}) {
-    final currentQuery = ref.read(detailSearchProvider);
-    ref.read(detailSearchProvider.notifier).state = (
-    text: text ?? currentQuery.text,
-    tags: tags ?? currentQuery.tags
-    );
-  }
 
   Future<void> _showMentionInfoDialog(BuildContext context, Note selectedNote) async {
     final textController = TextEditingController();
@@ -724,24 +753,7 @@ class _NotesTabState extends ConsumerState<_NotesTab> {
           if (_isSelectionMode)
             _buildSelectionToolbar(colorScheme, displayNotes)
           else
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 0),
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                transitionBuilder: (Widget child, Animation<double> animation) {
-                  return FadeTransition(
-                    opacity: animation,
-                    child: SizeTransition(
-                      sizeFactor: animation,
-                      axis: Axis.horizontal,
-                      child: child,
-                    ),
-                  );
-                },
-                child: _buildSearchAndFilterControls(),
-              ),
-            ),
-          // const Divider(height: 1, thickness: 2, color: Colors.grey),
+            _buildUnifiedSearchField(),
           const SizedBox(height: 5,),
           Expanded(
             child: ListView.builder(

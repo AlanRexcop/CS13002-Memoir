@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-// import 'package:memoir/models/person_model.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/screens/notification_screen.dart';
 import 'package:memoir/screens/person_detail_screen.dart';
@@ -21,19 +20,149 @@ class PersonListScreen extends ConsumerStatefulWidget {
 
 class _PersonListScreenState extends ConsumerState<PersonListScreen> {
   final _tagController = TextEditingController();
-  final List<String> _searchTags = [];
+  final _searchController = TextEditingController();
+  final List<String> _selectedTags = [];
+  FocusNode? _searchFocusNode;
   bool _isSelectionMode = false;
   final Set<String> _selectedItems = {};
+  TextEditingController? _autocompleteController;
 
-  void _updateSearch({String? text, List<String>? tags}) {
-    final currentQuery = ref.read(appProvider).searchQuery;
+  void _updateSearch() {
     ref.read(appProvider.notifier).setSearchQuery(
         (
-        text: text ?? currentQuery.text,
-        tags: tags ?? currentQuery.tags,
+        text: _searchController.text.trim(),
+        tags: _selectedTags,
         )
     );
   }
+
+  Widget _buildUnifiedSearchField() {
+    final allPersons = ref.watch(appProvider).persons;
+    final uniqueTags = <String>{};
+    for (final person in allPersons) {
+      for (final note in [person.info, ...person.notes]) {
+        uniqueTags.addAll(note.tags);
+      }
+    }
+    final allAvailableTags = uniqueTags.toList()..sort();
+    final colorScheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: () {
+        _searchFocusNode?.requestFocus();
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.deepPurple[50],
+          borderRadius: BorderRadius.circular(30.0),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.search, color: colorScheme.primary, size: 30,),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Row(
+                spacing: 6.0,
+                // runSpacing: 4.0,
+                // crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  ..._selectedTags.map((tag) => Tag(
+                    label: '#$tag',
+                    onDeleted: () {
+                      setState(() { _selectedTags.remove(tag); });
+                      _updateSearch();
+                    },
+                  )),
+                  Expanded(
+                    child: Autocomplete<String>(
+                      optionsBuilder: (TextEditingValue textEditingValue) {
+                        final query = textEditingValue.text.toLowerCase();
+
+                        if (!query.startsWith('#') || query.length <= 1) {
+                          return const <String>[];
+                        }
+
+                        final tagQuery = query.substring(1);
+
+                        return allAvailableTags.where((tag) {
+                          final isAlreadySelected = _selectedTags.contains(tag);
+                          final matchesQuery = tag.toLowerCase().contains(tagQuery);
+                          return !isAlreadySelected && matchesQuery;
+                        });
+                      },
+                      onSelected: (String selection) {
+                        setState(() {
+                          _selectedTags.add(selection);
+                        });
+                        _autocompleteController?.clear();
+                        _updateSearch();
+                        _searchFocusNode?.requestFocus();
+                      },
+                      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                        _searchFocusNode = focusNode;
+                        _autocompleteController = controller;
+
+                        return TextField(
+                          controller: controller,
+                          focusNode: focusNode,
+                          decoration: InputDecoration(
+
+                            isDense: true,
+                            border: InputBorder.none,
+                            hintText: _selectedTags.isEmpty ? 'Search by name or #tag...' : '... or add another',
+                          ),
+                          onChanged: (value) {
+                            if (!value.contains('#')) {
+                              _searchController.text = value;
+                              _updateSearch();
+                            }
+                          },
+                          onSubmitted: (value) {
+                            final trimmedValue = value.trim();
+                            if (trimmedValue.startsWith('#') && trimmedValue.length > 1) {
+                              onFieldSubmitted();
+                            } else {
+                              _searchController.text = trimmedValue;
+                              _updateSearch();
+                            }
+                          },
+                        );
+                      },
+                      optionsViewBuilder: (context, onSelected, options) {
+                        return Align(
+                          alignment: Alignment.topLeft,
+                          child: Material(
+                            elevation: 4.0,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxHeight: 200, maxWidth: 250),
+                              child: ListView.builder(
+                                padding: EdgeInsets.zero,
+                                shrinkWrap: true,
+                                itemCount: options.length,
+                                itemBuilder: (BuildContext context, int index) {
+                                  final String option = options.elementAt(index);
+                                  return InkWell(
+                                    onTap: () => onSelected(option),
+                                    child: ListTile(title: Text(option, style: TextStyle(fontSize: 14),), dense: true),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
 
   String _formatTagName(String tag) {
     const int maxLength = 10;
@@ -48,6 +177,7 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
   @override
   void dispose() {
     _tagController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -246,25 +376,7 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
             : Future.value(),
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
-              child: TextField(
-                decoration: InputDecoration(
-                    hintText: 'Search by name...',
-                    prefixIcon: const Icon(Icons.search),
-                    filled: true,
-                    fillColor: Colors.deepPurple[50],
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30.0),
-                      borderSide: BorderSide.none,
-                    ), contentPadding: const EdgeInsets.symmetric(vertical: 10.0)
-                ),
-                onChanged: (value) => _updateSearch(text: value),
-              ),
-            ),
-
-
-
+            _buildUnifiedSearchField(),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 15),
               child: Row(

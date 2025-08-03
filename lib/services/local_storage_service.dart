@@ -339,19 +339,19 @@ class LocalStorageService {
 
     // Create the default markdown body using the new template
     final markdownBody = """
-❤️ First met on:
+### **❤️ First met:**
 
  {event}[first met $trimmedName]($formattedDate) 
 
-🎂Birthday:
+### **🎂 Birthday:**
 
 ...
 
-📞Phone:
+### **📞 Phone:**
 
 ...
 
-🗺️Address:
+### **🗺️ Address:**
 
 ...
 """;

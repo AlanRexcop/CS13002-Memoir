@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:memoir/models/person_model.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:yaml/yaml.dart';
 import 'package:memoir/services/markdown_analyzer_service.dart';
 import 'package:memoir/models/note_model.dart';
@@ -459,5 +460,47 @@ class LocalStorageService {
   Future<bool> imageExists(String vaultRoot, String relativeImagePath) async {
     final absolutePath = p.join(vaultRoot, relativeImagePath);
     return await File(absolutePath).exists();
+  }
+
+  Future<File> getLocalAvatarFile() async {
+    final directory = await getApplicationSupportDirectory();
+    return File(p.join(directory.path, 'avatar.png'));
+  }
+
+  Future<File> saveLocalAvatar(Uint8List bytes) async {
+    final file = await getLocalAvatarFile();
+    return await file.writeAsBytes(bytes);
+  }
+
+  Future<void> deleteLocalAvatar() async {
+    try {
+      final file = await getLocalAvatarFile();
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (e) {
+      print("Error deleting local avatar: $e");
+    }
+  }
+
+  Future<File> getLocalBackgroundFile() async {
+    final directory = await getApplicationSupportDirectory();
+    return File(p.join(directory.path, 'background.png'));
+  }
+
+  Future<File> saveLocalBackground(Uint8List bytes) async {
+    final file = await getLocalBackgroundFile();
+    return await file.writeAsBytes(bytes);
+  }
+
+  Future<void> deleteLocalBackground() async {
+    try {
+      final file = await getLocalBackgroundFile();
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (e) {
+      print("Error deleting local background: $e");
+    }
   }
 }

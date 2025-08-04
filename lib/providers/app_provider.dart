@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/models/person_model.dart';
+import 'package:memoir/providers/cloud_provider.dart';
+import 'package:memoir/services/cloud_file_service.dart';
 import 'package:memoir/services/local_storage_service.dart';
 import 'package:memoir/services/notification_service.dart';
 import 'package:memoir/services/persistence_service.dart';
@@ -83,6 +85,7 @@ final appProvider = StateNotifierProvider<AppNotifier, AppState>((ref) {
     persistenceService: ref.read(persistenceServiceProvider),
     localStorageService: ref.read(localStorageServiceProvider),
     syncService: ref.read(syncServiceProvider), 
+    ref: ref, // Pass the ref to the notifier
   );
 });
 
@@ -111,6 +114,7 @@ class AppNotifier extends StateNotifier<AppState> {
   final LocalStorageService _localStorageService;
   final SyncService _syncService;
   final NotificationService _notificationService = NotificationService();
+  final Ref _ref; // Store the ref
   StreamSubscription<AuthState>? _authSubscription;
 
   late final Future<void> initializationComplete;
@@ -119,27 +123,55 @@ class AppNotifier extends StateNotifier<AppState> {
     required PersistenceService persistenceService,
     required LocalStorageService localStorageService,
     required SyncService syncService,
+    required Ref ref, // Receive the ref
   })  : _persistenceService = persistenceService,
         _localStorageService = localStorageService,
         _syncService = syncService,
+        _ref = ref, // Initialize the ref
         super(const AppState()) {
     initializationComplete = _loadInitialPath();
     _listenToAuthChanges();
+
+    // Proactively check for an existing user on app start.
+    // This handles hot restarts where the onAuthStateChange stream doesn't fire.
+    final currentUser = Supabase.instance.client.auth.currentUser;
+    if (currentUser != null) {
+      state = state.copyWith(currentUser: currentUser);
+      _downloadAndCacheAvatar(currentUser.id);
+    }
   }
 
   void _listenToAuthChanges() {
-    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
       final User? user = data.session?.user;
       // Only update state if the user's ID has actually changed.
       if (state.currentUser?.id != user?.id) {
-         // FIX: Use the 'clearCurrentUser' flag when the user is null
          if (user == null) {
+           await _localStorageService.deleteLocalAvatar(); // Clear avatar on logout
            state = state.copyWith(clearCurrentUser: true);
+           // Update the version provider to trigger a refresh.
+           _ref.read(avatarVersionProvider.notifier).update((s) => s + 1);
          } else {
            state = state.copyWith(currentUser: user);
+           await _downloadAndCacheAvatar(user.id); // Download avatar on login
          }
       }
     });
+  }
+
+  Future<void> _downloadAndCacheAvatar(String userId) async {
+    try {
+      final cloudPath = '${userId}/profile/avatar.png';
+      final bytes = await Supabase.instance.client.storage.from(supabaseBucket).download(cloudPath);
+      await _localStorageService.saveLocalAvatar(bytes);
+    } catch (e) {
+      // This is expected if the user hasn't set an avatar (e.g., 404 error)
+      print('Failed to download avatar (this may be expected): $e');
+      await _localStorageService.deleteLocalAvatar();
+    } finally {
+      // Update the version provider to trigger a refresh.
+      _ref.read(avatarVersionProvider.notifier).update((s) => s + 1);
+    }
   }
 
   @override
@@ -149,6 +181,8 @@ class AppNotifier extends StateNotifier<AppState> {
   }
 
   Future<void> signOut() async {
+    await _localStorageService.deleteLocalAvatar();
+    // The onAuthStateChange listener will handle the state update and avatar invalidation
     await Supabase.instance.client.auth.signOut();
   }
 

@@ -12,7 +12,6 @@ class UsersScreen extends StatefulWidget {
 }
 
 class _UsersScreenState extends State<UsersScreen> {
-
   @override
   void initState() {
     super.initState();
@@ -33,9 +32,12 @@ class _UsersScreenState extends State<UsersScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
-          Text('User Accounts (${users.length})', style: Theme.of(context).textTheme.headlineMedium),
+          Text(
+            'User Accounts (${users.length})',
+            style: Theme.of(context).textTheme.headlineMedium,
+          ),
           const SizedBox(height: 20),
-          
+
           // --- RESPONSIVE ACTION BAR ---
           // Uses a LayoutBuilder to switch between Row and Column.
           LayoutBuilder(
@@ -70,12 +72,12 @@ class _UsersScreenState extends State<UsersScreen> {
             child: userProvider.isLoading && users.isEmpty
                 ? const Center(child: CircularProgressIndicator())
                 : userProvider.error != null
-                    ? Center(child: Text('Error: ${userProvider.error}'))
-                    : SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: UserDataTable(users: users),
-                      ),
-          )
+                ? Center(child: Text('Error: ${userProvider.error}'))
+                : SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: UserDataTable(users: users),
+                  ),
+          ),
         ],
       ),
     );
@@ -85,11 +87,11 @@ class _UsersScreenState extends State<UsersScreen> {
   Widget _buildDeleteButton(UserProvider userProvider) {
     return ElevatedButton.icon(
       onPressed: userProvider.selectedUserIds.isEmpty
-        ? null
-        : () {
-          // Add a confirmation dialog before deleting
-          context.read<UserProvider>().deleteSelectedUsers();
-        },
+          ? null
+          : () {
+              // Add a confirmation dialog before deleting
+              context.read<UserProvider>().deleteSelectedUsers();
+            },
       icon: const Icon(Icons.delete),
       label: const Text('Delete'),
       style: ElevatedButton.styleFrom(
@@ -111,20 +113,26 @@ class _UsersScreenState extends State<UsersScreen> {
             decoration: InputDecoration(
               hintText: 'Search something',
               prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
               contentPadding: const EdgeInsets.symmetric(horizontal: 12),
             ),
           ),
         ),
         const SizedBox(width: 10),
         ElevatedButton.icon(
-          onPressed: () { /* TODO: Implement Filter Dialog */ },
+          onPressed: () {
+            /* TODO: Implement Filter Dialog */
+          },
           icon: const Icon(Icons.filter_list),
           label: const Text('Filter'),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.green,
             foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
           ),
         ),
       ],

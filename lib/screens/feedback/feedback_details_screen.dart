@@ -21,7 +21,7 @@ class _FeedbackDetailsScreenState extends State<FeedbackDetailsScreen> {
       context.read<FeedbackProvider>().fetchFeedbackDetails(widget.feedbackId);
     });
   }
-  
+
   // Helper to get a relative time string like "5 days ago"
   String _getRelativeTime(DateTime dt) {
     final difference = DateTime.now().difference(dt);
@@ -57,12 +57,18 @@ class _FeedbackDetailsScreenState extends State<FeedbackDetailsScreen> {
           }
 
           final feedback = provider.selectedFeedbackDetail!;
-          final user = provider.selectedFeedbackUser; // Can be null if user was deleted
-          final formattedDate = DateFormat('MMM dd, yyyy, HH:mm').format(feedback.sendDate);
+          final user =
+              provider.selectedFeedbackUser; // Can be null if user was deleted
+          final formattedDate = DateFormat(
+            'MMM dd, yyyy, HH:mm',
+          ).format(feedback.sendDate);
           final relativeTime = _getRelativeTime(feedback.sendDate);
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 40.0,
+              vertical: 24.0,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -75,7 +81,13 @@ class _FeedbackDetailsScreenState extends State<FeedbackDetailsScreen> {
                       Icon(Icons.arrow_back, size: 20),
                       SizedBox(width: 8),
                       // This title could be dynamic, but for now it's static
-                      Text('System Notification', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                      Text(
+                        'System Notification',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -87,15 +99,21 @@ class _FeedbackDetailsScreenState extends State<FeedbackDetailsScreen> {
                     Expanded(
                       child: Text(
                         feedback.title,
-                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 16),
                     Chip(
-                      label: Text(feedback.status, style: const TextStyle(color: Colors.black87)),
+                      label: Text(
+                        feedback.status,
+                        style: const TextStyle(color: Colors.black87),
+                      ),
                       backgroundColor: Colors.grey[300],
                       padding: const EdgeInsets.symmetric(horizontal: 8),
-                    )
+                    ),
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -106,10 +124,10 @@ class _FeedbackDetailsScreenState extends State<FeedbackDetailsScreen> {
                     CircleAvatar(
                       radius: 20,
                       backgroundColor: Colors.grey[200],
-                      child: user != null 
-                        ? const Icon(Icons.person, color: Colors.grey)
-                        // Show a different icon if the user is deleted
-                        : const Icon(Icons.person_off, color: Colors.grey),
+                      child: user != null
+                          ? const Icon(Icons.person, color: Colors.grey)
+                          // Show a different icon if the user is deleted
+                          : const Icon(Icons.person_off, color: Colors.grey),
                     ),
                     const SizedBox(width: 12),
                     Column(
@@ -117,11 +135,17 @@ class _FeedbackDetailsScreenState extends State<FeedbackDetailsScreen> {
                       children: [
                         Text(
                           user?.username ?? 'Deleted User',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
                         Text(
                           feedback.userEmail,
-                          style: const TextStyle(color: Colors.grey, fontSize: 14),
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 14,
+                          ),
                         ),
                       ],
                     ),
@@ -137,42 +161,63 @@ class _FeedbackDetailsScreenState extends State<FeedbackDetailsScreen> {
                 // Full text content
                 SelectableText(
                   feedback.text,
-                  style: const TextStyle(fontSize: 16, height: 1.5, color: Colors.black87),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    height: 1.5,
+                    color: Colors.black87,
+                  ),
                 ),
                 const SizedBox(height: 24),
                 const Divider(),
                 const SizedBox(height: 16),
-                
+
                 // Action Buttons
                 Row(
                   children: [
                     OutlinedButton.icon(
-                      onPressed: () { /* TODO: Implement Reply Logic */ },
+                      onPressed: () {
+                        /* TODO: Implement Reply Logic */
+                      },
                       icon: const Icon(Icons.reply),
                       label: const Text('Reply'),
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 16,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 16),
                     ElevatedButton.icon(
-                      onPressed: feedback.status == 'resolved' ? null : () async {
-                        await provider.updateStatus(feedback.id, 'resolved');
-                        // Optionally, navigate back to the list after resolving
-                        provider.viewFeedbackList();
-                      },
+                      onPressed: feedback.status == 'resolved'
+                          ? null
+                          : () async {
+                              await provider.updateStatus(
+                                feedback.id,
+                                'resolved',
+                              );
+                              // Optionally, navigate back to the list after resolving
+                              provider.viewFeedbackList();
+                            },
                       icon: const Icon(Icons.check_circle_outline),
                       label: const Text('Mark as resolved'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 16,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                     ),
                   ],
-                )
+                ),
               ],
             ),
           );

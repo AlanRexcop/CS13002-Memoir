@@ -1,5 +1,6 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_admin/screens/dashboard/dashboard_shell.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -9,7 +10,7 @@ import 'providers/user_provider.dart';
 import 'providers/feedback_provider.dart';
 import 'services/admin_auth_service.dart';
 import 'services/user_management_service.dart';
-import 'screens/auth_gate.dart';
+import 'screens/login/auth_gate.dart';
 import 'services/feedback_service.dart';
 
 void main() async {
@@ -27,11 +28,13 @@ void main() async {
   final userManagementService = UserManagementService(supabase);
   final feedbackService = FeedbackService(supabase);
 
-  runApp(MyApp(
-    adminAuthService: adminAuthService,
-    userManagementService: userManagementService,
-    feedbackService: feedbackService,
-  ));
+  runApp(
+    MyApp(
+      adminAuthService: adminAuthService,
+      userManagementService: userManagementService,
+      feedbackService: feedbackService,
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -39,7 +42,7 @@ class MyApp extends StatelessWidget {
   final AdminAuthService adminAuthService;
   final UserManagementService userManagementService;
   final FeedbackService feedbackService;
-  
+
   const MyApp({
     super.key,
     required this.adminAuthService,
@@ -51,11 +54,16 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AdminAuthProvider(adminAuthService)),
-        ChangeNotifierProvider(create: (_) => UserProvider(userManagementService)),
+        ChangeNotifierProvider(
+          create: (_) => AdminAuthProvider(adminAuthService),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => UserProvider(userManagementService),
+        ),
         // Now, we can pass both required services to the FeedbackProvider
         ChangeNotifierProvider(
-          create: (_) => FeedbackProvider(feedbackService, userManagementService),
+          create: (_) =>
+              FeedbackProvider(feedbackService, userManagementService),
         ),
       ],
       child: MaterialApp(
@@ -65,7 +73,7 @@ class MyApp extends StatelessWidget {
           visualDensity: VisualDensity.adaptivePlatformDensity,
         ),
         debugShowCheckedModeBanner: false,
-        home: const AuthGate(),
+        home: const DashboardShell(),
       ),
     );
   }

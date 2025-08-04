@@ -12,7 +12,8 @@ class FeedbackScreen extends StatefulWidget {
   State<FeedbackScreen> createState() => _FeedbackScreenState();
 }
 
-class _FeedbackScreenState extends State<FeedbackScreen> with SingleTickerProviderStateMixin {
+class _FeedbackScreenState extends State<FeedbackScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   @override
@@ -26,7 +27,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> with SingleTickerProvid
       }
     });
   }
-  
+
   @override
   void dispose() {
     _tabController.dispose();
@@ -72,16 +73,23 @@ class _FeedbackListView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<FeedbackProvider>();
-    final List<String> statusOptions = ['unresolved', 'resolved', 'in_progress', 'closed'];
+    final List<String> statusOptions = [
+      'unresolved',
+      'resolved',
+      'in_progress',
+      'closed',
+    ];
 
     // Filter items based on the current tab's tag and the selected status
-    final List<FeedbackItem> filteredItems = provider.feedbackItems.where((item) {
+    final List<FeedbackItem> filteredItems = provider.feedbackItems.where((
+      item,
+    ) {
       bool tagMatch = item.tag?.toLowerCase() == tag;
       if (tag == 'feedback' && (item.tag?.toLowerCase() != 'bug')) {
-          // If the tag is 'feedback', include items where tag is 'feedback' or null/empty
-          tagMatch = true;
+        // If the tag is 'feedback', include items where tag is 'feedback' or null/empty
+        tagMatch = true;
       }
-      
+
       bool statusMatch;
       if (provider.selectedStatus == 'unresolved') {
         // 'unresolved' is a special filter for 'pending' or 'in_progress'
@@ -93,10 +101,13 @@ class _FeedbackListView extends StatelessWidget {
       return tagMatch && statusMatch;
     }).toList();
 
-    int unresolvedCount = provider.feedbackItems.where((item) => 
-      (item.tag?.toLowerCase() == tag) && 
-      (item.status == 'pending' || item.status == 'in_progress')
-    ).length;
+    int unresolvedCount = provider.feedbackItems
+        .where(
+          (item) =>
+              (item.tag?.toLowerCase() == tag) &&
+              (item.status == 'pending' || item.status == 'in_progress'),
+        )
+        .length;
 
     return Padding(
       padding: const EdgeInsets.all(24.0),
@@ -115,7 +126,7 @@ class _FeedbackListView extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(8)
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: DropdownButton<String>(
                   value: provider.selectedStatus,
@@ -124,10 +135,14 @@ class _FeedbackListView extends StatelessWidget {
                       provider.setStatusFilter(newValue);
                     }
                   },
-                  items: statusOptions.map((status) => DropdownMenuItem(
-                    value: status,
-                    child: Text(status),
-                  )).toList(),
+                  items: statusOptions
+                      .map(
+                        (status) => DropdownMenuItem(
+                          value: status,
+                          child: Text(status),
+                        ),
+                      )
+                      .toList(),
                   underline: const SizedBox.shrink(),
                 ),
               ),
@@ -140,17 +155,17 @@ class _FeedbackListView extends StatelessWidget {
             child: provider.isLoading && filteredItems.isEmpty
                 ? const Center(child: CircularProgressIndicator())
                 : provider.error != null
-                    ? Center(child: Text('Error: ${provider.error}'))
-                    : filteredItems.isEmpty
-                        ? Center(child: Text('No matching ${tag}s found.'))
-                        : SingleChildScrollView(
-                            scrollDirection: Axis.vertical,
-                            child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: FeedbackDataTable(feedbackItems: filteredItems),
-                            ),
-                          ),
-          )
+                ? Center(child: Text('Error: ${provider.error}'))
+                : filteredItems.isEmpty
+                ? Center(child: Text('No matching ${tag}s found.'))
+                : SingleChildScrollView(
+                    scrollDirection: Axis.vertical,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: FeedbackDataTable(feedbackItems: filteredItems),
+                    ),
+                  ),
+          ),
         ],
       ),
     );

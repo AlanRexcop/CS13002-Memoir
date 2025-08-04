@@ -22,7 +22,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
+  fl_chart: ^0.66.0
   flutter_lints: ^5.0.0
 
 # For information on the generic Dart part of this file, see the
@@ -40,6 +40,11 @@ flutter:
   assets:
     - .env 
     - assets/images/
+
+  fonts:
+  - family: Inter
+    fonts:
+      - asset: assets/fonts/Inter-Medium.ttf
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

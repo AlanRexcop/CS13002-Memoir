@@ -53,7 +53,13 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                   children: [
                     Icon(Icons.arrow_back, size: 20),
                     SizedBox(width: 8),
-                    Text('Users Details', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                    Text(
+                      'Users Details',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -63,13 +69,17 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                 builder: (context, provider, child) {
                   // --- State Handling (Expanded removed) ---
                   if (provider.isDetailLoading) {
-                    return const Center(child: Padding(
-                      padding: EdgeInsets.all(50.0),
-                      child: CircularProgressIndicator(),
-                    ));
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(50.0),
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
                   }
                   if (provider.detailError != null) {
-                    return Center(child: Text('Error: ${provider.detailError}'));
+                    return Center(
+                      child: Text('Error: ${provider.detailError}'),
+                    );
                   }
                   if (provider.selectedUserDetail == null) {
                     return const Center(child: Text('No user data found.'));
@@ -77,10 +87,12 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                   // --- End State Handling ---
 
                   final user = provider.selectedUserDetail!;
-                  
+
                   return Card(
                     elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     color: Colors.grey[50],
                     child: Padding(
                       padding: const EdgeInsets.all(32.0),
@@ -90,23 +102,76 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                           const CircleAvatar(
                             radius: 70,
                             backgroundColor: Colors.black12,
-                            child: Icon(Icons.person, size: 80, color: Colors.white70),
+                            child: Icon(
+                              Icons.person,
+                              size: 80,
+                              color: Colors.white70,
+                            ),
                           ),
                           const SizedBox(width: 40),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildInfoRow('User ID:', _InfoPill(text: user.id.substring(0, 8), color: Colors.blue)),
-                                _buildInfoRow('Account name:', _InfoPill(text: user.username, color: Colors.blue)),
-                                _buildInfoRow('Email:', _InfoPill(text: user.email, color: Colors.blue)),
-                                _buildInfoRow('Created At:', _InfoPill(text: DateFormat('yyyy-MM-dd HH:mm:ss').format(user.createdAt))),
-                                _buildInfoRow('Last login:', user.lastSignInAt != null ? _InfoPill(text: DateFormat('yyyy-MM-dd HH:mm:ss').format(user.lastSignInAt!)) : const Text("Never")),
-                                _buildInfoRow('Number of notes:', _InfoPill(text: user.fileCount.toString(), color: Colors.indigo[300])),
-                                _buildInfoRow('Number of published notes:', _InfoPill(text: user.publicFileCount.toString(), color: Colors.green)),
+                                _buildInfoRow(
+                                  'User ID:',
+                                  _InfoPill(
+                                    text: user.id.substring(0, 8),
+                                    color: Colors.blue,
+                                  ),
+                                ),
+                                _buildInfoRow(
+                                  'Account name:',
+                                  _InfoPill(
+                                    text: user.username,
+                                    color: Colors.blue,
+                                  ),
+                                ),
+                                _buildInfoRow(
+                                  'Email:',
+                                  _InfoPill(
+                                    text: user.email,
+                                    color: Colors.blue,
+                                  ),
+                                ),
+                                _buildInfoRow(
+                                  'Created At:',
+                                  _InfoPill(
+                                    text: DateFormat(
+                                      'yyyy-MM-dd HH:mm:ss',
+                                    ).format(user.createdAt),
+                                  ),
+                                ),
+                                _buildInfoRow(
+                                  'Last login:',
+                                  user.lastSignInAt != null
+                                      ? _InfoPill(
+                                          text: DateFormat(
+                                            'yyyy-MM-dd HH:mm:ss',
+                                          ).format(user.lastSignInAt!),
+                                        )
+                                      : const Text("Never"),
+                                ),
+                                _buildInfoRow(
+                                  'Number of notes:',
+                                  _InfoPill(
+                                    text: user.fileCount.toString(),
+                                    color: Colors.indigo[300],
+                                  ),
+                                ),
+                                _buildInfoRow(
+                                  'Number of published notes:',
+                                  _InfoPill(
+                                    text: user.publicFileCount.toString(),
+                                    color: Colors.green,
+                                  ),
+                                ),
                                 _buildInfoRow(
                                   'Storage used:',
-                                  _buildStorageIndicator(user.storageUsed, user.storageLimit),
+                                  _buildStorageIndicator(
+                                    user.storageUsed,
+                                    user.storageLimit,
+                                  ),
                                   expandValue: true,
                                 ),
                               ],
@@ -125,17 +190,24 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
     );
   }
 
-  Widget _buildInfoRow(String label, Widget valueWidget, {bool expandValue = false}) {
+  Widget _buildInfoRow(
+    String label,
+    Widget valueWidget, {
+    bool expandValue = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SizedBox(width: 200, child: Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
-          if (expandValue)
-            Expanded(child: valueWidget)
-          else
-            valueWidget,
+          SizedBox(
+            width: 200,
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ),
+          if (expandValue) Expanded(child: valueWidget) else valueWidget,
         ],
       ),
     );
@@ -164,7 +236,9 @@ class _InfoPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pillColor = color ?? Colors.grey[300]!;
-    final textColor = (progressBarValue == null && color != null) ? Colors.black87 : Colors.white;
+    final textColor = (progressBarValue == null && color != null)
+        ? Colors.black87
+        : Colors.white;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

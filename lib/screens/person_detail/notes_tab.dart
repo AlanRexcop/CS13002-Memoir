@@ -7,9 +7,8 @@ import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/screens/note_view_screen.dart';
 import 'package:memoir/screens/person_list_screen.dart';
 import 'package:memoir/widgets/custom_float_button.dart';
-import 'package:memoir/widgets/custom_search_bar.dart';
 import 'package:memoir/widgets/note_card.dart';
-import 'package:memoir/widgets/tag_editor.dart';
+import 'package:memoir/widgets/tag.dart';
 
 class NotesTab extends ConsumerStatefulWidget {
   final Person person;
@@ -25,123 +24,165 @@ class _NotesTabState extends ConsumerState<NotesTab> {
   bool _isSelectionMode = false;
   final Set<String> _selectedItems = {};
 
-  bool _isSearchExpanded = false;
-  bool _isFilterExpanded = false;
-  final FocusNode _searchFocusNode = FocusNode();
+  FocusNode? _searchFocusNode;
+  final _searchController = TextEditingController();
+  List<String> _selectedTags = [];
+  TextEditingController? _autocompleteController;
 
   @override
   void initState() {
     super.initState();
-    _searchFocusNode.addListener(() {
-      if (!_searchFocusNode.hasFocus && _isSearchExpanded) {
-        setState(() {
-          _isSearchExpanded = false;
-        });
-      }
-    });
+    // Initialize search state from the provider
+    final initialQuery = ref.read(detailSearchProvider);
+    _searchController.text = initialQuery.text;
+    _selectedTags = List.from(initialQuery.tags);
   }
 
   @override
   void dispose() {
-    _searchFocusNode.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
-  Widget _buildSearchAndFilterControls() {
-    if (_isSearchExpanded) {
-      return Container(
-        key: const ValueKey('search_bar_wrapper'),
-        child: Row(
-          children: [
-            Expanded(
-              child: CustomSearchBar(
-                focusNode: _searchFocusNode,
-                onChange: (value) => _updateSearch(text: value),
-                hintText: 'Search notes by title...',
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.close),
-              tooltip: 'Close Search',
-              onPressed: () {
-                setState(() {
-                  _isSearchExpanded = false;
-                  _updateSearch(text: "");
-                });
-              },
-            ),
-          ],
-        ),
-      );
-    } else if (_isFilterExpanded) {
-      return Container(
-        key: const ValueKey('filter_bar'),
-        child: Row(
-          children: [
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                decoration: BoxDecoration(
-                  color: Colors.deepPurple[50],
-                  border: Border.all(color: Colors.transparent),
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: TagEditor(
-                  purpose: TagInputPurpose.filter,
-                  initialTags: ref.read(detailSearchProvider).tags,
-                  onTagsChanged: (newTags) {
-                    _updateSearch(tags: newTags);
-                  },
-                ),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.close),
-              tooltip: 'Close Filter',
-              onPressed: () {
-                _updateSearch(tags: []);
-                setState(() {
-                  _isFilterExpanded = false;
-                });
-              },
-            ),
-          ],
-        ),
-      );
-    } else {
-      return Row(
-        key: const ValueKey('icons_row'),
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            tooltip: 'Search',
-            onPressed: () {
-              setState(() {
-                _isSearchExpanded = true;
-                _isFilterExpanded = false;
-              });
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                _searchFocusNode.requestFocus();
-              });
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            tooltip: 'Filter by Tags',
-            onPressed: () {
-              setState(() {
-                _isFilterExpanded = true;
-                _isSearchExpanded = false;
-              });
-            },
-          ),
-        ],
-      );
-    }
+  void _updateSearch({String? text, List<String>? tags}) {
+    final currentQuery = ref.read(detailSearchProvider);
+    ref.read(detailSearchProvider.notifier).state = (text: text ?? currentQuery.text, tags: tags ?? currentQuery.tags);
   }
 
+  Widget _buildUnifiedSearchField() {
+    final allNotes = widget.person.notes;
+    final uniqueTags = <String>{};
+    for (final note in allNotes) {
+      uniqueTags.addAll(note.tags);
+    }
+    final allAvailableTags = uniqueTags.toList()..sort();
+    final colorScheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: () {
+        _searchFocusNode?.requestFocus();
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 5),
+        decoration: BoxDecoration(
+          color: Colors.deepPurple[50],
+          borderRadius: BorderRadius.circular(30.0),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.search, color: colorScheme.primary, size: 30,),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Wrap( // This Wrap is for the tags themselves
+                spacing: 6.0,
+                runSpacing: 4.0,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  ..._selectedTags.map((tag) => Tag(
+                    label: '#$tag',
+                    onDeleted: () {
+                      setState(() { _selectedTags.remove(tag); });
+                      _updateSearch(tags: _selectedTags);
+                    },
+                  )),
+                  // This is the structure from your MR file, using an Expanded TextField
+                  // inside the Wrap. This is less common but we will adhere to it.
+                  SizedBox(
+                    width: 200, // Giving it a width to prevent layout errors
+                    child: Autocomplete<String>(
+                      optionsBuilder: (TextEditingValue textEditingValue) {
+                        final query = textEditingValue.text.toLowerCase();
+                        if (!query.startsWith('#') || query.length <= 1) {
+                          return const <String>[];
+                        }
+
+                        final tagQuery = query.substring(1);
+                        return allAvailableTags.where((tag) {
+                          final isAlreadySelected = _selectedTags.contains(tag);
+                          final matchesQuery = tag.toLowerCase().contains(tagQuery);
+                          return !isAlreadySelected && matchesQuery;
+                        });
+                      },
+                      onSelected: (String selection) {
+                        setState(() {
+                          _selectedTags.add(selection);
+                        });
+                        _autocompleteController?.clear();
+                        _updateSearch(tags: _selectedTags);
+                        _searchFocusNode?.requestFocus();
+                      },
+                      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                        _searchFocusNode = focusNode;
+                        _autocompleteController = controller;
+
+                        final currentSearchText = ref.watch(detailSearchProvider).text;
+                        if (controller.text != currentSearchText && !controller.text.startsWith('#')) {
+                          controller.text = currentSearchText;
+                        }
+
+                        return TextField(
+                          controller: controller,
+                          focusNode: focusNode,
+                          decoration: InputDecoration(
+                            isDense: true,
+                            border: InputBorder.none,
+                            hintText: _selectedTags.isEmpty && _searchController.text.isEmpty ? 'Search by name or #tag...' : '... or add another',
+                          ),
+                          onChanged: (value) {
+                            if (!value.contains('#')) {
+                              _searchController.text = value;
+                              _updateSearch(text: value);
+                            }
+                          },
+                          onSubmitted: (value) {
+                            final trimmedValue = value.trim();
+                            if (trimmedValue.startsWith('#') && trimmedValue.length > 1) {
+                              onFieldSubmitted();
+                            } else {
+                              _searchController.text = trimmedValue;
+                              _updateSearch(text: trimmedValue);
+                            }
+                          },
+                        );
+                      },
+                      optionsViewBuilder: (context, onSelected, options) {
+                        return Align(
+                          alignment: Alignment.topLeft,
+                          child: Material(
+                            elevation: 4.0,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxHeight: 200, maxWidth: 250),
+                              child: ListView.builder(
+                                padding: EdgeInsets.zero,
+                                shrinkWrap: true,
+                                itemCount: options.length,
+                                itemBuilder: (BuildContext context, int index) {
+                                  final String option = options.elementAt(index);
+                                  return InkWell(
+                                    onTap: () => onSelected(option),
+                                    child: ListTile(title: Text(option), dense: true),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
   void _toggleSelection(String notePath) {
+    if (notePath == widget.person.info.path) return;
+
     setState(() {
       if (_selectedItems.contains(notePath)) {
         _selectedItems.remove(notePath);
@@ -157,7 +198,9 @@ class _NotesTabState extends ConsumerState<NotesTab> {
   void _selectAll(List<Note> displayNotes) {
     setState(() {
       for (final note in displayNotes) {
-        _selectedItems.add(note.path);
+        if (note.path != widget.person.info.path) {
+          _selectedItems.add(note.path);
+        }
       }
     });
   }
@@ -219,11 +262,6 @@ class _NotesTabState extends ConsumerState<NotesTab> {
     });
   }
 
-  void _updateSearch({String? text, List<String>? tags}) {
-    final currentQuery = ref.read(detailSearchProvider);
-    ref.read(detailSearchProvider.notifier).state = (text: text ?? currentQuery.text, tags: tags ?? currentQuery.tags);
-  }
-
   Future<void> _showMentionInfoDialog(BuildContext context, Note selectedNote) async {
     final textController = TextEditingController();
     final result = await showDialog<String>(
@@ -266,12 +304,11 @@ class _NotesTabState extends ConsumerState<NotesTab> {
   }
 
   Widget _buildSelectionToolbar(ColorScheme colorScheme, List<Note> displayNotes) {
-    final totalSelectableItems = displayNotes.length;
+    final totalSelectableItems = displayNotes.where((n) => n.path != widget.person.info.path).length;
     final areAllItemsSelected = _selectedItems.length == totalSelectableItems && totalSelectableItems > 0;
+    
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16.0,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0,),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -318,8 +355,8 @@ class _NotesTabState extends ConsumerState<NotesTab> {
   Widget build(BuildContext context) {
     final updatedPerson = ref.watch(appProvider).persons.firstWhere(
           (p) => p.path == widget.person.path,
-          orElse: () => widget.person,
-        );
+      orElse: () => widget.person,
+    );
 
     final searchQuery = ref.watch(detailSearchProvider);
     final allNotes = updatedPerson.notes;
@@ -335,7 +372,13 @@ class _NotesTabState extends ConsumerState<NotesTab> {
       return textMatch && tagsMatch;
     }).toList();
 
-    final displayNotes = filteredNotes;
+    final List<Note> displayNotes;
+    if (widget.purpose == ScreenPurpose.select) {
+      displayNotes = [updatedPerson.info, ...filteredNotes];
+    } else {
+      displayNotes = filteredNotes;
+    }
+
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -344,94 +387,80 @@ class _NotesTabState extends ConsumerState<NotesTab> {
           if (_isSelectionMode)
             _buildSelectionToolbar(colorScheme, displayNotes)
           else
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 0),
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                transitionBuilder: (Widget child, Animation<double> animation) {
-                  return FadeTransition(
-                    opacity: animation,
-                    child: SizeTransition(
-                      sizeFactor: animation,
-                      axis: Axis.horizontal,
-                      child: child,
-                    ),
-                  );
-                },
-                child: _buildSearchAndFilterControls(),
-              ),
-            ),
-          const SizedBox(height: 5),
+            _buildUnifiedSearchField(),
+          const SizedBox(height: 5,),
           Expanded(
             child: ListView.builder(
               itemCount: displayNotes.length,
               itemBuilder: (context, index) {
                 final note = displayNotes[index];
+                final isInfoNote = note.path == updatedPerson.info.path;
                 final isSelected = _selectedItems.contains(note.path);
 
                 return Dismissible(
-                    key: ValueKey(note.path),
-                    direction: widget.purpose == ScreenPurpose.view && !_isSelectionMode ? DismissDirection.endToStart : DismissDirection.none,
-                    background: Container(
-                      color: Colors.red[800],
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                      child: const Icon(Icons.delete, color: Colors.white),
-                    ),
-                    confirmDismiss: (direction) async {
-                      return await showDialog(
-                        context: context,
-                        builder: (BuildContext context) {
-                          return AlertDialog(
-                            title: const Text("Confirm Deletion"),
-                            content: Text("Are you sure you want to delete ${note.title}?"),
-                            actions: <Widget>[
-                              TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text("Cancel")),
-                              TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text("Delete", style: TextStyle(color: Colors.red))),
-                            ],
-                          );
-                        },
-                      );
-                    },
-                    onDismissed: (direction) async {
-                      await ref.read(appProvider.notifier).deleteNote(note);
-                    },
-                    child: NoteCard(
-                      note: note,
-                      isInfoNote: false,
-                      isSelected: isSelected,
-                      isSelectionMode: _isSelectionMode,
-                      onToggleSelection: () => _toggleSelection(note.path),
-                      onTap: () {
-                        if (_isSelectionMode) {
-                          _toggleSelection(note.path);
-                        } else if (widget.purpose == ScreenPurpose.select) {
-                          _showMentionInfoDialog(context, note);
-                        } else {
-                          Navigator.of(context).push(MaterialPageRoute(builder: (context) => NoteViewScreen(note: note)));
-                        }
+                  key: ValueKey(note.path),
+                  direction: widget.purpose == ScreenPurpose.view && !isInfoNote && !_isSelectionMode
+                      ? DismissDirection.endToStart
+                      : DismissDirection.none,
+                  background: Container(
+                    color: Colors.red[800],
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                    child: const Icon(Icons.delete, color: Colors.white),
+                  ),
+                  confirmDismiss: (direction) async {
+                    return await showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: const Text("Confirm Deletion"),
+                          content: Text("Are you sure you want to delete ${note.title}?"),
+                          actions: <Widget>[
+                            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text("Cancel")),
+                            TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text("Delete", style: TextStyle(color: Colors.red))),
+                          ],
+                        );
                       },
-                      onLongPress: () {
-                        if (widget.purpose == ScreenPurpose.view) {
-                          setState(() {
-                            _isSelectionMode = true;
-                            _selectedItems.add(note.path);
-                          });
-                        }
-                      },
-                    ));
+                    );
+                  },
+                  onDismissed: (direction) async {
+                    await ref.read(appProvider.notifier).deleteNote(note);
+                  },
+                  child: NoteCard(
+                    note: note,
+                    isInfoNote: isInfoNote,
+                    isSelected: isSelected,
+                    isSelectionMode: _isSelectionMode,
+                    onToggleSelection: () => _toggleSelection(note.path),
+                    onTap: () {
+                      if (_isSelectionMode) {
+                        _toggleSelection(note.path);
+                      } else if (widget.purpose == ScreenPurpose.select) {
+                        _showMentionInfoDialog(context, note);
+                      } else {
+                        Navigator.of(context).push(MaterialPageRoute(builder: (context) => NoteViewScreen(note: note)));
+                      }
+                    },
+                    onLongPress: () {
+                      if (widget.purpose == ScreenPurpose.view && !isInfoNote) {
+                        setState(() {
+                          _isSelectionMode = true;
+                          _selectedItems.add(note.path);
+                        });
+                      }
+                    },
+                  )
+                );
               },
             ),
           ),
         ],
       ),
-      floatingActionButton: widget.purpose == ScreenPurpose.view
-          ? CustomFloatButton(
-              icon: Icons.add,
-              tooltip: 'Add note',
-              onTap: () => _showCreateNoteDialog(context, ref, updatedPerson),
-            )
-          : null,
+      floatingActionButton: widget.purpose == ScreenPurpose.view ? CustomFloatButton(
+        icon: Icons.add,
+        tooltip: 'Add note',
+        onTap: () => _showCreateNoteDialog(context, ref, updatedPerson),
+      ) : null,
     );
   }
 

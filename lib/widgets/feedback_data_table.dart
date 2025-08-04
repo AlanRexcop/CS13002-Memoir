@@ -9,6 +9,10 @@ class FeedbackDataTable extends StatelessWidget {
   final List<FeedbackItem> feedbackItems;
   const FeedbackDataTable({super.key, required this.feedbackItems});
 
+  void _navigateToDetails(BuildContext context, int feedbackId) {
+    context.read<FeedbackProvider>().viewFeedback(feedbackId);
+  }
+
   @override
   Widget build(BuildContext context) {
     return DataTable(
@@ -28,16 +32,17 @@ class FeedbackDataTable extends StatelessWidget {
       ],
       rows: feedbackItems.map((item) {
         return DataRow(
-          // The whole row is now clickable to navigate to details.
-          onSelectChanged: (_) {
-            context.read<FeedbackProvider>().viewFeedback(item.id);
-          },
+          // REMOVED: The onSelectChanged handler is no longer on the DataRow.
+          // onSelectChanged: ...
           cells: [
-            DataCell(Text(item.userEmail)),
+            // ADDED: The onTap handler is now on each DataCell.
             DataCell(
-              // Show the title in bold with a text snippet below it.
+              Text(item.userEmail),
+              onTap: () => _navigateToDetails(context, item.id),
+            ),
+            DataCell(
               SizedBox(
-                width: 450, // Give the title column a fixed width
+                width: 450,
                 child: RichText(
                   overflow: TextOverflow.ellipsis,
                   text: TextSpan(
@@ -52,8 +57,12 @@ class FeedbackDataTable extends StatelessWidget {
                   ),
                 ),
               ),
+              onTap: () => _navigateToDetails(context, item.id),
             ),
-            DataCell(Text(DateFormat('dd/MM/yyyy').format(item.sendDate))),
+            DataCell(
+              Text(DateFormat('dd/MM/yyyy').format(item.sendDate)),
+              onTap: () => _navigateToDetails(context, item.id),
+            ),
           ],
         );
       }).toList(),

@@ -4,6 +4,7 @@ import '../../providers/admin_auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/feedback_provider.dart';
 
+import '../feedback/feedback_details_screen.dart';
 import 'dashboard_screen.dart';
 import '../Notification_screen.dart';
 import '../user/users_screen.dart';
@@ -43,6 +44,9 @@ class _DashboardShellState extends State<DashboardShell> {
       case 2:
         return const NotificationScreen();
       case 3:
+        if (feedbackProvider.viewingFeedbackId != null) {
+          return FeedbackDetailsScreen(feedbackId: feedbackProvider.viewingFeedbackId!);
+        }
         return const FeedbackScreen();
       default:
         return const DashboardScreen();
@@ -152,9 +156,9 @@ class _DashboardShellState extends State<DashboardShell> {
                           children: [
                             const CircleAvatar(
                               radius: 20,
-                              backgroundImage: AssetImage(
-                                'assets/images/avatar.png',
-                              ),
+                              // backgroundImage: AssetImage(
+                              //   'assets/images/avatar.png',
+                              // ),
                             ),
                             const SizedBox(width: 12),
                             const Text(

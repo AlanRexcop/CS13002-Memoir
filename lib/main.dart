@@ -8,10 +8,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/admin_auth_provider.dart';
 import 'providers/user_provider.dart';
 import 'providers/feedback_provider.dart';
+import 'providers/notification_provider.dart'; 
+
 import 'services/admin_auth_service.dart';
 import 'services/user_management_service.dart';
-import 'screens/login/auth_gate.dart';
 import 'services/feedback_service.dart';
+import 'services/notification_service.dart'; 
+
+import 'screens/login/auth_gate.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,33 +25,35 @@ void main() async {
     anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
   );
 
-  // It's a good practice to create service instances here
-  // to avoid creating them multiple times.
   final supabase = Supabase.instance.client;
   final adminAuthService = AdminAuthService(supabase);
   final userManagementService = UserManagementService(supabase);
   final feedbackService = FeedbackService(supabase);
+  final notificationService =
+      NotificationService(supabase); 
 
   runApp(
     MyApp(
       adminAuthService: adminAuthService,
       userManagementService: userManagementService,
       feedbackService: feedbackService,
+      notificationService: notificationService, 
     ),
   );
 }
 
 class MyApp extends StatelessWidget {
-  // Accept the services in the constructor
   final AdminAuthService adminAuthService;
   final UserManagementService userManagementService;
   final FeedbackService feedbackService;
+  final NotificationService notificationService; 
 
   const MyApp({
     super.key,
     required this.adminAuthService,
     required this.userManagementService,
     required this.feedbackService,
+    required this.notificationService, 
   });
 
   @override
@@ -60,10 +66,12 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) => UserProvider(userManagementService),
         ),
-        // Now, we can pass both required services to the FeedbackProvider
         ChangeNotifierProvider(
           create: (_) =>
               FeedbackProvider(feedbackService, userManagementService),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => NotificationProvider(notificationService),
         ),
       ],
       child: MaterialApp(
@@ -73,7 +81,7 @@ class MyApp extends StatelessWidget {
           visualDensity: VisualDensity.adaptivePlatformDensity,
         ),
         debugShowCheckedModeBanner: false,
-        home: const DashboardShell(),
+        home: const AuthGate(),
       ),
     );
   }

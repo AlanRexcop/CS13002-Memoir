@@ -1,3 +1,4 @@
+// lib/screens/dashboard/dashboard_shell.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/admin_auth_provider.dart';
@@ -152,29 +153,40 @@ class _DashboardShellState extends State<DashboardShell> {
                             child: Text('Logout'),
                           ),
                         ],
-                        child: Row(
-                          children: [
-                            const CircleAvatar(
-                              radius: 20,
-                              // backgroundImage: AssetImage(
-                              //   'assets/images/avatar.png',
-                              // ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Text(
-                              'Ethan Blake',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.black,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            const Icon(
-                              Icons.arrow_drop_down,
-                              color: Colors.black,
-                            ),
-                          ],
+                        child: Consumer<AdminAuthProvider>(
+                          builder: (context, authProvider, _) {
+                            final avatarData = authProvider.avatarData;
+                            final user = authProvider.user;
+                            return Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 20,
+                                  backgroundColor: Colors.grey[200],
+                                  // Use MemoryImage for Uint8List data. [5]
+                                  backgroundImage: avatarData != null
+                                      ? MemoryImage(avatarData)
+                                      : null,
+                                  child: avatarData == null
+                                      ? const Icon(Icons.person, color: Colors.grey)
+                                      : null,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  user?.email ?? 'Admin',
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                const Icon(
+                                  Icons.arrow_drop_down,
+                                  color: Colors.black,
+                                ),
+                              ],
+                            );
+                          },
                         ),
                       ),
                     ],

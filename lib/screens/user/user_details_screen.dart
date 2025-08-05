@@ -19,9 +19,12 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
   @override
   void initState() {
     super.initState();
-    // Fetch the user data when the screen loads
+    // Fetch user data and avatar when the screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<UserProvider>().fetchUserById(widget.userId);
+      final provider = context.read<UserProvider>();
+      provider.fetchUserById(widget.userId);
+      // NEW: Trigger avatar download.
+      provider.fetchUserAvatar(widget.userId);
     });
   }
 
@@ -37,8 +40,6 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      // --- WRAPPED IN SCROLL VIEW ---
-      // This makes the entire content scrollable, preventing overflows.
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
@@ -67,7 +68,6 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
               // Main content area
               Consumer<UserProvider>(
                 builder: (context, provider, child) {
-                  // --- State Handling (Expanded removed) ---
                   if (provider.isDetailLoading) {
                     return const Center(
                       child: Padding(
@@ -84,9 +84,10 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                   if (provider.selectedUserDetail == null) {
                     return const Center(child: Text('No user data found.'));
                   }
-                  // --- End State Handling ---
 
                   final user = provider.selectedUserDetail!;
+                  // Get avatar data from the provider
+                  final avatarData = provider.userDetailAvatar;
 
                   return Card(
                     elevation: 2,
@@ -99,14 +100,22 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const CircleAvatar(
+                          CircleAvatar(
                             radius: 70,
                             backgroundColor: Colors.black12,
-                            child: Icon(
-                              Icons.person,
-                              size: 80,
-                              color: Colors.white70,
-                            ),
+                            // Display the downloaded image using MemoryImage. [5]
+                            backgroundImage: avatarData != null
+                                ? MemoryImage(avatarData)
+                                : null,
+                            child: provider.isAvatarLoading
+                                ? const CircularProgressIndicator()
+                                : (avatarData == null
+                                    ? const Icon(
+                                        Icons.person,
+                                        size: 80,
+                                        color: Colors.white70,
+                                      )
+                                    : null),
                           ),
                           const SizedBox(width: 40),
                           Expanded(

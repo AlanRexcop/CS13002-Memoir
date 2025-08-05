@@ -1,4 +1,5 @@
 // lib/services/user_management_service.dart
+import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_profile.dart';
 
@@ -13,7 +14,7 @@ class UserManagementService {
     return data.map((item) => UserProfile.fromJson(item)).toList();
   }
 
-  /// NEW: Fetches the detailed profile for a single user by their ID.
+  /// Fetches the detailed profile for a single user by their ID.
   ///
   /// This ensures the data is always fresh when viewing user details.
   Future<UserProfile> fetchUserById(String userId) async {
@@ -28,6 +29,16 @@ class UserManagementService {
     // RPCs that return a SETOF table always return a list.
     // We expect only one item, so we take the first.
     return UserProfile.fromJson(data.first);
+  }
+  
+  /// --- NEW: Downloads a user's avatar from the private bucket. ---
+  ///
+  /// Returns raw image data (Uint8List). Throws StorageException if not found.
+  Future<Uint8List> downloadAvatar(String userId) async {
+    final String path = '$userId/profile/avatar.png';
+    // Download the file from the 'user-files' private bucket. [4]
+    final Uint8List file = await _supabase.storage.from('user-files').download(path);
+    return file;
   }
 
 

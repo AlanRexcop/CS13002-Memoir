@@ -9,9 +9,9 @@ class UserProfile {
   final int storageUsed;
   final int storageLimit;
   final int fileCount;
-  final int publicFileCount; // NEW: Added to match schema
+  final int publicFileCount; 
   final DateTime createdAt;
-  final DateTime? updatedAt;   // NEW: Added to match schema
+  final DateTime? updatedAt;   
   final DateTime? lastSignInAt;
 
   const UserProfile({
@@ -21,9 +21,9 @@ class UserProfile {
     required this.storageUsed,
     required this.storageLimit,
     required this.fileCount,
-    required this.publicFileCount, // NEW
+    required this.publicFileCount, 
     required this.createdAt,
-    this.updatedAt,             // NEW
+    this.updatedAt,             
     this.lastSignInAt,
   });
 

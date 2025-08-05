@@ -5,7 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/providers/app_provider.dart';
-import 'package:memoir/screens/notification_screen.dart';
+import 'package:memoir/screens/notification/notification_screen.dart';
 import 'package:memoir/screens/person_detail/person_detail_screen.dart';
 import '../widgets/custom_float_button.dart';
 import '../widgets/tag.dart';

@@ -60,7 +60,6 @@ class NotificationService {
     }
   }
   
-  // ... rest of the file is unchanged ...
   int _generateId(Event event, Note note) {
     return (note.path + event.time.toIso8601String() + event.info).hashCode &
         0x7FFFFFFF;

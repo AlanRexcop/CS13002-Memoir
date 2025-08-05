@@ -80,6 +80,14 @@ class CloudFileService {
   Future<void> restoreFile({required String fileId}) async {
     await _supabaseClient.rpc('restore_file', params: {'p_file_id': fileId});
   }
+
+  Future<void> publicFile({required String fileId}) async {
+    await _supabaseClient.rpc('public_file', params: {'p_file_id': fileId});
+  }
+
+  Future<void> privateFile({required String fileId}) async {
+    await _supabaseClient.rpc('private_file', params: {'p_file_id': fileId});
+  }
 }
 
 final cloudFileServiceProvider = Provider<CloudFileService>((ref) {

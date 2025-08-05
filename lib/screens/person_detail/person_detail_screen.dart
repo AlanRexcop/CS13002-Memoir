@@ -1,9 +1,11 @@
 // C:\dev\memoir\lib\screens\person_detail\person_detail_screen.dart
 import 'dart:io';
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/models/person_model.dart';
 import 'package:memoir/providers/app_provider.dart';
+import 'package:memoir/providers/cloud_provider.dart';
 import 'package:memoir/screens/person_list_screen.dart';
 import 'package:memoir/widgets/image_viewer.dart';
 import 'package:memoir/widgets/tag.dart';
@@ -23,6 +25,7 @@ class PersonDetailScreen extends ConsumerStatefulWidget {
 
 class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  bool _isPublishing = false;
 
   @override
   void initState() {
@@ -62,6 +65,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> with Si
     final colorScheme = Theme.of(context).colorScheme;
     final vaultRoot = ref.watch(appProvider).storagePath;
     final infoNote = updatedPerson.info;
+    final cloudFilesAsync = ref.watch(allCloudFilesProvider);
     
     File? avatarFile;
     if (vaultRoot != null && infoNote.images.isNotEmpty) {
@@ -160,21 +164,56 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> with Si
                         ),
                       ),
                     )
+                  else if (_isPublishing)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+                      child: CircularProgressIndicator(),
+                    )
                   else
-                    ElevatedButton(
-                      onPressed: () {
-                        // Handle publish action
+                    cloudFilesAsync.when(
+                      data: (cloudFiles) {
+                        final normalizedPath = infoNote.path.replaceAll(r'\', '/');
+                        final cloudFile = cloudFiles.firstWhereOrNull((cf) => cf.cloudPath?.endsWith(normalizedPath) ?? false);
+
+                        if (cloudFile == null) {
+                          return const SizedBox.shrink(); // Not synced
+                        }
+                        
+                        final isPublic = cloudFile.isPublic;
+                        return ElevatedButton(
+                          onPressed: () async {
+                            setState(() => _isPublishing = true);
+                            final notifier = ref.read(cloudNotifierProvider.notifier);
+                            final success = isPublic
+                                ? await notifier.makeFilePrivate(cloudFile)
+                                : await notifier.makeFilePublic(cloudFile);
+
+                            if (mounted) {
+                              ScaffoldMessenger.of(context)
+                                ..hideCurrentSnackBar()
+                                ..showSnackBar(
+                                  SnackBar(
+                                    content: Text(success ? 'Visibility updated successfully.' : 'Failed to update visibility.'),
+                                    backgroundColor: success ? Colors.blue : Colors.red,
+                                  ),
+                                );
+                              setState(() => _isPublishing = false);
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                            elevation: 5,
+                            backgroundColor: isPublic ? Colors.grey : Theme.of(context).colorScheme.primary,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text(isPublic ? 'Unpublish' : 'Publish', style: const TextStyle(fontSize: 17)),
+                        );
                       },
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                        elevation: 5,
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text('publish', style: TextStyle(fontSize: 17)),
+                      loading: () => const SizedBox.shrink(),
+                      error: (e, s) => const SizedBox.shrink(),
                     ),
                 ],
               ),

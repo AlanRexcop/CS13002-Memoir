@@ -72,10 +72,22 @@ class _UsersScreenState extends State<UsersScreen> {
             child: userProvider.isLoading && users.isEmpty
                 ? const Center(child: CircularProgressIndicator())
                 : userProvider.error != null
-                ? Center(child: Text('Error: ${userProvider.error}'))
-                : SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: UserDataTable(users: users),
+                ? Center(child: Text('Error: ${userProvider.error}')) // the table is centered
+                : Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 20.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: SingleChildScrollView(
+                          child: UserDataTable(users: users),
+                        ),
+                      ),
+                    ),
                   ),
           ),
         ],

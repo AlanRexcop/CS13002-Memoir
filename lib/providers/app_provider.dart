@@ -10,6 +10,8 @@ import 'package:memoir/services/local_storage_service.dart';
 import 'package:memoir/services/notification_service.dart';
 import 'package:memoir/services/persistence_service.dart';
 import 'package:memoir/models/note_model.dart';
+
+import 'package:memoir/services/realtime_service.dart'; 
 import 'package:memoir/services/sync_service.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
@@ -85,7 +87,8 @@ final appProvider = StateNotifierProvider<AppNotifier, AppState>((ref) {
     persistenceService: ref.read(persistenceServiceProvider),
     localStorageService: ref.read(localStorageServiceProvider),
     syncService: ref.read(syncServiceProvider), 
-    ref: ref, // Pass the ref to the notifier
+    realtimeService: ref.read(realtimeServiceProvider),
+    ref: ref, 
   );
 });
 
@@ -113,8 +116,9 @@ class AppNotifier extends StateNotifier<AppState> {
   final PersistenceService _persistenceService;
   final LocalStorageService _localStorageService;
   final SyncService _syncService;
+  final RealtimeService _realtimeService;
   final NotificationService _notificationService = NotificationService();
-  final Ref _ref; // Store the ref
+  final Ref _ref;
   StreamSubscription<AuthState>? _authSubscription;
 
   late final Future<void> initializationComplete;
@@ -123,37 +127,40 @@ class AppNotifier extends StateNotifier<AppState> {
     required PersistenceService persistenceService,
     required LocalStorageService localStorageService,
     required SyncService syncService,
-    required Ref ref, // Receive the ref
+    required RealtimeService realtimeService,
+    required Ref ref,
   })  : _persistenceService = persistenceService,
         _localStorageService = localStorageService,
         _syncService = syncService,
-        _ref = ref, // Initialize the ref
+        _realtimeService = realtimeService,
+        _ref = ref,
         super(const AppState()) {
     initializationComplete = _loadInitialPath();
     _listenToAuthChanges();
-
-    // Proactively check for an existing user on app start.
-    // This handles hot restarts where the onAuthStateChange stream doesn't fire.
+    
     final currentUser = Supabase.instance.client.auth.currentUser;
     if (currentUser != null) {
       state = state.copyWith(currentUser: currentUser);
       _downloadAndCacheAvatar(currentUser.id);
+      _realtimeService.subscribe();
     }
   }
 
   void _listenToAuthChanges() {
     _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
       final User? user = data.session?.user;
-      // Only update state if the user's ID has actually changed.
       if (state.currentUser?.id != user?.id) {
          if (user == null) {
-           await _localStorageService.deleteLocalAvatar(); // Clear avatar on logout
+           await _localStorageService.deleteLocalAvatar();
            state = state.copyWith(clearCurrentUser: true);
-           // Update the version provider to trigger a refresh.
            _ref.read(avatarVersionProvider.notifier).update((s) => s + 1);
+           // --- Unsubscribe on logout ---
+           _realtimeService.unsubscribe();
          } else {
            state = state.copyWith(currentUser: user);
-           await _downloadAndCacheAvatar(user.id); // Download avatar on login
+           await _downloadAndCacheAvatar(user.id);
+           // --- Subscribe on login ---
+           _realtimeService.subscribe();
          }
       }
     });
@@ -177,6 +184,7 @@ class AppNotifier extends StateNotifier<AppState> {
   @override
   void dispose() {
     _authSubscription?.cancel();
+    _realtimeService.unsubscribe();
     super.dispose();
   }
 

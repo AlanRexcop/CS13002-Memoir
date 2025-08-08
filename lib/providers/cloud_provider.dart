@@ -111,17 +111,38 @@ class CloudNotifier extends StateNotifier<CloudState> {
     }
   }
 
-  Future<bool> makeFilePublic(CloudFile file) async {
-    if (file.id == null) {
-      state = state.copyWith(errorMessage: 'File has no valid ID to make public.');
-      return false;
-    }
+  /// Makes a note and all its referenced images public.
+  Future<bool> makeNotePublic(Note note, CloudFile noteCloudFile) async {
+    await initializationComplete;
+    if (noteCloudFile.id == null) return false;
+    
     try {
-      await _cloudService.publicFile(fileId: file.id!);
+      // 1. Make the main note file public
+      await _cloudService.publicFile(fileId: noteCloudFile.id!);
+      
+      // 2. Make associated images public
+      if (note.images.isNotEmpty && state.userRootPath != null) {
+        // Get an up-to-date list of all cloud files to find the image IDs
+        await _ref.refresh(allCloudFilesProvider.future);
+        final allCloudFiles = await _ref.read(allCloudFilesProvider.future);
+
+        for (final relativeImagePath in note.images) {
+          final cloudImagePath = '${state.userRootPath!}${relativeImagePath.replaceAll(r'\', '/')}';
+          final cloudImageFile = allCloudFiles.firstWhereOrNull((f) => f.cloudPath == cloudImagePath);
+
+          if (cloudImageFile?.id != null) {
+            print('Making image public: $relativeImagePath');
+            await _cloudService.publicFile(fileId: cloudImageFile!.id!);
+          } else {
+            print('Could not find cloud file for image to make public: $relativeImagePath');
+          }
+        }
+      }
+      
       _ref.invalidate(allCloudFilesProvider);
       return true;
     } catch (e) {
-      state = state.copyWith(errorMessage: 'Error making file public: ${e.toString()}');
+      state = state.copyWith(errorMessage: 'Error making note public: ${e.toString()}');
       return false;
     }
   }
@@ -136,7 +157,7 @@ class CloudNotifier extends StateNotifier<CloudState> {
       _ref.invalidate(allCloudFilesProvider);
       return true;
     } catch (e) {
-      state = state.copyWith(errorMessage: 'Error making file private: ${e.toString()}');
+      state = state.copyWith(errorMessage: 'Error making note private: ${e.toString()}');
       return false;
     }
   }

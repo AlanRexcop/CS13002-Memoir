@@ -176,7 +176,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> with Si
                         final cloudFile = cloudFiles.firstWhereOrNull((cf) => cf.cloudPath?.endsWith(normalizedPath) ?? false);
 
                         if (cloudFile == null) {
-                          return const SizedBox.shrink(); // Not synced
+                          return const SizedBox.shrink(); // Not synced, so no button to show
                         }
                         
                         final isPublic = cloudFile.isPublic;
@@ -186,7 +186,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> with Si
                             final notifier = ref.read(cloudNotifierProvider.notifier);
                             final success = isPublic
                                 ? await notifier.makeFilePrivate(cloudFile)
-                                : await notifier.makeFilePublic(cloudFile);
+                                : await notifier.makeNotePublic(infoNote, cloudFile);
 
                             if (mounted) {
                               ScaffoldMessenger.of(context)

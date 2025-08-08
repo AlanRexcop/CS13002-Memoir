@@ -1,3 +1,4 @@
+// lib/widgets/note_metadata_card.dart
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:memoir/models/note_model.dart';
 import 'package:memoir/providers/cloud_provider.dart';
 import 'package:memoir/widgets/tag.dart';
+
 import '../screens/graph_view_screen.dart';
 
 class NoteMetadataCard extends ConsumerStatefulWidget {
@@ -41,12 +43,11 @@ class _NoteMetadataCardState extends ConsumerState<NoteMetadataCard> {
                 child: Text(
                   widget.note.title,
                   style: GoogleFonts.inter(
-                    fontSize: 25,
-                    color: Colors.black,
-                    fontWeight: FontWeight.w500,
-                  ),
+                      fontSize: 25,
+                      color: Colors.black,
+                      fontWeight: FontWeight.w500),
                   overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
+                  maxLines: 2,
                 ),
               ),
               const SizedBox(width: 10),
@@ -61,8 +62,9 @@ class _NoteMetadataCardState extends ConsumerState<NoteMetadataCard> {
                     final normalizedPath = widget.note.path.replaceAll(r'\', '/');
                     final cloudFile = cloudFiles.firstWhereOrNull((cf) => cf.cloudPath?.endsWith(normalizedPath) ?? false);
 
+                    // If the file isn't synced to the cloud, don't show a button.
                     if (cloudFile == null) {
-                      return const SizedBox.shrink(); // Not synced, so don't show the button
+                      return const SizedBox.shrink();
                     }
 
                     final isPublic = cloudFile.isPublic;
@@ -70,9 +72,11 @@ class _NoteMetadataCardState extends ConsumerState<NoteMetadataCard> {
                       onPressed: () async {
                         setState(() => _isPublishing = true);
                         final notifier = ref.read(cloudNotifierProvider.notifier);
+                        
+                        // Call the appropriate method based on the current public status
                         final success = isPublic
                             ? await notifier.makeFilePrivate(cloudFile)
-                            : await notifier.makeFilePublic(cloudFile);
+                            : await notifier.makeNotePublic(widget.note, cloudFile);
 
                         if (mounted) {
                           ScaffoldMessenger.of(context)
@@ -86,34 +90,42 @@ class _NoteMetadataCardState extends ConsumerState<NoteMetadataCard> {
                           setState(() => _isPublishing = false);
                         }
                       },
-                      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                        // Change color based on public status for better feedback
+                        side: BorderSide(color: isPublic ? Colors.grey : Theme.of(context).colorScheme.primary),
+                      ),
                       child: Text(
                         isPublic ? 'Unpublish' : 'Publish',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: isPublic ? Colors.grey[700] : Theme.of(context).colorScheme.primary,
+                        ),
                       ),
                     );
                   },
-                  loading: () => const SizedBox.shrink(),
-                  error: (e, s) => const SizedBox.shrink(),
+                  loading: () => const SizedBox.shrink(), // Don't show anything while loading file list
+                  error: (e, s) => const SizedBox.shrink(), // Or if there's an error
                 ),
             ],
           ),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: Wrap(
-                  spacing: 8.0,
-                  runSpacing: 4.0,
-                  children: widget.note.tags.map((tag) {
-                    return Tag(label: tag);
-                  }).toList(),
+          if (widget.note.tags.isNotEmpty)
+            Row(
+              children: [
+                Expanded(
+                  child: Wrap(
+                    spacing: 8.0,
+                    runSpacing: 4.0,
+                    children: widget.note.tags.map((tag) {
+                      return Tag(label: tag);
+                    }).toList(),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-            ],
-          ),
-          const SizedBox(height: 20),
+              ],
+            ),
+          if (widget.note.tags.isNotEmpty) const SizedBox(height: 20),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [

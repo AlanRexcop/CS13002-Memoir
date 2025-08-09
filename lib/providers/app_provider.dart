@@ -24,6 +24,7 @@ class AppState {
   final List<Note> deletedNotes;
   final List<Note> deletedPersonsInfoNotes; // Renamed for clarity
   final bool isLoading;
+  final bool isSyncing;
   final ({String text, List<String> tags}) searchQuery;
   final User? currentUser;
 
@@ -33,6 +34,7 @@ class AppState {
     this.deletedNotes = const [],
     this.deletedPersonsInfoNotes = const [],
     this.isLoading = true,
+    this.isSyncing = false,
     this.searchQuery = (text: '', tags: const []),
     this.currentUser,
   });
@@ -62,6 +64,7 @@ class AppState {
     List<Note>? deletedNotes,
     List<Note>? deletedPersonsInfoNotes,
     bool? isLoading,
+    bool? isSyncing,
     ({String text, List<String> tags})? searchQuery,
     User? currentUser,
     bool clearStoragePath = false,
@@ -73,6 +76,7 @@ class AppState {
       deletedNotes: deletedNotes ?? this.deletedNotes,
       deletedPersonsInfoNotes: deletedPersonsInfoNotes ?? this.deletedPersonsInfoNotes,
       isLoading: isLoading ?? this.isLoading,
+      isSyncing: isSyncing ?? this.isSyncing,
       searchQuery: searchQuery ?? this.searchQuery,
       currentUser: clearCurrentUser ? null : currentUser ?? this.currentUser,
     );
@@ -208,6 +212,8 @@ class AppNotifier extends StateNotifier<AppState> {
     final path = await _persistenceService.getLocalStoragePath();
     if (path != null) {
       await loadAllPersons(path);
+      // Non-blocking call to start the sync process in the background
+      _syncService.performInitialSync();
     } else {
       state = state.copyWith(isLoading: false);
     }
@@ -278,6 +284,10 @@ class AppNotifier extends StateNotifier<AppState> {
       print("Failed to load persons: $e");
       state = state.copyWith(isLoading: false);
     }
+  }
+
+  void setSyncLoading(bool isLoading) {
+    state = state.copyWith(isSyncing: isLoading);
   }
 
   Future<void> refreshVault() async {
@@ -440,6 +450,43 @@ class AppNotifier extends StateNotifier<AppState> {
     } catch (e) {
       print("Failed to permanently delete person: $e");
       return false;
+    }
+  }
+
+  // Surgically updates a single note in the state after a download.
+  // This is the key to breaking the sync loop.
+  Future<void> updateSingleNoteInState(String notePath) async {
+    if (state.storagePath == null) return;
+    try {
+      // 1. Read the definitive, updated data for this one file from disk.
+      final absolutePath = p.join(state.storagePath!, notePath);
+      final updatedNote = await _localStorageService.readNoteFromFile(File(absolutePath), state.storagePath!);
+
+      // 2. Find and replace the old note object within the existing state.
+      final newPersonsList = state.persons.map((person) {
+        // Check if the info note needs updating
+        if (person.info.path == notePath) {
+          return Person(path: person.path, info: updatedNote, notes: person.notes);
+        }
+        
+        // Check if a note in the notes list needs updating
+        final noteIndex = person.notes.indexWhere((n) => n.path == notePath);
+        if (noteIndex != -1) {
+          final newNotesForPerson = List<Note>.from(person.notes);
+          newNotesForPerson[noteIndex] = updatedNote;
+          return Person(path: person.path, info: person.info, notes: newNotesForPerson);
+        }
+        
+        // If no match, return the person unchanged
+        return person;
+      }).toList();
+
+      // 3. Update the state with the new list of persons.
+      state = state.copyWith(persons: newPersonsList);
+      print('State successfully updated for note: $notePath');
+
+    } catch (e) {
+      print("Failed to surgically update note in state: $e");
     }
   }
 

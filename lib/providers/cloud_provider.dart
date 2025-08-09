@@ -178,8 +178,18 @@ class CloudNotifier extends StateNotifier<CloudState> {
       }
 
       await localFile.writeAsBytes(fileBytes);
+      
+      if (file.cloudPath!.endsWith('.md')) {
+        final localStorage = _ref.read(localStorageServiceProvider);
+        await localStorage.updateNoteLastModified(localPath, file.updatedAt);
+
+        // Immediately update the app's in-memory state.
+        await _ref.read(appProvider.notifier).updateSingleNoteInState(relativePath);
+      }
+      
       return true;
     } catch (e) {
+      print('Error downloading file ${file.cloudPath}: $e');
       return false;
     }
   }
@@ -187,7 +197,7 @@ class CloudNotifier extends StateNotifier<CloudState> {
   Future<bool> downloadNoteAndImages(CloudFile noteFile, String vaultRoot) async {
     if (noteFile.cloudPath == null || state.userRootPath == null) return false;
     try {
-      // 1. Download the main note file
+      // 1. Download the main note file. The downloadFile method now handles everything.
       await downloadFile(noteFile, vaultRoot);
 
       // 2. Read the newly downloaded note to get its image list
@@ -198,10 +208,8 @@ class CloudNotifier extends StateNotifier<CloudState> {
 
       // 3. Download missing images
       if (note.images.isNotEmpty) {
-        // --- FIX: Refresh the cloud file list to ensure we have the latest data ---
         await _ref.refresh(allCloudFilesProvider.future);
         final allCloudFiles = await _ref.read(allCloudFilesProvider.future);
-        // --- END FIX ---
 
         for (final relativeImagePath in note.images) {
           final localImageExists = await localStorage.imageExists(vaultRoot, relativeImagePath);
@@ -392,7 +400,6 @@ final localBackgroundProvider = FutureProvider<Uint8List?>((ref) async {
   }
   
   final localStorage = ref.read(localStorageServiceProvider);
-  // NOTE: Assumes `getLocalBackgroundFile` exists in LocalStorageService.
   final file = await localStorage.getLocalBackgroundFile();
 
   if (await file.exists()) {

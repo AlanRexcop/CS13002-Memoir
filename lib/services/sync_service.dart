@@ -1,6 +1,7 @@
 // C:\dev\memoir\lib\services\sync_service.dart
 import 'dart:typed_data';
 
+import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/models/cloud_file.dart';
 import 'package:memoir/models/note_model.dart';
@@ -45,6 +46,75 @@ class SyncService {
     }
   }
 
+  Future<void> performInitialSync() async {
+    final appState = _ref.read(appProvider);
+    final cloudNotifier = _ref.read(cloudNotifierProvider.notifier);
+    final user = Supabase.instance.client.auth.currentUser;
+
+    if (user == null || appState.storagePath == null) {
+      print('Initial Sync: Aborting. Pre-conditions not met (user, storagePath).');
+      return;
+    }
+
+    await cloudNotifier.initializationComplete;
+    final cloudState = _ref.read(cloudNotifierProvider);
+    if (cloudState.userRootPath == null) {
+      print('Initial Sync: Aborting. Cloud root path not available.');
+      return;
+    }
+
+    print('Initial Sync: Starting...');
+    _ref.read(appProvider.notifier).setSyncLoading(true);
+
+    try {
+      final vaultRoot = appState.storagePath!;
+      final userRootPath = cloudState.userRootPath!;
+
+      // 1. Get current local and cloud states
+      final allLocalNotes = appState.persons.expand((p) => [p.info, ...p.notes]).toList();
+      final localPaths = allLocalNotes.map((n) => n.path.replaceAll(r'\', '/')).toSet();
+      
+      await _ref.refresh(allCloudFilesProvider.future);
+      final allCloudFiles = await _ref.read(allCloudFilesProvider.future);
+      
+      final cloudFilesMap = {
+        for (var cf in allCloudFiles) 
+          if(cf.cloudPath != null && !cf.isFolder)
+            cf.cloudPath!.replaceFirst(userRootPath, '').replaceFirst(RegExp(r'^/'), ''): cf
+      };
+      final cloudPaths = cloudFilesMap.keys.toSet();
+
+      // 2. Find files existing in both places and resolve conflicts
+      final commonPaths = localPaths.intersection(cloudPaths);
+      for (final path in commonPaths) {
+        final localNote = allLocalNotes.firstWhere((n) => n.path.replaceAll(r'\', '/') == path);
+        final cloudFile = cloudFilesMap[path]!;
+
+        if (cloudFile.isDeleted) continue;
+
+        final localTimestamp = localNote.lastModified;
+        final cloudTimestamp = cloudFile.updatedAt;
+        final difference = localTimestamp.difference(cloudTimestamp).inSeconds.abs();
+
+        if (difference > 2) { // Use absolute difference to catch either direction
+          if (localTimestamp.isAfter(cloudTimestamp)) {
+            print('Initial Sync: Local is newer for "$path". Uploading.');
+            await cloudNotifier.uploadNote(localNote, vaultRoot);
+          } else {
+            print('Initial Sync: Cloud is newer for "$path". Downloading.');
+            // triggers the entire fix: download -> update YAML -> update state
+            await cloudNotifier.downloadNoteAndImages(cloudFile, vaultRoot);
+          }
+        }
+      }
+    } catch (e) {
+      print('Initial Sync: An error occurred: $e');
+    } finally {
+      print('Initial Sync: Finished.');
+      _ref.read(appProvider.notifier).setSyncLoading(false);
+    }
+  }
+
   Future<void> autoUpload(Note note, String vaultRoot) async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return; 
@@ -57,9 +127,7 @@ class SyncService {
     final cloudService = _ref.read(cloudFileServiceProvider);
 
     try {
-      // 1. Upload the main note file if it exists in the cloud, otherwise it's a new file.
-      // This logic assumes a note is only auto-uploaded if it has a corresponding cloud entry.
-      // A more robust system might create the entry if it's missing.
+      // Auto-upload only triggers for files that are already tracked in the cloud.
       final cloudFile = await _findCloudFileByPath(note.path);
       if (cloudFile?.cloudPath != null) {
         print('Auto-sync: Uploading changes for ${note.path}');
@@ -68,7 +136,7 @@ class SyncService {
         print('Auto-sync: Upload complete for ${note.path}');
       }
 
-      // 2. Sync associated images
+      // Sync associated images
       if (note.images.isNotEmpty) {
         await _ref.refresh(allCloudFilesProvider.future);
         final allCloudFiles = await _ref.read(allCloudFilesProvider.future);
@@ -155,7 +223,6 @@ class SyncService {
     }
   }
 
-  // NEW: Trashes an entire folder recursively using its relative path.
   Future<void> autoTrashByPath(String relativePath) async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
@@ -173,7 +240,6 @@ class SyncService {
     }
   }
 
-  // NEW: Restores an entire folder recursively using its relative path.
   Future<void> autoRestoreByPath(String relativePath) async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;

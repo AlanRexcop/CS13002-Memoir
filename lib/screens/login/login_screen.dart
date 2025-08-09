@@ -1,3 +1,4 @@
+// ... các import giữ nguyên
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -182,14 +183,21 @@ class _LoginScreenState extends State<LoginScreen> {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
-                                    Text(
-                                      'ADMIN LOGIN',
-                                      style: TextStyle(
-                                        fontSize: cardHeight * 0.055,
-                                        fontWeight: FontWeight.bold,
-                                        fontFamily: 'Inter',
+                                    const SizedBox(height: 20),
+
+                                    // Chỉnh dịch chữ ADMIN LOGIN lên trên một chút
+                                    Transform.translate(
+                                      offset: const Offset(0, -15),
+                                      child: Text(
+                                        'ADMIN LOGIN',
+                                        style: TextStyle(
+                                          fontSize: cardHeight * 0.055,
+                                          fontWeight: FontWeight.bold,
+                                          fontFamily: 'Inter',
+                                        ),
                                       ),
                                     ),
+
                                     const SizedBox(height: 40),
 
                                     // Email

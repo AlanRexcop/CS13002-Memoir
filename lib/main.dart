@@ -1,5 +1,6 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_admin/screens/dashboard/dashboard_screen.dart';
 import 'package:flutter_admin/screens/dashboard/dashboard_shell.dart';
 import 'package:flutter_admin/screens/login/login_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -9,12 +10,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/admin_auth_provider.dart';
 import 'providers/user_provider.dart';
 import 'providers/feedback_provider.dart';
-import 'providers/notification_provider.dart'; 
+import 'providers/notification_provider.dart';
 
 import 'services/admin_auth_service.dart';
 import 'services/user_management_service.dart';
 import 'services/feedback_service.dart';
-import 'services/notification_service.dart'; 
+import 'services/notification_service.dart';
 
 import 'screens/login/auth_gate.dart';
 
@@ -30,15 +31,14 @@ void main() async {
   final adminAuthService = AdminAuthService(supabase);
   final userManagementService = UserManagementService(supabase);
   final feedbackService = FeedbackService(supabase);
-  final notificationService =
-      NotificationService(supabase); 
+  final notificationService = NotificationService(supabase);
 
   runApp(
     MyApp(
       adminAuthService: adminAuthService,
       userManagementService: userManagementService,
       feedbackService: feedbackService,
-      notificationService: notificationService, 
+      notificationService: notificationService,
     ),
   );
 }
@@ -47,14 +47,14 @@ class MyApp extends StatelessWidget {
   final AdminAuthService adminAuthService;
   final UserManagementService userManagementService;
   final FeedbackService feedbackService;
-  final NotificationService notificationService; 
+  final NotificationService notificationService;
 
   const MyApp({
     super.key,
     required this.adminAuthService,
     required this.userManagementService,
     required this.feedbackService,
-    required this.notificationService, 
+    required this.notificationService,
   });
 
   @override

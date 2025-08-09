@@ -72,7 +72,20 @@ class CloudNotifier extends StateNotifier<CloudState> {
     }
   }
 
-
+  /// Uses the CloudFileService to get a file's data by its ID and returns the cloud path.
+  /// Returns null if the file is not found or an error occurs.
+  Future<String?> getCloudPathById(String fileId) async {
+    try {
+      final fileData = await _cloudService.getFileById(fileId);
+      final cloudPath = fileData['path'] as String?;
+      return cloudPath;
+    } catch (e) {
+      print('Error fetching cloud path for file ID $fileId: $e');
+     
+      state = state.copyWith(errorMessage: 'Failed to retrieve file details.');
+      return null;
+    }
+  }
 
   Future<bool> deleteFile(CloudFile file) async {
     if (file.cloudPath == null) {

@@ -155,6 +155,7 @@ class _DashboardShellState extends State<DashboardShell> {
                                     child: avatarData == null
                                         ? const Icon(
                                             Icons.person,
+                                            size: 25,
                                             color: Colors.grey,
                                           )
                                         : null,
@@ -163,7 +164,7 @@ class _DashboardShellState extends State<DashboardShell> {
                                   const Text(
                                     'Admin',
                                     style: TextStyle(
-                                      fontSize: 18,
+                                      fontSize: 20,
                                       color: Colors.black,
                                       fontWeight: FontWeight.w500,
                                     ),

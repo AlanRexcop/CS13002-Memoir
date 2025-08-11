@@ -6,64 +6,104 @@ class DashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Summary cards
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(right: 175),
-                child: _buildSummaryCard(
-                  assetPath: 'assets/icons/accounts.png',
-                  title: 'Total accounts',
-                  count: '1,234', // dữ liệu cần lấy từ db
-                ),
-              ),
-              _buildSummaryCard(
-                assetPath: 'assets/icons/bugs.png',
-                title: 'Total bugs',
-                count: '10', // dữ liệu cần lấy từ db
-              ),
-              Padding(
-                padding: const EdgeInsets.only(left: 175),
-                child: _buildSummaryCard(
-                  assetPath: 'assets/icons/feedbacks.png',
-                  title: 'Total feedbacks',
-                  count: '19', // dữ liệu cần lấy từ db
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 24),
-
-          // Recent accounts and Pie Chart
-          Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        bool isMobile = constraints.maxWidth < 900; // breakpoint
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(flex: 2, child: _buildRecentAccounts()),
-              const SizedBox(width: 24),
-              Expanded(child: _buildPieChart()),
+              // Summary cards
+              if (isMobile)
+                Column(
+                  children: [
+                    _buildSummaryCard(
+                      assetPath: 'assets/icons/accounts.png',
+                      title: 'Total accounts',
+                      count: '1,234',
+                    ),
+                    const SizedBox(height: 16),
+                    _buildSummaryCard(
+                      assetPath: 'assets/icons/bugs.png',
+                      title: 'Total bugs',
+                      count: '10',
+                    ),
+                    const SizedBox(height: 16),
+                    _buildSummaryCard(
+                      assetPath: 'assets/icons/feedbacks.png',
+                      title: 'Total feedbacks',
+                      count: '19',
+                    ),
+                  ],
+                )
+              else
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: _buildSummaryCard(
+                        assetPath: 'assets/icons/accounts.png',
+                        title: 'Total accounts',
+                        count: '1,234',
+                      ),
+                    ),
+                    const SizedBox(width: 24),
+                    Expanded(
+                      child: _buildSummaryCard(
+                        assetPath: 'assets/icons/bugs.png',
+                        title: 'Total bugs',
+                        count: '10',
+                      ),
+                    ),
+                    const SizedBox(width: 24),
+                    Expanded(
+                      child: _buildSummaryCard(
+                        assetPath: 'assets/icons/feedbacks.png',
+                        title: 'Total feedbacks',
+                        count: '19',
+                      ),
+                    ),
+                  ],
+                ),
+
+              const SizedBox(height: 24),
+
+              // Recent accounts and Pie Chart
+              if (isMobile)
+                Column(
+                  children: [
+                    _buildRecentAccounts(),
+                    const SizedBox(height: 24),
+                    _buildPieChart(),
+                  ],
+                )
+              else
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 2, child: _buildRecentAccounts()),
+                    const SizedBox(width: 24),
+                    Expanded(child: _buildPieChart()),
+                  ],
+                ),
+              const SizedBox(height: 24),
+
+              // Registration graph
+              const Text(
+                "Registration graph",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              _buildBarChart(),
             ],
           ),
-          const SizedBox(height: 24),
-
-          // Registration graph
-          const Text(
-            "Registration graph",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
-          _buildBarChart(),
-        ],
-      ),
+        );
+      },
     );
   }
 
+  // --- Các hàm cũ giữ nguyên ---
   Widget _buildSummaryCard({
     required String assetPath,
     required String title,
@@ -75,7 +115,6 @@ class DashboardScreen extends StatelessWidget {
       color: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: SizedBox(
-        width: 316,
         height: 108,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -90,7 +129,6 @@ class DashboardScreen extends StatelessWidget {
               ),
               const SizedBox(width: 16),
               Expanded(
-                // để text chiếm hết phần còn lại và căn phải
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -110,7 +148,7 @@ class DashboardScreen extends StatelessWidget {
                       textAlign: TextAlign.right,
                       style: const TextStyle(
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.bold, // in đậm hơn
+                        fontWeight: FontWeight.bold,
                         fontSize: 25,
                       ),
                     ),

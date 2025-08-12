@@ -3,17 +3,19 @@ import 'dart:developer';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/providers/cloud_provider.dart';
+import 'package:memoir/screens/image_gallery_screen.dart';
+import 'package:memoir/screens/person_list_screen.dart';
 import 'package:memoir/services/cloud_file_service.dart';
 import 'package:memoir/screens/change_password_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:path/path.dart' as p;
 import '../widgets/info_item.dart';
 import '../widgets/profile_header.dart';
 import '../widgets/storage_info.dart';
-import '../widgets/user_info_section.dart';
+// import '../widgets/user_info_section.dart'; // No longer needed
 
 final userProfileProvider = FutureProvider<Map<String, dynamic>>((ref) {
   final user = ref.watch(appProvider).currentUser;
@@ -70,17 +72,32 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     setState(() { _isUploadingAvatar = true; });
 
     try {
-      final picker = ImagePicker();
-      final pickedFile = await picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 80,
-        maxWidth: 512,
-        maxHeight: 512,
+      // Navigate to the image gallery to select an image
+      final relativePath = await Navigator.of(context).push<String>(
+        MaterialPageRoute(
+          builder: (context) => const ImageGalleryScreen(purpose: ScreenPurpose.select),
+        ),
       );
 
-      if (pickedFile != null && mounted) {
-        final imageFile = File(pickedFile.path);
-        // The notifier now handles invalidation via the version provider
+      if (relativePath != null && mounted) {
+        // Get the absolute path of the selected image file
+        final vaultRoot = ref.read(appProvider).storagePath;
+        if (vaultRoot == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Storage path not set. Cannot upload avatar.')),
+          );
+          return;
+        }
+        final imageFile = File(p.join(vaultRoot, relativePath));
+        
+        if (!await imageFile.exists() && mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Selected image file not found.')),
+          );
+          return;
+        }
+
+        // Upload the avatar
         final success = await ref.read(cloudNotifierProvider.notifier).uploadAvatar(imageFile);
 
         if (mounted) {
@@ -98,7 +115,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('An error occurred while picking image: $e')),
+          SnackBar(content: Text('An error occurred: $e')),
         );
       }
     } finally {
@@ -114,17 +131,32 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     setState(() { _isUploadingBackground = true; });
 
     try {
-      final picker = ImagePicker();
-      final pickedFile = await picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 80,
-        maxWidth: 1920, // Backgrounds can be larger
-        maxHeight: 1080,
+      // Navigate to the image gallery to select an image
+      final relativePath = await Navigator.of(context).push<String>(
+        MaterialPageRoute(
+          builder: (context) => const ImageGalleryScreen(purpose: ScreenPurpose.select),
+        ),
       );
 
-      if (pickedFile != null && mounted) {
-        final imageFile = File(pickedFile.path);
-        // The notifier now handles invalidation via the version provider
+      if (relativePath != null && mounted) {
+        // Get the absolute path of the selected image file
+        final vaultRoot = ref.read(appProvider).storagePath;
+        if (vaultRoot == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Storage path not set. Cannot upload background.')),
+          );
+          return;
+        }
+        final imageFile = File(p.join(vaultRoot, relativePath));
+        
+        if (!await imageFile.exists() && mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Selected image file not found.')),
+          );
+          return;
+        }
+
+        // Upload the background
         final success = await ref.read(cloudNotifierProvider.notifier).uploadBackground(imageFile);
 
         if (mounted) {
@@ -142,7 +174,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('An error occurred while picking image: $e')),
+          SnackBar(content: Text('An error occurred: $e')),
         );
       }
     } finally {
@@ -182,6 +214,8 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                   child: Column(
                     children: [
                       ProfileHeader(
+                        username: username,
+                        email: user.email ?? 'N/A',
                         onAvatarEditPressed: _pickAndUploadAvatar,
                         onBackgroundEditPressed: _pickAndUploadBackground,
                         onBackButtonPressed: () {
@@ -190,11 +224,8 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                           }
                         },
                       ),
-                      UserInfoSection(
-                        name: username, // Use real data
-                        email: user.email ?? 'N/A', // Use real data
-                      ),
-                      const SizedBox(height: 20),
+                      // UserInfoSection has been moved into ProfileHeader
+                      // const SizedBox(height: 20), // This spacing is now controlled by ProfileHeader
 
                       InfoItem(
                         icon: Icons.key_sharp,

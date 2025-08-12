@@ -291,8 +291,9 @@ class CloudNotifier extends StateNotifier<CloudState> {
 
   Future<bool> uploadAvatar(File imageFile) async {
     await initializationComplete; // Wait for initialization
-    if (state.userRootPath == null) {
-      state = state.copyWith(errorMessage: 'User root path not available. Cannot upload avatar.');
+    final vaultRoot = _ref.read(appProvider).storagePath;
+    if (state.userRootPath == null || vaultRoot == null) {
+      state = state.copyWith(errorMessage: 'User root path or vault not available. Cannot upload avatar.');
       return false;
     }
     state = state.copyWith(isLoading: true, errorMessage: null);
@@ -300,14 +301,16 @@ class CloudNotifier extends StateNotifier<CloudState> {
       final cloudPath = '${state.userRootPath!}profile/avatar.png';
       final fileBytes = await imageFile.readAsBytes();
 
+      // Perform the upload
       await _cloudService.uploadFile(
         path: cloudPath,
         fileBytes: fileBytes,
-        fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
+        fileOptions: const FileOptions(cacheControl: '0', upsert: true),
       );
 
+      // --- THE FIX ---
       // Optimistically update local cache to avoid a re-download
-      await _ref.read(localStorageServiceProvider).saveLocalAvatar(fileBytes);
+      await _ref.read(localStorageServiceProvider).saveLocalAvatar(vaultRoot, fileBytes);
       
       // Trigger the version provider to force UI to reload the new avatar
       _ref.read(avatarVersionProvider.notifier).update((s) => s + 1);
@@ -323,8 +326,9 @@ class CloudNotifier extends StateNotifier<CloudState> {
 
   Future<bool> uploadBackground(File imageFile) async {
     await initializationComplete; // Wait for initialization
-    if (state.userRootPath == null) {
-      state = state.copyWith(errorMessage: 'User root path not available. Cannot upload background.');
+    final vaultRoot = _ref.read(appProvider).storagePath;
+    if (state.userRootPath == null || vaultRoot == null) {
+      state = state.copyWith(errorMessage: 'User root path or vault not available. Cannot upload background.');
       return false;
     }
     state = state.copyWith(isLoading: true, errorMessage: null);
@@ -332,15 +336,16 @@ class CloudNotifier extends StateNotifier<CloudState> {
       final cloudPath = '${state.userRootPath!}profile/background.png';
       final fileBytes = await imageFile.readAsBytes();
 
+      // Perform the upload
       await _cloudService.uploadFile(
         path: cloudPath,
         fileBytes: fileBytes,
-        fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
+        fileOptions: const FileOptions(cacheControl: '0', upsert: true),
       );
 
+      // --- THE FIX ---
       // Optimistically update local cache to avoid a re-download
-      // NOTE: Assumes `saveLocalBackground` exists in LocalStorageService.
-      await _ref.read(localStorageServiceProvider).saveLocalBackground(fileBytes);
+      await _ref.read(localStorageServiceProvider).saveLocalBackground(vaultRoot, fileBytes);
       
       // Trigger the version provider to force UI to reload the new background
       _ref.read(backgroundVersionProvider.notifier).update((s) => s + 1);
@@ -382,17 +387,18 @@ final localAvatarProvider = FutureProvider<Uint8List?>((ref) async {
   // Depend on the version provider. When it changes, this provider re-runs.
   ref.watch(avatarVersionProvider);
 
-  final currentUser = Supabase.instance.client.auth.currentUser;
-  if (currentUser == null) {
+  final appState = ref.watch(appProvider);
+  final currentUser = appState.currentUser;
+  final vaultRoot = appState.storagePath;
+
+  if (currentUser == null || vaultRoot == null) {
     return null;
   }
   
   final localStorage = ref.read(localStorageServiceProvider);
-  // Get the file with the CORRECT path (no query parameters)
-  final file = await localStorage.getLocalAvatarFile();
+  final file = await localStorage.getLocalAvatarFile(vaultRoot);
 
   if (await file.exists()) {
-    // Read the file's raw bytes and return them.
     return await file.readAsBytes();
   }
   
@@ -407,16 +413,18 @@ final localBackgroundProvider = FutureProvider<Uint8List?>((ref) async {
   // Depend on the version provider. When it changes, this provider re-runs.
   ref.watch(backgroundVersionProvider);
 
-  final currentUser = Supabase.instance.client.auth.currentUser;
-  if (currentUser == null) {
+  final appState = ref.watch(appProvider);
+  final currentUser = appState.currentUser;
+  final vaultRoot = appState.storagePath;
+  
+  if (currentUser == null || vaultRoot == null) {
     return null;
   }
   
   final localStorage = ref.read(localStorageServiceProvider);
-  final file = await localStorage.getLocalBackgroundFile();
+  final file = await localStorage.getLocalBackgroundFile(vaultRoot);
 
   if (await file.exists()) {
-    // Read the file's raw bytes and return them.
     return await file.readAsBytes();
   }
   

@@ -1,5 +1,4 @@
 // C:\dev\memoir\lib\providers\app_provider.dart
-// lib/providers/app_provider.dart
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -146,7 +145,13 @@ class AppNotifier extends StateNotifier<AppState> {
     final currentUser = Supabase.instance.client.auth.currentUser;
     if (currentUser != null) {
       state = state.copyWith(currentUser: currentUser);
-      _downloadAndCacheAvatar(currentUser.id);
+      // Wait for path to load before trying to cache images
+      initializationComplete.then((_) {
+        if (state.storagePath != null) {
+          _downloadAndCacheAvatar(currentUser.id, state.storagePath!);
+          _downloadAndCacheBackground(currentUser.id, state.storagePath!);
+        }
+      });
       _realtimeService.subscribe();
     }
   }
@@ -156,33 +161,49 @@ class AppNotifier extends StateNotifier<AppState> {
       final User? user = data.session?.user;
       if (state.currentUser?.id != user?.id) {
          if (user == null) {
-           await _localStorageService.deleteLocalAvatar();
+           if (state.storagePath != null) {
+             await _localStorageService.deleteLocalAvatar(state.storagePath!);
+             await _localStorageService.deleteLocalBackground(state.storagePath!);
+           }
            state = state.copyWith(clearCurrentUser: true);
            _ref.read(avatarVersionProvider.notifier).update((s) => s + 1);
-           // --- Unsubscribe on logout ---
+           _ref.read(backgroundVersionProvider.notifier).update((s) => s + 1);
            _realtimeService.unsubscribe();
          } else {
            state = state.copyWith(currentUser: user);
-           await _downloadAndCacheAvatar(user.id);
-           // --- Subscribe on login ---
+           if (state.storagePath != null) {
+             await _downloadAndCacheAvatar(user.id, state.storagePath!);
+             await _downloadAndCacheBackground(user.id, state.storagePath!);
+           }
            _realtimeService.subscribe();
          }
       }
     });
   }
 
-  Future<void> _downloadAndCacheAvatar(String userId) async {
+  Future<void> _downloadAndCacheAvatar(String userId, String vaultRoot) async {
     try {
       final cloudPath = '$userId/profile/avatar.png';
       final bytes = await Supabase.instance.client.storage.from(supabaseBucket).download(cloudPath);
-      await _localStorageService.saveLocalAvatar(bytes);
+      await _localStorageService.saveLocalAvatar(vaultRoot, bytes);
     } catch (e) {
-      // This is expected if the user hasn't set an avatar (e.g., 404 error)
       print('Failed to download avatar (this may be expected): $e');
-      await _localStorageService.deleteLocalAvatar();
+      await _localStorageService.deleteLocalAvatar(vaultRoot);
     } finally {
-      // Update the version provider to trigger a refresh.
       _ref.read(avatarVersionProvider.notifier).update((s) => s + 1);
+    }
+  }
+
+  Future<void> _downloadAndCacheBackground(String userId, String vaultRoot) async {
+    try {
+      final cloudPath = '$userId/profile/background.png';
+      final bytes = await Supabase.instance.client.storage.from(supabaseBucket).download(cloudPath);
+      await _localStorageService.saveLocalBackground(vaultRoot, bytes);
+    } catch (e) {
+      print('Failed to download background (this may be expected): $e');
+      await _localStorageService.deleteLocalBackground(vaultRoot);
+    } finally {
+      _ref.read(backgroundVersionProvider.notifier).update((s) => s + 1);
     }
   }
 
@@ -194,11 +215,15 @@ class AppNotifier extends StateNotifier<AppState> {
   }
 
   Future<void> signOut() async {
-    await _localStorageService.deleteLocalAvatar();
-    // The onAuthStateChange listener will handle the state update and avatar invalidation
+    if (state.storagePath != null) {
+      await _localStorageService.deleteLocalAvatar(state.storagePath!);
+      await _localStorageService.deleteLocalBackground(state.storagePath!);
+    }
     await Supabase.instance.client.auth.signOut();
   }
 
+  // ... (rest of the file is unchanged)
+  
   Future<void> _scheduleAllReminders(List<Person> persons) async {
     for (final person in persons) {
       for (final note in [person.info, ...person.notes]) {

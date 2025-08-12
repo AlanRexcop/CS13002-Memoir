@@ -145,7 +145,9 @@ class AppNotifier extends StateNotifier<AppState> {
     final currentUser = Supabase.instance.client.auth.currentUser;
     if (currentUser != null) {
       state = state.copyWith(currentUser: currentUser);
+      // FIX: Call download methods for both avatar and background on cold start
       _downloadAndCacheAvatar(currentUser.id);
+      _downloadAndCacheBackground(currentUser.id); 
       _realtimeService.subscribe();
     }
   }
@@ -155,15 +157,20 @@ class AppNotifier extends StateNotifier<AppState> {
       final User? user = data.session?.user;
       if (state.currentUser?.id != user?.id) {
          if (user == null) {
+           // On logout, delete local user assets
            await _localStorageService.deleteLocalAvatar();
+           await _localStorageService.deleteLocalBackground(); // FIX: Also delete background
            state = state.copyWith(clearCurrentUser: true);
+           // Refresh both providers
            _ref.read(avatarVersionProvider.notifier).update((s) => s + 1);
-           // --- Unsubscribe on logout ---
+           _ref.read(backgroundVersionProvider.notifier).update((s) => s + 1); // FIX: Refresh background
            _realtimeService.unsubscribe();
          } else {
+           // On login, set user and download assets
            state = state.copyWith(currentUser: user);
+           // FIX: Call download methods for both avatar and background on login
            await _downloadAndCacheAvatar(user.id);
-           // --- Subscribe on login ---
+           await _downloadAndCacheBackground(user.id);
            _realtimeService.subscribe();
          }
       }
@@ -185,6 +192,23 @@ class AppNotifier extends StateNotifier<AppState> {
     }
   }
 
+  // FIX: Add a new method to download and cache the background image
+  Future<void> _downloadAndCacheBackground(String userId) async {
+    try {
+      final cloudPath = '${userId}/profile/background.png';
+      final bytes = await Supabase.instance.client.storage.from(supabaseBucket).download(cloudPath);
+      await _localStorageService.saveLocalBackground(bytes);
+    } catch (e) {
+      // This is expected if the user hasn't set a background (e.g., 404 error)
+      print('Failed to download background (this may be expected): $e');
+      // Ensure any old cached background is removed
+      await _localStorageService.deleteLocalBackground();
+    } finally {
+      // Update the version provider to trigger a UI refresh for the background.
+      _ref.read(backgroundVersionProvider.notifier).update((s) => s + 1);
+    }
+  }
+
   @override
   void dispose() {
     _authSubscription?.cancel();
@@ -193,8 +217,7 @@ class AppNotifier extends StateNotifier<AppState> {
   }
 
   Future<void> signOut() async {
-    await _localStorageService.deleteLocalAvatar();
-    // The onAuthStateChange listener will handle the state update and avatar invalidation
+    // The onAuthStateChange listener will handle the state update and asset invalidation
     await Supabase.instance.client.auth.signOut();
   }
 

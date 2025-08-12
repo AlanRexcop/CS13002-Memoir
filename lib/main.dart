@@ -13,24 +13,6 @@ import 'package:timezone/data/latest_10y.dart' as tz;
 const SUPABASE_URL = 'https://uonjdjehvwdhyaegbfer.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvbmpkamVodndkaHlhZWdiZmVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEzMzU3NDksImV4cCI6MjA2NjkxMTc0OX0.Tdese3XxHx9wi8ZxE2-gwNV0NFvKY_GZyuttak5Qelo';
 
-
-/// This class handles the eager initialization of providers that depend on auth state.
-class ProviderInitializer {
-  final ProviderContainer container;
-
-  ProviderInitializer(this.container);
-
-  void setup() {
-    // Listen for auth changes to initialize providers when a user signs in.
-    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-      final session = data.session;
-      if (session != null) {
-        container.read(cloudNotifierProvider);
-      }
-    });
-  }
-}
-
 Future<void> main() async {
   // Ensure Flutter is ready.
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,23 +28,9 @@ Future<void> main() async {
   await initializeDateFormatting();
   await NotificationService().init();
 
-  // Create a ProviderContainer to manage our providers' state.
-  final container = ProviderContainer();
-
-  // Setup the initializer to listen for auth changes.
-  ProviderInitializer(container).setup();
-
-  // **CRITICAL:** Handle the case where the app starts with a user already logged in.
-  // The onAuthStateChange stream only fires on *changes*, so we need this
-  // initial check for cold starts.
-  if (Supabase.instance.client.auth.currentSession != null) {
-    container.read(cloudNotifierProvider);
-  }
-   
-  // Use UncontrolledProviderScope to pass our pre-configured container to the app.
+  // Switch to ProviderScope for normal Riverpod usage
   runApp(
-    UncontrolledProviderScope(
-      container: container,
+    const ProviderScope(
       child: const MyApp(),
     ),
   );

@@ -8,7 +8,6 @@ import 'package:memoir/models/note_model.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/providers/cloud_provider.dart'; 
 import 'package:memoir/services/cloud_file_service.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SyncService {
   final Ref _ref;
@@ -22,7 +21,7 @@ class SyncService {
       final allCloudFiles = await _ref.read(allCloudFilesProvider.future);
       final normalizedLocalPath = relativePath.replaceAll(r'\', '/');
       
-      return allCloudFiles.firstWhere(
+      return allCloudFiles.firstWhereOrNull(
         (cf) => (cf.cloudPath?.endsWith(normalizedLocalPath) ?? false) && !cf.isFolder,
       );
     } catch (e) {
@@ -38,7 +37,7 @@ class SyncService {
       // Folder paths in the cloud won't have a trailing slash
       final normalizedLocalPath = relativePath.replaceAll(r'\', '/').replaceAll(RegExp(r'/$'), '');
       
-      return allCloudFiles.firstWhere(
+      return allCloudFiles.firstWhereOrNull(
         (cf) => (cf.cloudPath?.endsWith(normalizedLocalPath) ?? false) && cf.isFolder,
       );
     } catch (e) {
@@ -48,14 +47,14 @@ class SyncService {
 
   Future<void> performInitialSync() async {
     final appState = _ref.read(appProvider);
-    final cloudNotifier = _ref.read(cloudNotifierProvider.notifier);
-    final user = Supabase.instance.client.auth.currentUser;
+    final user = appState.currentUser;
 
     if (user == null || appState.storagePath == null) {
       print('Initial Sync: Aborting. Pre-conditions not met (user, storagePath).');
       return;
     }
 
+    final cloudNotifier = _ref.read(cloudNotifierProvider.notifier);
     await cloudNotifier.initializationComplete;
     final cloudState = _ref.read(cloudNotifierProvider);
     if (cloudState.userRootPath == null) {
@@ -116,8 +115,12 @@ class SyncService {
   }
 
   Future<void> autoUpload(Note note, String vaultRoot) async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return; 
+    // FIX: Get user from appProvider.
+    final user = _ref.read(appProvider).currentUser;
+    if (user == null) {
+        print('Auto-sync: Aborting upload, no authenticated user.');
+        return;
+    }
 
     final cloudState = _ref.read(cloudNotifierProvider);
     final userRootPath = cloudState.userRootPath;
@@ -127,7 +130,6 @@ class SyncService {
     final cloudService = _ref.read(cloudFileServiceProvider);
 
     try {
-      // Auto-upload only triggers for files that are already tracked in the cloud.
       final cloudFile = await _findCloudFileByPath(note.path);
       if (cloudFile?.cloudPath != null) {
         print('Auto-sync: Uploading changes for ${note.path}');
@@ -136,7 +138,6 @@ class SyncService {
         print('Auto-sync: Upload complete for ${note.path}');
       }
 
-      // Sync associated images
       if (note.images.isNotEmpty) {
         await _ref.refresh(allCloudFilesProvider.future);
         final allCloudFiles = await _ref.read(allCloudFilesProvider.future);
@@ -161,8 +162,12 @@ class SyncService {
   }
 
   Future<void> autoTrash(Note note) async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
+    // FIX: Get user from appProvider.
+    final user = _ref.read(appProvider).currentUser;
+    if (user == null) {
+        print('Auto-sync: Aborting trash, no authenticated user.');
+        return;
+    }
 
     try {
       final cloudFile = await _findCloudFileByPath(note.path);
@@ -182,8 +187,12 @@ class SyncService {
   }
   
   Future<void> autoRestore(Note note) async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
+    // FIX: Get user from appProvider.
+    final user = _ref.read(appProvider).currentUser;
+    if (user == null) {
+        print('Auto-sync: Aborting restore, no authenticated user.');
+        return;
+    }
 
     try {
       final cloudFile = await _findCloudFileByPath(note.path);
@@ -203,8 +212,12 @@ class SyncService {
   }
 
   Future<void> autoDeletePermanently(Note note) async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
+    // FIX: Get user from appProvider.
+    final user = _ref.read(appProvider).currentUser;
+    if (user == null) {
+        print('Auto-sync: Aborting permanent delete, no authenticated user.');
+        return;
+    }
 
     try {
       final cloudFile = await _findCloudFileByPath(note.path);
@@ -224,8 +237,12 @@ class SyncService {
   }
 
   Future<void> autoTrashByPath(String relativePath) async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
+    // FIX: Get user from appProvider.
+    final user = _ref.read(appProvider).currentUser;
+    if (user == null) {
+        print('Auto-sync: Aborting trash by path, no authenticated user.');
+        return;
+    }
 
     try {
       final cloudFolder = await _findCloudFolderByPath(relativePath);
@@ -241,8 +258,12 @@ class SyncService {
   }
 
   Future<void> autoRestoreByPath(String relativePath) async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
+    // FIX: Get user from appProvider.
+    final user = _ref.read(appProvider).currentUser;
+    if (user == null) {
+        print('Auto-sync: Aborting restore by path, no authenticated user.');
+        return;
+    }
 
     try {
       final cloudFolder = await _findCloudFolderByPath(relativePath);

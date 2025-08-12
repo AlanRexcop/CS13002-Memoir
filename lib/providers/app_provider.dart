@@ -1,3 +1,4 @@
+// C:\dev\memoir\lib\providers\app_provider.dart
 // lib/providers/app_provider.dart
 import 'dart:async';
 import 'dart:io';
@@ -10,6 +11,8 @@ import 'package:memoir/services/local_storage_service.dart';
 import 'package:memoir/services/notification_service.dart';
 import 'package:memoir/services/persistence_service.dart';
 import 'package:memoir/models/note_model.dart';
+
+import 'package:memoir/services/realtime_service.dart'; 
 import 'package:memoir/services/sync_service.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
@@ -22,6 +25,7 @@ class AppState {
   final List<Note> deletedNotes;
   final List<Note> deletedPersonsInfoNotes; // Renamed for clarity
   final bool isLoading;
+  final bool isSyncing;
   final ({String text, List<String> tags}) searchQuery;
   final User? currentUser;
 
@@ -31,6 +35,7 @@ class AppState {
     this.deletedNotes = const [],
     this.deletedPersonsInfoNotes = const [],
     this.isLoading = true,
+    this.isSyncing = false,
     this.searchQuery = (text: '', tags: const []),
     this.currentUser,
   });
@@ -60,6 +65,7 @@ class AppState {
     List<Note>? deletedNotes,
     List<Note>? deletedPersonsInfoNotes,
     bool? isLoading,
+    bool? isSyncing,
     ({String text, List<String> tags})? searchQuery,
     User? currentUser,
     bool clearStoragePath = false,
@@ -71,6 +77,7 @@ class AppState {
       deletedNotes: deletedNotes ?? this.deletedNotes,
       deletedPersonsInfoNotes: deletedPersonsInfoNotes ?? this.deletedPersonsInfoNotes,
       isLoading: isLoading ?? this.isLoading,
+      isSyncing: isSyncing ?? this.isSyncing,
       searchQuery: searchQuery ?? this.searchQuery,
       currentUser: clearCurrentUser ? null : currentUser ?? this.currentUser,
     );
@@ -85,7 +92,8 @@ final appProvider = StateNotifierProvider<AppNotifier, AppState>((ref) {
     persistenceService: ref.read(persistenceServiceProvider),
     localStorageService: ref.read(localStorageServiceProvider),
     syncService: ref.read(syncServiceProvider), 
-    ref: ref, // Pass the ref to the notifier
+    realtimeService: ref.read(realtimeServiceProvider),
+    ref: ref, 
   );
 });
 
@@ -113,8 +121,9 @@ class AppNotifier extends StateNotifier<AppState> {
   final PersistenceService _persistenceService;
   final LocalStorageService _localStorageService;
   final SyncService _syncService;
+  final RealtimeService _realtimeService;
   final NotificationService _notificationService = NotificationService();
-  final Ref _ref; // Store the ref
+  final Ref _ref;
   StreamSubscription<AuthState>? _authSubscription;
 
   late final Future<void> initializationComplete;
@@ -123,37 +132,40 @@ class AppNotifier extends StateNotifier<AppState> {
     required PersistenceService persistenceService,
     required LocalStorageService localStorageService,
     required SyncService syncService,
-    required Ref ref, // Receive the ref
+    required RealtimeService realtimeService,
+    required Ref ref,
   })  : _persistenceService = persistenceService,
         _localStorageService = localStorageService,
         _syncService = syncService,
-        _ref = ref, // Initialize the ref
+        _realtimeService = realtimeService,
+        _ref = ref,
         super(const AppState()) {
     initializationComplete = _loadInitialPath();
     _listenToAuthChanges();
-
-    // Proactively check for an existing user on app start.
-    // This handles hot restarts where the onAuthStateChange stream doesn't fire.
+    
     final currentUser = Supabase.instance.client.auth.currentUser;
     if (currentUser != null) {
       state = state.copyWith(currentUser: currentUser);
       _downloadAndCacheAvatar(currentUser.id);
+      _realtimeService.subscribe();
     }
   }
 
   void _listenToAuthChanges() {
     _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
       final User? user = data.session?.user;
-      // Only update state if the user's ID has actually changed.
       if (state.currentUser?.id != user?.id) {
          if (user == null) {
-           await _localStorageService.deleteLocalAvatar(); // Clear avatar on logout
+           await _localStorageService.deleteLocalAvatar();
            state = state.copyWith(clearCurrentUser: true);
-           // Update the version provider to trigger a refresh.
            _ref.read(avatarVersionProvider.notifier).update((s) => s + 1);
+           // --- Unsubscribe on logout ---
+           _realtimeService.unsubscribe();
          } else {
            state = state.copyWith(currentUser: user);
-           await _downloadAndCacheAvatar(user.id); // Download avatar on login
+           await _downloadAndCacheAvatar(user.id);
+           // --- Subscribe on login ---
+           _realtimeService.subscribe();
          }
       }
     });
@@ -161,7 +173,7 @@ class AppNotifier extends StateNotifier<AppState> {
 
   Future<void> _downloadAndCacheAvatar(String userId) async {
     try {
-      final cloudPath = '${userId}/profile/avatar.png';
+      final cloudPath = '$userId/profile/avatar.png';
       final bytes = await Supabase.instance.client.storage.from(supabaseBucket).download(cloudPath);
       await _localStorageService.saveLocalAvatar(bytes);
     } catch (e) {
@@ -177,6 +189,7 @@ class AppNotifier extends StateNotifier<AppState> {
   @override
   void dispose() {
     _authSubscription?.cancel();
+    _realtimeService.unsubscribe();
     super.dispose();
   }
 
@@ -200,6 +213,8 @@ class AppNotifier extends StateNotifier<AppState> {
     final path = await _persistenceService.getLocalStoragePath();
     if (path != null) {
       await loadAllPersons(path);
+      // Non-blocking call to start the sync process in the background
+      _syncService.performInitialSync();
     } else {
       state = state.copyWith(isLoading: false);
     }
@@ -272,6 +287,10 @@ class AppNotifier extends StateNotifier<AppState> {
     }
   }
 
+  void setSyncLoading(bool isLoading) {
+    state = state.copyWith(isSyncing: isLoading);
+  }
+
   Future<void> refreshVault() async {
     if (state.storagePath != null) {
       await loadAllPersons(state.storagePath!);
@@ -336,28 +355,33 @@ class AppNotifier extends StateNotifier<AppState> {
 
   Future<bool> deletePerson(Person person) async {
     if (state.storagePath == null) return false;
+
+    // --- 1. IMMEDIATE STATE UPDATE ---
+    final now = DateTime.now();
+    final updatedInfoNote = person.info.copyWith(deletedDate: now);
+
+    final newPersonsList = state.persons.where((p) => p.path != person.path).toList();
+    final newDeletedPersonInfos = List<Note>.from(state.deletedPersonsInfoNotes)..add(updatedInfoNote);
+    newDeletedPersonInfos.sort((a, b) => b.deletedDate!.compareTo(a.deletedDate!));
+
+    // Update state right away.
+    state = state.copyWith(
+      persons: newPersonsList,
+      deletedPersonsInfoNotes: newDeletedPersonInfos,
+    );
+
+    // --- 2. BACKGROUND I/O ---
     try {
+      final backgroundTasks = <Future>[];
+      backgroundTasks.add(_localStorageService.softDeletePerson(state.storagePath!, person.path));
       for (final note in [person.info, ...person.notes]) {
-        await _syncService.autoTrash(note);
-        await _notificationService.cancelAllNotificationsForNote(note);
+        backgroundTasks.add(_syncService.autoTrash(note));
+        backgroundTasks.add(_notificationService.cancelAllNotificationsForNote(note));
       }
-      
-      await _localStorageService.softDeletePerson(state.storagePath!, person.path);
-      
-      final infoFile = File(p.join(state.storagePath!, person.info.path));
-      final updatedInfoNote = await _localStorageService.readNoteFromFile(infoFile, state.storagePath!);
-
-      final newPersonsList = state.persons.where((p) => p.path != person.path).toList();
-      final newDeletedPersonInfos = List<Note>.from(state.deletedPersonsInfoNotes)..add(updatedInfoNote);
-      newDeletedPersonInfos.sort((a, b) => b.deletedDate!.compareTo(a.deletedDate!));
-
-      state = state.copyWith(
-        persons: newPersonsList,
-        deletedPersonsInfoNotes: newDeletedPersonInfos,
-      );
+      await Future.wait(backgroundTasks);
       return true;
     } catch (e) {
-      print("Failed to soft-delete person: $e");
+      print("Failed to complete background tasks for person deletion: $e");
       return false;
     }
   }
@@ -435,6 +459,43 @@ class AppNotifier extends StateNotifier<AppState> {
     }
   }
 
+  // Surgically updates a single note in the state after a download.
+  // This is the key to breaking the sync loop.
+  Future<void> updateSingleNoteInState(String notePath) async {
+    if (state.storagePath == null) return;
+    try {
+      // 1. Read the definitive, updated data for this one file from disk.
+      final absolutePath = p.join(state.storagePath!, notePath);
+      final updatedNote = await _localStorageService.readNoteFromFile(File(absolutePath), state.storagePath!);
+
+      // 2. Find and replace the old note object within the existing state.
+      final newPersonsList = state.persons.map((person) {
+        // Check if the info note needs updating
+        if (person.info.path == notePath) {
+          return Person(path: person.path, info: updatedNote, notes: person.notes);
+        }
+        
+        // Check if a note in the notes list needs updating
+        final noteIndex = person.notes.indexWhere((n) => n.path == notePath);
+        if (noteIndex != -1) {
+          final newNotesForPerson = List<Note>.from(person.notes);
+          newNotesForPerson[noteIndex] = updatedNote;
+          return Person(path: person.path, info: person.info, notes: newNotesForPerson);
+        }
+        
+        // If no match, return the person unchanged
+        return person;
+      }).toList();
+
+      // 3. Update the state with the new list of persons.
+      state = state.copyWith(persons: newPersonsList);
+      print('State successfully updated for note: $notePath');
+
+    } catch (e) {
+      print("Failed to surgically update note in state: $e");
+    }
+  }
+
   Future<void> updateNote(String notePath) async {
     if (state.storagePath == null) return;
     try {
@@ -484,28 +545,37 @@ class AppNotifier extends StateNotifier<AppState> {
 
   Future<bool> deleteNote(Note noteToDelete) async {
     if (state.storagePath == null) return false;
+
+    // --- 1. IMMEDIATE STATE UPDATE ---
+    // Calculate the new state synchronously based on the incoming data.
+    final now = DateTime.now();
+    // Create an in-memory copy with the deleted date.
+    final updatedDeletedNote = noteToDelete.copyWith(deletedDate: now);
+
+    final newPersonsList = state.persons.map((person) {
+      final newNotesForPerson = person.notes.where((n) => n.path != noteToDelete.path).toList();
+      return Person(path: person.path, info: person.info, notes: newNotesForPerson);
+    }).toList();
+
+    final newDeletedNotes = List<Note>.from(state.deletedNotes)..add(updatedDeletedNote);
+    newDeletedNotes.sort((a, b) => b.deletedDate!.compareTo(a.deletedDate!));
+
+    // Update state right away. This is the key fix.
+    state = state.copyWith(persons: newPersonsList, deletedNotes: newDeletedNotes);
+
+    // --- 2. BACKGROUND I/O ---
+    // Now, perform all async operations. The UI is already updated and won't block.
     try {
-      await _syncService.autoTrash(noteToDelete);
-      await _notificationService.cancelAllNotificationsForNote(noteToDelete);
-      
-      final now = DateTime.now();
-      await _localStorageService.setNoteDeleted(state.storagePath!, noteToDelete.path, now);
-
-      final file = File(p.join(state.storagePath!, noteToDelete.path));
-      final updatedDeletedNote = await _localStorageService.readNoteFromFile(file, state.storagePath!);
-
-      final newPersonsList = state.persons.map((person) {
-        final newNotesForPerson = person.notes.where((n) => n.path != noteToDelete.path).toList();
-        return Person(path: person.path, info: person.info, notes: newNotesForPerson);
-      }).toList();
-      
-      final newDeletedNotes = List<Note>.from(state.deletedNotes)..add(updatedDeletedNote);
-      newDeletedNotes.sort((a, b) => b.deletedDate!.compareTo(a.deletedDate!));
-
-      state = state.copyWith(persons: newPersonsList, deletedNotes: newDeletedNotes);
+      // We can run these in parallel.
+      await Future.wait([
+        _localStorageService.setNoteDeleted(state.storagePath!, noteToDelete.path, now),
+        _syncService.autoTrash(noteToDelete),
+        _notificationService.cancelAllNotificationsForNote(noteToDelete),
+      ]);
       return true;
     } catch (e) {
-      print("Failed to soft-delete note: $e");
+      print("Failed to complete background tasks for note deletion: $e");
+      // The item was removed from the list, but background tasks failed.
       return false;
     }
   }

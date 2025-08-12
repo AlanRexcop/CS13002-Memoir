@@ -113,6 +113,11 @@ class LocalStorageService {
       await file.writeAsString(fullContent);
   }
 
+  /// uses the private _updateFrontmatter to change only the LastModified field.
+  Future<void> updateNoteLastModified(String absolutePath, DateTime newDate) async {
+    await _updateFrontmatter(absolutePath, {'LastModified': newDate.toIso8601String()}, []);
+  }
+
   Future<void> setNoteDeleted(String vaultRoot, String notePath, DateTime? deletedTime) async {
     final absolutePath = p.join(vaultRoot, notePath);
     if (deletedTime != null) {

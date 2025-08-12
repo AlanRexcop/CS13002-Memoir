@@ -67,76 +67,23 @@ class CloudNotifier extends StateNotifier<CloudState> {
       final rootFolderId = rootFolder['id'] as String;
       final rootPath = rootFolder['path'] as String; 
       state = state.copyWith(userRootPath: rootPath);
-      await _fetchFolderContents(rootFolderId);
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: 'Could not load root folder. It may not exist yet.');
     }
   }
 
-  Future<void> _fetchFolderContents(String? folderId) async {
-    state = state.copyWith(isLoading: true, errorMessage: null, currentFolderId: folderId);
+  /// Uses the CloudFileService to get a file's data by its ID and returns the cloud path.
+  /// Returns null if the file is not found or an error occurs.
+  Future<String?> getCloudPathById(String fileId) async {
     try {
-      if (folderId == null) {
-        await initialize();
-        return;
-      }
-      
-      final contentsFuture = _cloudService.getFolderContents(folderId);
-      final pathFuture = _cloudService.getFolderPath(folderId);
-
-      final results = await Future.wait([contentsFuture, pathFuture]);
-      
-      final items = (results[0])
-          .map((data) => CloudFile.fromSupabase(data))
-          .toList();
-      items.sort((a, b) {
-        if (a.isFolder != b.isFolder) return a.isFolder ? -1 : 1;
-        return a.name.compareTo(b.name);
-      });
-
-      final breadcrumbs = results[1];
-      if (breadcrumbs.isNotEmpty) {
-        breadcrumbs[0]['name'] = 'root';
-      }
-      state = state.copyWith(
-        items: items,
-        breadcrumbs: breadcrumbs,
-        isLoading: false,
-      );
+      final fileData = await _cloudService.getFileById(fileId);
+      final cloudPath = fileData['path'] as String?;
+      return cloudPath;
     } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: 'Error fetching folder contents: ${e.toString()}');
-      rethrow;
-    }
-  }
-
-  Future<void> navigateToFolder(String? folderId) async {
-    try {
-      await _fetchFolderContents(folderId);
-    } catch (e) {
-      await refreshCurrentFolder();
-    }
-  }
-
-  Future<void> refreshCurrentFolder() async {
-    final folderIdToRefresh = state.currentFolderId;
-    if (folderIdToRefresh == null) {
-      await initialize();
-      return;
-    }
-
-    try {
-      await _fetchFolderContents(folderIdToRefresh);
-    } catch (e) {
-      final parentFolders = state.breadcrumbs.sublist(0, state.breadcrumbs.length - 1).reversed.toList();
-      for (final parentCrumb in parentFolders) {
-        final parentId = parentCrumb['id'] as String?;
-        try {
-          await _fetchFolderContents(parentId);
-          return;
-        } catch (innerError) {
-        }
-      }
-      await initialize();
+      print('Error fetching cloud path for file ID $fileId: $e');
+     
+      state = state.copyWith(errorMessage: 'Failed to retrieve file details.');
+      return null;
     }
   }
 
@@ -147,7 +94,6 @@ class CloudNotifier extends StateNotifier<CloudState> {
     }
     try {
       await _cloudService.deleteFile(path: file.cloudPath!);
-      await refreshCurrentFolder(); 
       _ref.invalidate(allCloudFilesProvider);
       return true;
     } catch (e) {
@@ -169,12 +115,62 @@ class CloudNotifier extends StateNotifier<CloudState> {
       await _cloudService.deleteFile(path: fullCloudPath);
       
       _ref.invalidate(allCloudFilesProvider);
-      await refreshCurrentFolder(); 
       
       return true;
     } catch (e) {
       state = state.copyWith(errorMessage: 'Error deleting file: ${e.toString()}');
       print(e);
+      return false;
+    }
+  }
+
+  /// Makes a note and all its referenced images public.
+  Future<bool> makeNotePublic(Note note, CloudFile noteCloudFile) async {
+    await initializationComplete;
+    if (noteCloudFile.id == null) return false;
+    
+    try {
+      // 1. Make the main note file public
+      await _cloudService.publicFile(fileId: noteCloudFile.id!);
+      
+      // 2. Make associated images public
+      if (note.images.isNotEmpty && state.userRootPath != null) {
+        // Get an up-to-date list of all cloud files to find the image IDs
+        await _ref.refresh(allCloudFilesProvider.future);
+        final allCloudFiles = await _ref.read(allCloudFilesProvider.future);
+
+        for (final relativeImagePath in note.images) {
+          final cloudImagePath = '${state.userRootPath!}${relativeImagePath.replaceAll(r'\', '/')}';
+          final cloudImageFile = allCloudFiles.firstWhereOrNull((f) => f.cloudPath == cloudImagePath);
+
+          if (cloudImageFile?.id != null) {
+            print('Making image public: $relativeImagePath');
+            await _cloudService.publicFile(fileId: cloudImageFile!.id!);
+          } else {
+            print('Could not find cloud file for image to make public: $relativeImagePath');
+          }
+        }
+      }
+      
+      _ref.invalidate(allCloudFilesProvider);
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Error making note public: ${e.toString()}');
+      return false;
+    }
+  }
+
+  Future<bool> makeFilePrivate(CloudFile file) async {
+    if (file.id == null) {
+      state = state.copyWith(errorMessage: 'File has no valid ID to make private.');
+      return false;
+    }
+    try {
+      await _cloudService.privateFile(fileId: file.id!);
+      _ref.invalidate(allCloudFilesProvider);
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Error making note private: ${e.toString()}');
       return false;
     }
   }
@@ -195,8 +191,18 @@ class CloudNotifier extends StateNotifier<CloudState> {
       }
 
       await localFile.writeAsBytes(fileBytes);
+      
+      if (file.cloudPath!.endsWith('.md')) {
+        final localStorage = _ref.read(localStorageServiceProvider);
+        await localStorage.updateNoteLastModified(localPath, file.updatedAt);
+
+        // Immediately update the app's in-memory state.
+        await _ref.read(appProvider.notifier).updateSingleNoteInState(relativePath);
+      }
+      
       return true;
     } catch (e) {
+      print('Error downloading file ${file.cloudPath}: $e');
       return false;
     }
   }
@@ -204,7 +210,7 @@ class CloudNotifier extends StateNotifier<CloudState> {
   Future<bool> downloadNoteAndImages(CloudFile noteFile, String vaultRoot) async {
     if (noteFile.cloudPath == null || state.userRootPath == null) return false;
     try {
-      // 1. Download the main note file
+      // 1. Download the main note file. The downloadFile method now handles everything.
       await downloadFile(noteFile, vaultRoot);
 
       // 2. Read the newly downloaded note to get its image list
@@ -215,10 +221,8 @@ class CloudNotifier extends StateNotifier<CloudState> {
 
       // 3. Download missing images
       if (note.images.isNotEmpty) {
-        // --- FIX: Refresh the cloud file list to ensure we have the latest data ---
         await _ref.refresh(allCloudFilesProvider.future);
         final allCloudFiles = await _ref.read(allCloudFilesProvider.future);
-        // --- END FIX ---
 
         for (final relativeImagePath in note.images) {
           final localImageExists = await localStorage.imageExists(vaultRoot, relativeImagePath);
@@ -276,7 +280,6 @@ class CloudNotifier extends StateNotifier<CloudState> {
       }
 
       _ref.invalidate(allCloudFilesProvider);
-      await refreshCurrentFolder();
 
       return true;
     } catch(e) {
@@ -410,7 +413,6 @@ final localBackgroundProvider = FutureProvider<Uint8List?>((ref) async {
   }
   
   final localStorage = ref.read(localStorageServiceProvider);
-  // NOTE: Assumes `getLocalBackgroundFile` exists in LocalStorageService.
   final file = await localStorage.getLocalBackgroundFile();
 
   if (await file.exists()) {

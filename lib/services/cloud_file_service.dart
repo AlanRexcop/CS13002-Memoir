@@ -35,6 +35,15 @@ class CloudFileService {
     return (result as List<dynamic>).cast<Map<String, dynamic>>();
   }
 
+  Future<Map<String, dynamic>> getFileById(String fileId) async {
+    final response = await _supabaseClient
+        .from('files')
+        .select() 
+        .eq('id', fileId)
+        .single(); 
+    return response;
+  }
+
   Future<Map<String, dynamic>> getUserRootFolder(String userId) async {
     final response = await _supabaseClient
         .from('files')
@@ -79,6 +88,14 @@ class CloudFileService {
 
   Future<void> restoreFile({required String fileId}) async {
     await _supabaseClient.rpc('restore_file', params: {'p_file_id': fileId});
+  }
+
+  Future<void> publicFile({required String fileId}) async {
+    await _supabaseClient.rpc('public_file', params: {'p_file_id': fileId});
+  }
+
+  Future<void> privateFile({required String fileId}) async {
+    await _supabaseClient.rpc('private_file', params: {'p_file_id': fileId});
   }
 }
 

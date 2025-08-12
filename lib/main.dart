@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:memoir/providers/cloud_provider.dart';
 import 'package:memoir/screens/home_wrapper.dart';
-import 'package:memoir/screens/notification_screen.dart';
+import 'package:memoir/screens/notification/notification_screen.dart';
 import 'package:memoir/services/notification_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timezone/data/latest_10y.dart' as tz;
@@ -25,8 +25,6 @@ class ProviderInitializer {
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       final session = data.session;
       if (session != null) {
-        // A user has logged in. Eagerly create the CloudNotifier
-        // so it can start fetching the user's root folder immediately.
         container.read(cloudNotifierProvider);
       }
     });

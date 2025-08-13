@@ -42,7 +42,11 @@ class NoteCard extends StatelessWidget {
     final sortedTags = note.tags.toList()..sort();
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-      color: isSelected ? colorScheme.outline : colorScheme.secondary,
+      color: isSelected
+          ? colorScheme.outline
+          : note.title.trim().isEmpty
+            ? const Color(0x80F3E8F5)
+            : colorScheme.secondary,
       elevation: isSelected ? 5 : 0,
       shape: RoundedRectangleBorder(
         borderRadius: const BorderRadius.only(
@@ -51,7 +55,7 @@ class NoteCard extends StatelessWidget {
           bottomLeft: Radius.circular(25),
           bottomRight: Radius.circular(5),
         ),
-        side: BorderSide(color: colorScheme.outline, width: 2),
+        side: BorderSide(color: note.title.trim().isEmpty ? Colors.transparent :colorScheme.outline, width: 2),
       ),
       child: Padding(
         padding: const EdgeInsets.all(5.0),

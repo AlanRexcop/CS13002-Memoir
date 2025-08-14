@@ -1,4 +1,4 @@
-// C:\dev\memoir\lib\screens\map_screen.dart
+// lib/screens/map_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -82,7 +82,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not find address: $e')));
+        //print("Could not find address: $e");
       }
     } finally {
       if (mounted) {
@@ -195,6 +195,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'dev.memoir.app',
+                errorTileCallback: (tile, error, stackTrace) {
+                },
               ),
               // Vault locations with popups (VIEW mode)
               if (widget.purpose == ScreenPurpose.view)

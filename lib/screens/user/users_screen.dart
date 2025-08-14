@@ -1,6 +1,7 @@
 // lib/screens/dashboard/users_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart'; 
 import '../../providers/user_provider.dart';
 import '../../widgets/user_data_table.dart';
 
@@ -12,13 +13,107 @@ class UsersScreen extends StatefulWidget {
 }
 
 class _UsersScreenState extends State<UsersScreen> {
+  final _searchController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
-    // Fetch users when the screen is first built
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<UserProvider>().fetchUsers();
+      final provider = context.read<UserProvider>();
+      // remove old search and filter when rebuild
+      provider.searchUsers('');
+      provider.setDateFilter(start: null, end: null);
+      provider.fetchUsers();
     });
+  }
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+    Future<void> _showFilterDialog(BuildContext context) async {
+    final userProvider = context.read<UserProvider>();
+    DateTime? tempStartDate = userProvider.filterStartDate;
+    DateTime? tempEndDate = userProvider.filterEndDate;
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> pickDate(bool isStartDate) async {
+              final initialDate = (isStartDate ? tempStartDate : tempEndDate) ?? DateTime.now();
+              final firstDate = DateTime(2020);
+              final lastDate = DateTime.now();
+
+              final pickedDate = await showDatePicker(
+                context: context,
+                initialDate: initialDate,
+                firstDate: firstDate,
+                lastDate: lastDate,
+              );
+
+              if (pickedDate != null) {
+                setDialogState(() {
+                  if (isStartDate) {
+                    tempStartDate = pickedDate;
+                  } else {
+                    tempEndDate = pickedDate;
+                  }
+                });
+              }
+            }
+
+            return AlertDialog(
+              title: const Text('Filter by Creation Date'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    title: const Text('Start Date'),
+                    subtitle: Text(tempStartDate == null
+                        ? 'Not set'
+                        : DateFormat('yyyy-MM-dd').format(tempStartDate!)),
+                    trailing: const Icon(Icons.calendar_today),
+                    onTap: () => pickDate(true),
+                  ),
+                  ListTile(
+                    title: const Text('End Date'),
+                    subtitle: Text(tempEndDate == null
+                        ? 'Not set'
+                        : DateFormat('yyyy-MM-dd').format(tempEndDate!)),
+                    trailing: const Icon(Icons.calendar_today),
+                    onTap: () => pickDate(false),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    setDialogState(() {
+                      tempStartDate = null;
+                      tempEndDate = null;
+                    });
+                  },
+                  child: const Text('Clear'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    userProvider.setDateFilter(start: tempStartDate, end: tempEndDate);
+                    Navigator.of(dialogContext).pop();
+                  },
+                  child: const Text('Apply'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -116,12 +211,14 @@ class _UsersScreenState extends State<UsersScreen> {
 
   // Helper widget for the search and filter elements
   Widget _buildSearchAndFilter() {
+    final userProvider = context.watch<UserProvider>();
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
           width: 250,
           child: TextField(
+            controller: _searchController,
             decoration: InputDecoration(
               hintText: 'Search something',
               prefixIcon: const Icon(Icons.search),
@@ -130,17 +227,20 @@ class _UsersScreenState extends State<UsersScreen> {
               ),
               contentPadding: const EdgeInsets.symmetric(horizontal: 12),
             ),
+            onChanged: (value) {
+              userProvider.searchUsers(value);
+            },
           ),
         ),
         const SizedBox(width: 10),
         ElevatedButton.icon(
           onPressed: () {
-            /* TODO: Implement Filter Dialog */
+            _showFilterDialog(context);
           },
           icon: const Icon(Icons.filter_list),
           label: const Text('Filter'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
+            backgroundColor: userProvider.isFilterActive ? Theme.of(context).primaryColorDark : Colors.green,
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),

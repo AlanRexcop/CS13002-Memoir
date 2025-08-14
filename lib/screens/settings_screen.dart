@@ -1,4 +1,4 @@
-// C:\dev\memoir\lib\screens\settings_screen.dart
+// lib/screens/settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/providers/app_provider.dart';
@@ -208,7 +208,7 @@ class SettingsScreen extends ConsumerWidget {
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Change Storage Location?'),
-            content: const Text('This will close your current vault and ask you to select a new one. Are you sure?'),
+            content: const Text('This will ask you to select a new vault location. Your current vault will remain active if you cancel.'),
             actions: [
               TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
               TextButton(
@@ -219,7 +219,7 @@ class SettingsScreen extends ConsumerWidget {
           ),
         );
         if (shouldChange == true) {
-          await ref.read(appProvider.notifier).changeStorageLocation();
+          await ref.read(appProvider.notifier).selectAndSetStorage();
         }
       },
     );

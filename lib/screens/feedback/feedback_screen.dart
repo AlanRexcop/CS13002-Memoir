@@ -81,14 +81,8 @@ class _FeedbackListView extends StatelessWidget {
     ];
 
     // Filter items based on the current tab's tag and the selected status
-    final List<FeedbackItem> filteredItems = provider.feedbackItems.where((
-      item,
-    ) {
+    final List<FeedbackItem> filteredItems = provider.feedbackItems.where((item) {
       bool tagMatch = item.tag?.toLowerCase() == tag;
-      if (tag == 'feedback' && (item.tag?.toLowerCase() != 'bug')) {
-        // If the tag is 'feedback', include items where tag is 'feedback' or null/empty
-        tagMatch = true;
-      }
 
       bool statusMatch;
       if (provider.selectedStatus == 'unresolved') {
@@ -158,11 +152,19 @@ class _FeedbackListView extends StatelessWidget {
                 ? Center(child: Text('Error: ${provider.error}'))
                 : filteredItems.isEmpty
                 ? Center(child: Text('No matching ${tag}s found.'))
-                : SingleChildScrollView(
-                    scrollDirection: Axis.vertical,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: FeedbackDataTable(feedbackItems: filteredItems),
+                : Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: ListView(
+                        children: [
+                          FeedbackDataTable(feedbackItems: filteredItems),
+                        ],
+                      ),
                     ),
                   ),
           ),

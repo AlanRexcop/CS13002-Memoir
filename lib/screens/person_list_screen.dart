@@ -630,7 +630,7 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
             FilledButton(
               onPressed: () async {
                 final name = nameController.text.trim();
-                if (name.isEmpty) return;
+                // if (name.isEmpty) return;
                 Navigator.of(context).pop();
                 final success = await ref.read(appProvider.notifier).createNewPerson(name);
                 if (context.mounted) {

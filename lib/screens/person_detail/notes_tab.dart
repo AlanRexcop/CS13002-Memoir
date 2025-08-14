@@ -484,7 +484,7 @@ class _NotesTabState extends ConsumerState<NotesTab> {
             FilledButton(
               onPressed: () async {
                 final name = nameController.text.trim();
-                if (name.isEmpty) return;
+                // if (name.isEmpty) return;
                 Navigator.of(context).pop();
                 final success = await ref.read(appProvider.notifier).createNewNoteForPerson(currentPerson, name);
                 if (context.mounted) {

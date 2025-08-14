@@ -198,7 +198,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           const SizedBox(height: 20),
           _buildEmailField(),
           const SizedBox(height: 20),
-          _buildPasswordField(isSignUp: true),
+          _buildPasswordField(checkPass: true),
         ];
       case AuthView.forgotPassword:
         return [
@@ -291,14 +291,20 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     );
   }
 
-  Widget _buildPasswordField({bool isSignUp = false}) {
+  Widget _buildPasswordField({bool checkPass = false}) {
     return CustomTextField(
         controller: _passwordController,
         isPassword: true,
         hintText: 'Password',
         validator: (value) {
           if (value == null || value.isEmpty) return 'Password cannot be empty';
-          if (isSignUp && value.length < 6) return 'Password must be at least 6 characters';
+          if (checkPass) {
+            if (value.length < 6) return 'Password must be at least 6 characters';
+            if (!value.contains(RegExp(r'[A-Z]'))) return 'Password must contain an uppercase letter.';
+            if (!value.contains(RegExp(r'[a-z]'))) return 'Password must contain a lowercase letter.';
+            if (!value.contains(RegExp(r'[0-9]'))) return 'Password must contain a number.';
+            if (!value.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) return 'Password must contain a special character.';
+          }
           return null;
         },
     );

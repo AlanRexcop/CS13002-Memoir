@@ -1,11 +1,13 @@
 // lib/widgets/note_metadata_card.dart
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Import for Clipboard
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:memoir/models/note_model.dart';
 import 'package:memoir/providers/cloud_provider.dart';
+import 'package:memoir/widgets/public_link_dialog.dart'; // Import the new dialog
 import 'package:memoir/widgets/tag.dart';
 
 import '../screens/graph_view_screen.dart';
@@ -68,45 +70,60 @@ class _NoteMetadataCardState extends ConsumerState<NoteMetadataCard> {
                     }
 
                     final isPublic = cloudFile.isPublic;
-                    return OutlinedButton(
-                      onPressed: () async {
-                        setState(() => _isPublishing = true);
-                        final notifier = ref.read(cloudNotifierProvider.notifier);
-                        
-                        // Call the appropriate method based on the current public status
-                        final success = isPublic
-                            ? await notifier.makeFilePrivate(cloudFile)
-                            : await notifier.makeNotePublic(widget.note, cloudFile);
+                    return Row(
+                      children: [
+                        OutlinedButton(
+                          onPressed: () async {
+                            setState(() => _isPublishing = true);
+                            final notifier = ref.read(cloudNotifierProvider.notifier);
+                            
+                            final success = isPublic
+                                ? await notifier.makeFilePrivate(cloudFile)
+                                : await notifier.makeNotePublic(widget.note, cloudFile);
 
-                        if (mounted) {
-                          ScaffoldMessenger.of(context)
-                            ..hideCurrentSnackBar()
-                            ..showSnackBar(
-                              SnackBar(
-                                content: Text(success ? 'Visibility updated successfully.' : 'Failed to update visibility.'),
-                                backgroundColor: success ? Colors.blue : Colors.red,
-                              ),
-                            );
-                          setState(() => _isPublishing = false);
-                        }
-                      },
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                        // Change color based on public status for better feedback
-                        side: BorderSide(color: isPublic ? Colors.grey : Theme.of(context).colorScheme.primary),
-                      ),
-                      child: Text(
-                        isPublic ? 'Unpublish' : 'Publish',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: isPublic ? Colors.grey[700] : Theme.of(context).colorScheme.primary,
+                            if (mounted) {
+                              ScaffoldMessenger.of(context)
+                                ..hideCurrentSnackBar()
+                                ..showSnackBar(
+                                  SnackBar(
+                                    content: Text(success ? 'Visibility updated successfully.' : 'Failed to update visibility.'),
+                                    backgroundColor: success ? Colors.blue : Colors.red,
+                                  ),
+                                );
+                              setState(() => _isPublishing = false);
+                            }
+                          },
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                            side: BorderSide(color: isPublic ? Colors.grey : Theme.of(context).colorScheme.primary),
+                          ),
+                          child: Text(
+                            isPublic ? 'Unpublish' : 'Publish',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: isPublic ? Colors.grey[700] : Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
                         ),
-                      ),
+                        if (isPublic)
+                          IconButton(
+                            icon: const Icon(Icons.share_outlined),
+                            tooltip: 'Show public link',
+                            onPressed: () {
+                              final url = "https://alanrexcop.github.io/CS13002-Memoir/?id=${cloudFile.id}";
+                              // --- CHANGED: Show the dialog instead of copying directly ---
+                              showDialog(
+                                context: context,
+                                builder: (_) => PublicLinkDialog(url: url),
+                              );
+                            },
+                          ),
+                      ],
                     );
                   },
-                  loading: () => const SizedBox.shrink(), // Don't show anything while loading file list
-                  error: (e, s) => const SizedBox.shrink(), // Or if there's an error
+                  loading: () => const SizedBox.shrink(),
+                  error: (e, s) => const SizedBox.shrink(),
                 ),
             ],
           ),

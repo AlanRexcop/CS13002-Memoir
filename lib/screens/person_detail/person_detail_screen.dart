@@ -1,13 +1,15 @@
-// C:\dev\memoir\lib\screens\person_detail\person_detail_screen.dart
+// lib/screens/person_detail/person_detail_screen.dart
 import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Import for Clipboard
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/models/person_model.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/providers/cloud_provider.dart';
 import 'package:memoir/screens/person_list_screen.dart';
 import 'package:memoir/widgets/image_viewer.dart';
+import 'package:memoir/widgets/public_link_dialog.dart'; // Import the new dialog
 import 'package:memoir/widgets/tag.dart';
 import 'info_tab.dart';
 import 'notes_tab.dart';
@@ -94,7 +96,6 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> with Si
       );
     }
     
-    // Create the tappable avatar widget
     Widget interactiveAvatar = GestureDetector(
       onTap: () {
         if (avatarFile != null) {
@@ -123,7 +124,6 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> with Si
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Use the Hero widget only if we have a valid avatar file
                   avatarFile != null 
                     ? Hero(tag: avatarFile.path, child: interactiveAvatar) 
                     : interactiveAvatar,
@@ -176,40 +176,58 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> with Si
                         final cloudFile = cloudFiles.firstWhereOrNull((cf) => cf.cloudPath?.endsWith(normalizedPath) ?? false);
 
                         if (cloudFile == null) {
-                          return const SizedBox.shrink(); // Not synced, so no button to show
+                          return const SizedBox.shrink();
                         }
                         
                         final isPublic = cloudFile.isPublic;
-                        return ElevatedButton(
-                          onPressed: () async {
-                            setState(() => _isPublishing = true);
-                            final notifier = ref.read(cloudNotifierProvider.notifier);
-                            final success = isPublic
-                                ? await notifier.makeFilePrivate(cloudFile)
-                                : await notifier.makeNotePublic(infoNote, cloudFile);
+                        return Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ElevatedButton(
+                              onPressed: () async {
+                                setState(() => _isPublishing = true);
+                                final notifier = ref.read(cloudNotifierProvider.notifier);
+                                final success = isPublic
+                                    ? await notifier.makeFilePrivate(cloudFile)
+                                    : await notifier.makeNotePublic(infoNote, cloudFile);
 
-                            if (mounted) {
-                              ScaffoldMessenger.of(context)
-                                ..hideCurrentSnackBar()
-                                ..showSnackBar(
-                                  SnackBar(
-                                    content: Text(success ? 'Visibility updated successfully.' : 'Failed to update visibility.'),
-                                    backgroundColor: success ? Colors.blue : Colors.red,
-                                  ),
-                                );
-                              setState(() => _isPublishing = false);
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                            elevation: 5,
-                            backgroundColor: isPublic ? Colors.grey : Theme.of(context).colorScheme.primary,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context)
+                                    ..hideCurrentSnackBar()
+                                    ..showSnackBar(
+                                      SnackBar(
+                                        content: Text(success ? 'Visibility updated successfully.' : 'Failed to update visibility.'),
+                                        backgroundColor: success ? Colors.blue : Colors.red,
+                                      ),
+                                    );
+                                  setState(() => _isPublishing = false);
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                                elevation: 5,
+                                backgroundColor: isPublic ? Colors.grey : Theme.of(context).colorScheme.primary,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              child: Text(isPublic ? 'Unpublish' : 'Publish', style: const TextStyle(fontSize: 17)),
                             ),
-                          ),
-                          child: Text(isPublic ? 'Unpublish' : 'Publish', style: const TextStyle(fontSize: 17)),
+                            if (isPublic)
+                              IconButton(
+                                icon: const Icon(Icons.share_outlined),
+                                tooltip: 'Show public link',
+                                onPressed: () {
+                                  final url = "https://alanrexcop.github.io/CS13002-Memoir/?id=${cloudFile.id}";
+                                  // --- CHANGED: Show the dialog ---
+                                  showDialog(
+                                    context: context,
+                                    builder: (_) => PublicLinkDialog(url: url),
+                                  );
+                                },
+                              ),
+                          ],
                         );
                       },
                       loading: () => const SizedBox.shrink(),

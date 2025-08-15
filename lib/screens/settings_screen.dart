@@ -1,4 +1,4 @@
-// C:\dev\memoir\lib\screens\settings_screen.dart
+// lib/screens/settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/providers/app_provider.dart';
@@ -10,6 +10,7 @@ import 'package:memoir/screens/feedback_screen.dart';
 import 'package:memoir/screens/recycle_bin_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../providers/cloud_provider.dart';
 import '../widgets/setting_group.dart';
 import '../widgets/setting_item.dart';
 
@@ -94,6 +95,14 @@ class SettingsScreen extends ConsumerWidget {
 
   Widget _buildSignedInView(BuildContext context, WidgetRef ref, User user, String? currentPath) {
     final colorScheme = Theme.of(context).colorScheme;
+    final avatarAsync = ref.watch(localAvatarProvider);
+    final avatarImage = avatarAsync.when(
+      data: (bytes) => (bytes != null)
+          ? MemoryImage(bytes) as ImageProvider
+          : const AssetImage('assets/avatar.png'),
+      loading: () => const AssetImage('assets/avatar.png'),
+      error: (_, __) => const AssetImage('assets/avatar.png'),
+    );
     return ListView(
       children: [
         const SizedBox(height: 20),
@@ -107,7 +116,7 @@ class SettingsScreen extends ConsumerWidget {
                   border: Border.all(width: 4, color: Colors.white),
                   boxShadow: const [BoxShadow(spreadRadius: 2, blurRadius: 10, color: Color.fromRGBO(0, 0, 0, 0.1))],
                   shape: BoxShape.circle,
-                  image: const DecorationImage(image: AssetImage("assets/avatar.png"), fit: BoxFit.cover),
+                  image: DecorationImage(image: avatarImage, fit: BoxFit.cover),
                 ),
               ),
               const SizedBox(width: 16),
@@ -199,7 +208,7 @@ class SettingsScreen extends ConsumerWidget {
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Change Storage Location?'),
-            content: const Text('This will close your current vault and ask you to select a new one. Are you sure?'),
+            content: const Text('This will ask you to select a new vault location. Your current vault will remain active if you cancel.'),
             actions: [
               TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
               TextButton(
@@ -210,7 +219,7 @@ class SettingsScreen extends ConsumerWidget {
           ),
         );
         if (shouldChange == true) {
-          await ref.read(appProvider.notifier).changeStorageLocation();
+          await ref.read(appProvider.notifier).selectAndSetStorage();
         }
       },
     );

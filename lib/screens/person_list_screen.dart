@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:memoir/providers/app_provider.dart';
 import 'package:memoir/screens/notification/notification_screen.dart';
 import 'package:memoir/screens/person_detail/person_detail_screen.dart';
+import '../providers/cloud_provider.dart';
 import '../widgets/custom_float_button.dart';
 import '../widgets/tag.dart';
 import 'package:memoir/screens/graph_view_screen.dart';
@@ -275,6 +276,14 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
         title: const Text('Select Person'),
       );
     }
+    final avatarAsync = ref.watch(localAvatarProvider);
+    final avatarImage = avatarAsync.when(
+      data: (bytes) => (bytes != null)
+          ? MemoryImage(bytes) as ImageProvider
+          : const AssetImage('assets/avatar.png'),
+      loading: () => const AssetImage('assets/avatar.png'),
+      error: (_, __) => const AssetImage('assets/avatar.png'),
+    );
 
     return AppBar(
       backgroundColor: Colors.white,
@@ -301,8 +310,8 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
                     )
                   ],
                   shape: BoxShape.circle,
-                  image: const DecorationImage(
-                    image: AssetImage("assets/avatar.png"),
+                  image: DecorationImage(
+                    image: avatarImage,
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -621,7 +630,7 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
             FilledButton(
               onPressed: () async {
                 final name = nameController.text.trim();
-                if (name.isEmpty) return;
+                // if (name.isEmpty) return;
                 Navigator.of(context).pop();
                 final success = await ref.read(appProvider.notifier).createNewPerson(name);
                 if (context.mounted) {

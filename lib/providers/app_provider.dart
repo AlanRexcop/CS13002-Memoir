@@ -1,4 +1,4 @@
-// lib/providers/app_provider.dart
+// C:\dev\memoir\lib\providers\app_provider.dart
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -145,9 +145,13 @@ class AppNotifier extends StateNotifier<AppState> {
     final currentUser = Supabase.instance.client.auth.currentUser;
     if (currentUser != null) {
       state = state.copyWith(currentUser: currentUser);
-      // FIX: Call download methods for both avatar and background on cold start
-      _downloadAndCacheAvatar(currentUser.id);
-      _downloadAndCacheBackground(currentUser.id); 
+      // Wait for path to load before trying to cache images
+      initializationComplete.then((_) {
+        if (state.storagePath != null) {
+          _downloadAndCacheAvatar(currentUser.id, state.storagePath!);
+          _downloadAndCacheBackground(currentUser.id, state.storagePath!);
+        }
+      });
       _realtimeService.subscribe();
     }
   }
@@ -157,54 +161,50 @@ class AppNotifier extends StateNotifier<AppState> {
       final User? user = data.session?.user;
       if (state.currentUser?.id != user?.id) {
          if (user == null) {
-           // On logout, delete local user assets
-           await _localStorageService.deleteLocalAvatar();
-           await _localStorageService.deleteLocalBackground(); // FIX: Also delete background
+           if (state.storagePath != null) {
+             await _localStorageService.deleteLocalAvatar(state.storagePath!);
+             await _localStorageService.deleteLocalBackground(state.storagePath!);
+           }
            state = state.copyWith(clearCurrentUser: true);
            // Refresh both providers
            _ref.read(avatarVersionProvider.notifier).update((s) => s + 1);
-           _ref.read(backgroundVersionProvider.notifier).update((s) => s + 1); // FIX: Refresh background
+           _ref.read(backgroundVersionProvider.notifier).update((s) => s + 1);
            _realtimeService.unsubscribe();
          } else {
            // On login, set user and download assets
            state = state.copyWith(currentUser: user);
-           // FIX: Call download methods for both avatar and background on login
-           await _downloadAndCacheAvatar(user.id);
-           await _downloadAndCacheBackground(user.id);
+           if (state.storagePath != null) {
+             await _downloadAndCacheAvatar(user.id, state.storagePath!);
+             await _downloadAndCacheBackground(user.id, state.storagePath!);
+           }
            _realtimeService.subscribe();
          }
       }
     });
   }
 
-  Future<void> _downloadAndCacheAvatar(String userId) async {
+  Future<void> _downloadAndCacheAvatar(String userId, String vaultRoot) async {
     try {
-      final cloudPath = '${userId}/profile/avatar.png';
+      final cloudPath = '$userId/profile/avatar.png';
       final bytes = await Supabase.instance.client.storage.from(supabaseBucket).download(cloudPath);
-      await _localStorageService.saveLocalAvatar(bytes);
+      await _localStorageService.saveLocalAvatar(vaultRoot, bytes);
     } catch (e) {
-      // This is expected if the user hasn't set an avatar (e.g., 404 error)
       print('Failed to download avatar (this may be expected): $e');
-      await _localStorageService.deleteLocalAvatar();
+      await _localStorageService.deleteLocalAvatar(vaultRoot);
     } finally {
-      // Update the version provider to trigger a refresh.
       _ref.read(avatarVersionProvider.notifier).update((s) => s + 1);
     }
   }
 
-  // FIX: Add a new method to download and cache the background image
-  Future<void> _downloadAndCacheBackground(String userId) async {
+  Future<void> _downloadAndCacheBackground(String userId, String vaultRoot) async {
     try {
-      final cloudPath = '${userId}/profile/background.png';
+      final cloudPath = '$userId/profile/background.png';
       final bytes = await Supabase.instance.client.storage.from(supabaseBucket).download(cloudPath);
-      await _localStorageService.saveLocalBackground(bytes);
+      await _localStorageService.saveLocalBackground(vaultRoot, bytes);
     } catch (e) {
-      // This is expected if the user hasn't set a background (e.g., 404 error)
       print('Failed to download background (this may be expected): $e');
-      // Ensure any old cached background is removed
-      await _localStorageService.deleteLocalBackground();
+      await _localStorageService.deleteLocalBackground(vaultRoot);
     } finally {
-      // Update the version provider to trigger a UI refresh for the background.
       _ref.read(backgroundVersionProvider.notifier).update((s) => s + 1);
     }
   }
@@ -217,10 +217,15 @@ class AppNotifier extends StateNotifier<AppState> {
   }
 
   Future<void> signOut() async {
-    // The onAuthStateChange listener will handle the state update and asset invalidation
+    if (state.storagePath != null) {
+      await _localStorageService.deleteLocalAvatar(state.storagePath!);
+      await _localStorageService.deleteLocalBackground(state.storagePath!);
+    }
     await Supabase.instance.client.auth.signOut();
   }
 
+  // ... (rest of the file is unchanged)
+  
   Future<void> _scheduleAllReminders(List<Person> persons) async {
     for (final person in persons) {
       for (final note in [person.info, ...person.notes]) {
@@ -377,28 +382,33 @@ class AppNotifier extends StateNotifier<AppState> {
 
   Future<bool> deletePerson(Person person) async {
     if (state.storagePath == null) return false;
+
+    // --- 1. IMMEDIATE STATE UPDATE ---
+    final now = DateTime.now();
+    final updatedInfoNote = person.info.copyWith(deletedDate: now);
+
+    final newPersonsList = state.persons.where((p) => p.path != person.path).toList();
+    final newDeletedPersonInfos = List<Note>.from(state.deletedPersonsInfoNotes)..add(updatedInfoNote);
+    newDeletedPersonInfos.sort((a, b) => b.deletedDate!.compareTo(a.deletedDate!));
+
+    // Update state right away.
+    state = state.copyWith(
+      persons: newPersonsList,
+      deletedPersonsInfoNotes: newDeletedPersonInfos,
+    );
+
+    // --- 2. BACKGROUND I/O ---
     try {
+      final backgroundTasks = <Future>[];
+      backgroundTasks.add(_localStorageService.softDeletePerson(state.storagePath!, person.path));
       for (final note in [person.info, ...person.notes]) {
-        await _syncService.autoTrash(note);
-        await _notificationService.cancelAllNotificationsForNote(note);
+        backgroundTasks.add(_syncService.autoTrash(note));
+        backgroundTasks.add(_notificationService.cancelAllNotificationsForNote(note));
       }
-      
-      await _localStorageService.softDeletePerson(state.storagePath!, person.path);
-      
-      final infoFile = File(p.join(state.storagePath!, person.info.path));
-      final updatedInfoNote = await _localStorageService.readNoteFromFile(infoFile, state.storagePath!);
-
-      final newPersonsList = state.persons.where((p) => p.path != person.path).toList();
-      final newDeletedPersonInfos = List<Note>.from(state.deletedPersonsInfoNotes)..add(updatedInfoNote);
-      newDeletedPersonInfos.sort((a, b) => b.deletedDate!.compareTo(a.deletedDate!));
-
-      state = state.copyWith(
-        persons: newPersonsList,
-        deletedPersonsInfoNotes: newDeletedPersonInfos,
-      );
+      await Future.wait(backgroundTasks);
       return true;
     } catch (e) {
-      print("Failed to soft-delete person: $e");
+      print("Failed to complete background tasks for person deletion: $e");
       return false;
     }
   }
@@ -562,28 +572,37 @@ class AppNotifier extends StateNotifier<AppState> {
 
   Future<bool> deleteNote(Note noteToDelete) async {
     if (state.storagePath == null) return false;
+
+    // --- 1. IMMEDIATE STATE UPDATE ---
+    // Calculate the new state synchronously based on the incoming data.
+    final now = DateTime.now();
+    // Create an in-memory copy with the deleted date.
+    final updatedDeletedNote = noteToDelete.copyWith(deletedDate: now);
+
+    final newPersonsList = state.persons.map((person) {
+      final newNotesForPerson = person.notes.where((n) => n.path != noteToDelete.path).toList();
+      return Person(path: person.path, info: person.info, notes: newNotesForPerson);
+    }).toList();
+
+    final newDeletedNotes = List<Note>.from(state.deletedNotes)..add(updatedDeletedNote);
+    newDeletedNotes.sort((a, b) => b.deletedDate!.compareTo(a.deletedDate!));
+
+    // Update state right away. This is the key fix.
+    state = state.copyWith(persons: newPersonsList, deletedNotes: newDeletedNotes);
+
+    // --- 2. BACKGROUND I/O ---
+    // Now, perform all async operations. The UI is already updated and won't block.
     try {
-      await _syncService.autoTrash(noteToDelete);
-      await _notificationService.cancelAllNotificationsForNote(noteToDelete);
-      
-      final now = DateTime.now();
-      await _localStorageService.setNoteDeleted(state.storagePath!, noteToDelete.path, now);
-
-      final file = File(p.join(state.storagePath!, noteToDelete.path));
-      final updatedDeletedNote = await _localStorageService.readNoteFromFile(file, state.storagePath!);
-
-      final newPersonsList = state.persons.map((person) {
-        final newNotesForPerson = person.notes.where((n) => n.path != noteToDelete.path).toList();
-        return Person(path: person.path, info: person.info, notes: newNotesForPerson);
-      }).toList();
-      
-      final newDeletedNotes = List<Note>.from(state.deletedNotes)..add(updatedDeletedNote);
-      newDeletedNotes.sort((a, b) => b.deletedDate!.compareTo(a.deletedDate!));
-
-      state = state.copyWith(persons: newPersonsList, deletedNotes: newDeletedNotes);
+      // We can run these in parallel.
+      await Future.wait([
+        _localStorageService.setNoteDeleted(state.storagePath!, noteToDelete.path, now),
+        _syncService.autoTrash(noteToDelete),
+        _notificationService.cancelAllNotificationsForNote(noteToDelete),
+      ]);
       return true;
     } catch (e) {
-      print("Failed to soft-delete note: $e");
+      print("Failed to complete background tasks for note deletion: $e");
+      // The item was removed from the list, but background tasks failed.
       return false;
     }
   }

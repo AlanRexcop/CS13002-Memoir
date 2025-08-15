@@ -5,7 +5,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:memoir/models/person_model.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
+// path_provider is no longer needed.
 import 'package:yaml/yaml.dart';
 import 'package:memoir/services/markdown_analyzer_service.dart';
 import 'package:memoir/models/note_model.dart';
@@ -345,21 +345,41 @@ class LocalStorageService {
 
     // Create the default markdown body using the new template
     final markdownBody = """
-### **❤️ First met:**
-
- {event}[first met $trimmedName]($formattedDate) 
-
-### **🎂 Birthday:**
-
+### ✨ Relationship:
 ...
 
-### **📞 Phone:**
-
+### 🚻 Gender:
 ...
 
-### **🗺️ Address:**
-
+### 📞 Phone:
 ...
+
+### 📧 Email:
+...
+
+### 💬 Messaging Handle(s):
+- WhatsApp: ...
+- Telegram: ...
+- Line: ...
+- Discord: ...
+- Signal: ...
+
+### 🌐 Social Media:
+- Instagram: ...
+- Facebook: ...
+- Twitter/X: ...
+- LinkedIn: ...
+- TikTok: ...
+
+### 🗺️ **Location**
+...
+
+### 🗓️ Important Dates:
+- Birthday: ...
+- First met: {event}[first met $trimmedName]($formattedDate)
+- Anniversary: ...
+- Last met: ...
+- First trip together: ...
 """;
 
     await writeNote(
@@ -466,20 +486,25 @@ class LocalStorageService {
     final absolutePath = p.join(vaultRoot, relativeImagePath);
     return await File(absolutePath).exists();
   }
+  
+  // --- MODIFIED METHODS ---
 
-  Future<File> getLocalAvatarFile() async {
-    final directory = await getApplicationSupportDirectory();
-    return File(p.join(directory.path, 'avatar.png'));
+  Future<File> getLocalAvatarFile(String vaultRoot) async {
+    final profileDir = Directory(p.join(vaultRoot, 'profile'));
+    if (!await profileDir.exists()) {
+      await profileDir.create();
+    }
+    return File(p.join(profileDir.path, 'avatar.png'));
   }
 
-  Future<File> saveLocalAvatar(Uint8List bytes) async {
-    final file = await getLocalAvatarFile();
+  Future<File> saveLocalAvatar(String vaultRoot, Uint8List bytes) async {
+    final file = await getLocalAvatarFile(vaultRoot);
     return await file.writeAsBytes(bytes);
   }
 
-  Future<void> deleteLocalAvatar() async {
+  Future<void> deleteLocalAvatar(String vaultRoot) async {
     try {
-      final file = await getLocalAvatarFile();
+      final file = await getLocalAvatarFile(vaultRoot);
       if (await file.exists()) {
         await file.delete();
       }
@@ -488,19 +513,22 @@ class LocalStorageService {
     }
   }
 
-  Future<File> getLocalBackgroundFile() async {
-    final directory = await getApplicationSupportDirectory();
-    return File(p.join(directory.path, 'background.png'));
+  Future<File> getLocalBackgroundFile(String vaultRoot) async {
+    final profileDir = Directory(p.join(vaultRoot, 'profile'));
+    if (!await profileDir.exists()) {
+      await profileDir.create();
+    }
+    return File(p.join(profileDir.path, 'background.png'));
   }
 
-  Future<File> saveLocalBackground(Uint8List bytes) async {
-    final file = await getLocalBackgroundFile();
+  Future<File> saveLocalBackground(String vaultRoot, Uint8List bytes) async {
+    final file = await getLocalBackgroundFile(vaultRoot);
     return await file.writeAsBytes(bytes);
   }
 
-  Future<void> deleteLocalBackground() async {
+  Future<void> deleteLocalBackground(String vaultRoot) async {
     try {
-      final file = await getLocalBackgroundFile();
+      final file = await getLocalBackgroundFile(vaultRoot);
       if (await file.exists()) {
         await file.delete();
       }

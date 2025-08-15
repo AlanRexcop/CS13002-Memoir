@@ -1,4 +1,5 @@
 // C:\dev\memoir\lib\services\sync_service.dart
+// lib/services/sync_service.dart
 import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
@@ -146,16 +147,36 @@ class SyncService {
           final cloudImagePath = '$userRootPath/${relativeImagePath.replaceAll(r'\', '/')}';
           final cloudFileExists = allCloudFiles.any((cf) => cf.cloudPath == cloudImagePath);
 
-          if (!cloudFileExists) {
-            print('Auto-sync: Uploading new image: $relativeImagePath');
-            final imageBytes = await localStorage.readRawFileByte(vaultRoot, relativeImagePath);
-            await cloudService.uploadFile(path: cloudImagePath, fileBytes: imageBytes);
+        if (difference > 2) { // Use absolute difference to catch either direction
+          if (localTimestamp.isAfter(cloudTimestamp)) {
+            print('Initial Sync: Local is newer for "$path". Uploading.');
+            await cloudNotifier.uploadNote(localNote, vaultRoot);
+          } else {
+            print('Initial Sync: Cloud is newer for "$path". Downloading.');
+            // triggers the entire fix: download -> update YAML -> update state
+            await cloudNotifier.downloadNoteAndImages(cloudFile, vaultRoot);
           }
         }
       }
-      
-      _ref.invalidate(allCloudFilesProvider);
+    } catch (e) {
+      print('Initial Sync: An error occurred: $e');
+    } finally {
+      print('Initial Sync: Finished.');
+      _ref.read(appProvider.notifier).setSyncLoading(false);
+    }
+  }
 
+  Future<void> autoUpload(Note note, String vaultRoot) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+
+    try {
+      print('Auto-sync: Uploading note and associated images for ${note.path}');
+      // --- THE FIX ---
+      // Directly use the high-level notifier method from CloudProvider.
+      // This method contains the logic to upload both the note file AND its images.
+      await _ref.read(cloudNotifierProvider.notifier).uploadNote(note, vaultRoot);
+      print('Auto-sync: Upload task complete for ${note.path}');
     } catch (e) {
       print('Auto-sync: Failed to upload changes for ${note.path}. Error: $e');
     }

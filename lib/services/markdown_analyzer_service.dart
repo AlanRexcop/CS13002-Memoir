@@ -1,4 +1,4 @@
-// C:\dev\memoir\lib\services\markdown_analyzer_service.dart
+// lib/services/markdown_analyzer_service.dart
 import 'package:markdown/markdown.dart' as md;
 import 'package:memoir/models/event_model.dart';
 import 'package:memoir/models/location_model.dart';
@@ -7,10 +7,14 @@ import 'package:memoir/models/mention_model.dart';
 // Helper function to parse duration strings like "15m", "1h", "2d"
 Duration? _parseDuration(String? reminderString) {
   if (reminderString == null || reminderString.isEmpty) return null;
+  // Regex to ensure the format is <digits><one letter>
+  final reminderRegex = RegExp(r'^(\d+)([mhd])$');
+  final match = reminderRegex.firstMatch(reminderString);
+  if (match == null) return null;
+
   try {
-    final value =
-        int.parse(reminderString.substring(0, reminderString.length - 1));
-    final unit = reminderString.substring(reminderString.length - 1);
+    final value = int.parse(match.group(1)!);
+    final unit = match.group(2)!;
     switch (unit) {
       case 'm':
         return Duration(minutes: value);
@@ -76,10 +80,24 @@ class EventSyntax extends md.InlineSyntax {
     final reminder =
         parts.firstWhere((p) => !p.startsWith('RRULE:') && p != dt, orElse: () => '');
 
-    // 3. Create a custom md.Element to represent this in the AST.
-    final element = md.Element.withTag('mevent');
+    bool isValid = true;
+    if (DateTime.tryParse(dt) == null) {
+      isValid = false;
+    }
+    if (reminder.isNotEmpty && _parseDuration(reminder) == null) {
+      isValid = false;
+    }
 
-    // 4. Store our parsed data as attributes on the element.
+    // If the data is invalid, render it as plain text instead of a special element.
+    // This prevents the app from crashing on bad data and avoids the infinite loop.
+    if (!isValid) {
+      // match.group(0)! is the entire matched string, e.g., "{event}[...](...)"
+      parser.addNode(md.Text(match.group(0)!));
+      return true;
+    }
+    
+    // If valid, proceed to create the custom element.
+    final element = md.Element.withTag('mevent');
     element.attributes['data-text'] = text;
     element.attributes['data-dt'] = dt;
     if (rrule.isNotEmpty) {
@@ -110,11 +128,30 @@ class LocationSyntax extends md.InlineSyntax {
     final String text = match.group(1)!;
     final String value = match.group(2)!;
 
-    // 2. Create a custom md.Element to represent this in the AST.
-    final element = md.Element.withTag('mlocation');
+    bool isValid = true;
+    final parts = value.split(',');
+    if (parts.length != 2) {
+      isValid = false;
+    } else {
+      final lat = double.tryParse(parts[0].trim());
+      final lng = double.tryParse(parts[1].trim());
 
-    // 3. Store our parsed data as attributes on the element.
-    // for "visitor" ability to retrieve the data later.
+      if (lat == null || lng == null) {
+        isValid = false;
+      } else {
+        if (lat < -90.0 || lat > 90.0) isValid = false;
+        if (lng < -180.0 || lng > 180.0) isValid = false;
+      }
+    }
+
+    // If the coordinates are invalid, render the tag as plain text.
+    if (!isValid) {
+      parser.addNode(md.Text(match.group(0)!));
+      return true;
+    }
+    
+    // If valid, create the custom element.
+    final element = md.Element.withTag('mlocation');
     element.attributes['data-text'] = text;
     element.attributes['data-value'] = value;
 

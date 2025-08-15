@@ -319,6 +319,7 @@ class AppNotifier extends StateNotifier<AppState> {
   Future<void> refreshVault() async {
     if (state.storagePath != null) {
       await loadAllPersons(state.storagePath!);
+      _syncService.performInitialSync();
     }
   }
 
@@ -327,6 +328,7 @@ class AppNotifier extends StateNotifier<AppState> {
     if (path != null) {
       await _persistenceService.saveLocalStoragePath(path);
       await loadAllPersons(path);
+      _syncService.performInitialSync();
     }
   }
 

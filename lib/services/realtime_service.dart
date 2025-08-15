@@ -18,7 +18,7 @@ class RealtimeService {
     if (_filesChannel != null) {
       return;
     }
-    print('Subscribing to real-time file changes...');
+    //print('Subscribing to real-time file changes...');
 
     _filesChannel = _client
         .channel('db-files')
@@ -27,12 +27,12 @@ class RealtimeService {
           schema: 'public',
           table: 'files',
           callback: (payload) {
-            print('Realtime change received: ${payload.toString()}');
+            //print('Realtime change received: ${payload.toString()}');
             _handlePayload(payload);
           },
         )
         .subscribe((status, [ref]) {
-            print('Realtime subscription status: $status');
+            //print('Realtime subscription status: $status');
         });
   }
 

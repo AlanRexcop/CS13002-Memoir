@@ -1,4 +1,5 @@
 // C:\dev\memoir\lib\services\sync_service.dart
+// lib/services/sync_service.dart
 import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
@@ -117,44 +118,15 @@ class SyncService {
 
   Future<void> autoUpload(Note note, String vaultRoot) async {
     final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return; 
-
-    final cloudState = _ref.read(cloudNotifierProvider);
-    final userRootPath = cloudState.userRootPath;
-    if (userRootPath == null) return;
-
-    final localStorage = _ref.read(localStorageServiceProvider);
-    final cloudService = _ref.read(cloudFileServiceProvider);
+    if (user == null) return;
 
     try {
-      // Auto-upload only triggers for files that are already tracked in the cloud.
-      final cloudFile = await _findCloudFileByPath(note.path);
-      if (cloudFile?.cloudPath != null) {
-        print('Auto-sync: Uploading changes for ${note.path}');
-        final fileBytes = await localStorage.readRawFileByte(vaultRoot, note.path);
-        await cloudService.uploadFile(path: cloudFile!.cloudPath!, fileBytes: fileBytes);
-        print('Auto-sync: Upload complete for ${note.path}');
-      }
-
-      // Sync associated images
-      if (note.images.isNotEmpty) {
-        await _ref.refresh(allCloudFilesProvider.future);
-        final allCloudFiles = await _ref.read(allCloudFilesProvider.future);
-
-        for (final relativeImagePath in note.images) {
-          final cloudImagePath = '$userRootPath/${relativeImagePath.replaceAll(r'\', '/')}';
-          final cloudFileExists = allCloudFiles.any((cf) => cf.cloudPath == cloudImagePath);
-
-          if (!cloudFileExists) {
-            print('Auto-sync: Uploading new image: $relativeImagePath');
-            final imageBytes = await localStorage.readRawFileByte(vaultRoot, relativeImagePath);
-            await cloudService.uploadFile(path: cloudImagePath, fileBytes: imageBytes);
-          }
-        }
-      }
-      
-      _ref.invalidate(allCloudFilesProvider);
-
+      print('Auto-sync: Uploading note and associated images for ${note.path}');
+      // --- THE FIX ---
+      // Directly use the high-level notifier method from CloudProvider.
+      // This method contains the logic to upload both the note file AND its images.
+      await _ref.read(cloudNotifierProvider.notifier).uploadNote(note, vaultRoot);
+      print('Auto-sync: Upload task complete for ${note.path}');
     } catch (e) {
       print('Auto-sync: Failed to upload changes for ${note.path}. Error: $e');
     }

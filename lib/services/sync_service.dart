@@ -116,58 +116,7 @@ class SyncService {
   }
 
   Future<void> autoUpload(Note note, String vaultRoot) async {
-    // FIX: Get user from appProvider.
     final user = _ref.read(appProvider).currentUser;
-    if (user == null) {
-        print('Auto-sync: Aborting upload, no authenticated user.');
-        return;
-    }
-
-    final cloudState = _ref.read(cloudNotifierProvider);
-    final userRootPath = cloudState.userRootPath;
-    if (userRootPath == null) return;
-
-    final localStorage = _ref.read(localStorageServiceProvider);
-    final cloudService = _ref.read(cloudFileServiceProvider);
-
-    try {
-      final cloudFile = await _findCloudFileByPath(note.path);
-      if (cloudFile?.cloudPath != null) {
-        print('Auto-sync: Uploading changes for ${note.path}');
-        final fileBytes = await localStorage.readRawFileByte(vaultRoot, note.path);
-        await cloudService.uploadFile(path: cloudFile!.cloudPath!, fileBytes: fileBytes);
-        print('Auto-sync: Upload complete for ${note.path}');
-      }
-
-      if (note.images.isNotEmpty) {
-        await _ref.refresh(allCloudFilesProvider.future);
-        final allCloudFiles = await _ref.read(allCloudFilesProvider.future);
-
-        for (final relativeImagePath in note.images) {
-          final cloudImagePath = '$userRootPath/${relativeImagePath.replaceAll(r'\', '/')}';
-          final cloudFileExists = allCloudFiles.any((cf) => cf.cloudPath == cloudImagePath);
-
-        if (difference > 2) { // Use absolute difference to catch either direction
-          if (localTimestamp.isAfter(cloudTimestamp)) {
-            print('Initial Sync: Local is newer for "$path". Uploading.');
-            await cloudNotifier.uploadNote(localNote, vaultRoot);
-          } else {
-            print('Initial Sync: Cloud is newer for "$path". Downloading.');
-            // triggers the entire fix: download -> update YAML -> update state
-            await cloudNotifier.downloadNoteAndImages(cloudFile, vaultRoot);
-          }
-        }
-      }
-    } catch (e) {
-      print('Initial Sync: An error occurred: $e');
-    } finally {
-      print('Initial Sync: Finished.');
-      _ref.read(appProvider.notifier).setSyncLoading(false);
-    }
-  }
-
-  Future<void> autoUpload(Note note, String vaultRoot) async {
-    final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
 
     try {

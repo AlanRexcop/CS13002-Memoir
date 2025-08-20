@@ -8,15 +8,12 @@ class UserManagementService {
 
   UserManagementService(this._supabase);
 
-  /// Fetches a list of all users for the main user table display.
+  // ... (fetchUsers and fetchUserById methods are unchanged) ...
   Future<List<UserProfile>> fetchUsers() async {
     final List<dynamic> data = await _supabase.rpc('admin_get_all_users');
     return data.map((item) => UserProfile.fromJson(item)).toList();
   }
 
-  /// Fetches the detailed profile for a single user by their ID.
-  ///
-  /// This ensures the data is always fresh when viewing user details.
   Future<UserProfile> fetchUserById(String userId) async {
     final List<dynamic> data = await _supabase.rpc(
       'admin_get_user_by_id',
@@ -26,21 +23,33 @@ class UserManagementService {
     if (data.isEmpty) {
       throw Exception('User not found');
     }
-    // RPCs that return a SETOF table always return a list.
-    // We expect only one item, so we take the first.
     return UserProfile.fromJson(data.first);
   }
-  
-  /// --- NEW: Downloads a user's avatar from the private bucket. ---
+
+
+  /// --- MODIFIED: Finds and downloads a user's avatar. ---
   ///
-  /// Returns raw image data (Uint8List). Throws StorageException if not found.
-  Future<Uint8List> downloadAvatar(String userId) async {
-    final String path = '$userId/profile/avatar.png';
-    // Download the file from the 'user-files' private bucket. [4]
-    final Uint8List file = await _supabase.storage.from('user-files').download(path);
+  /// Searches for any file starting with 'avatar' in the user's profile folder.
+  Future<Uint8List> findAndDownloadAvatar(String userId) async {
+    final String folderPath = '$userId/profile';
+
+    // Step 1: List files in the directory with a search pattern. [6, 7]
+    final List<FileObject> files = await _supabase.storage
+        .from('user-files')
+        .list(path: folderPath, searchOptions: SearchOptions(search: 'avatar'));
+
+    // Step 2: If no matching file is found, throw an exception.
+    if (files.isEmpty) {
+      throw const StorageException('Avatar not found.');
+    }
+
+    // Step 3: Get the name of the first matching file and download it.
+    final String avatarFilename = files.first.name;
+    final String fullPath = '$folderPath/$avatarFilename';
+    
+    final Uint8List file = await _supabase.storage.from('user-files').download(fullPath);
     return file;
   }
-
 
   /// Deletes a list of users by their IDs.
   Future<void> deleteUsers(List<String> userIds) async {

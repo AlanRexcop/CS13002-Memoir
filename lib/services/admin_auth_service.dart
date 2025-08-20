@@ -14,12 +14,25 @@ class AdminAuthService {
   Future<void> signOut() async {
     await _supabase.auth.signOut();
   }
-  
-  /// --- NEW: Downloads the admin's avatar from the private bucket. ---
-  Future<Uint8List> downloadAdminAvatar(String userId) async {
-    final path = '$userId/profile/avatar.png';
-    // Downloads file data from the 'user-files' bucket. [4]
-    return await _supabase.storage.from('user-files').download(path);
+
+  /// --- MODIFIED: Finds and downloads the admin's avatar. ---
+  Future<Uint8List> findAndDownloadAdminAvatar(String userId) async {
+    final String folderPath = '$userId/profile';
+
+    // Search for any file starting with 'avatar'. [6, 7]
+    final List<FileObject> files = await _supabase.storage
+        .from('user-files')
+        .list(path: folderPath, searchOptions: SearchOptions(search: 'avatar'));
+
+    if (files.isEmpty) {
+      throw const StorageException('Admin avatar not found.');
+    }
+
+    // Download the first file found.
+    final String avatarFilename = files.first.name;
+    final String fullPath = '$folderPath/$avatarFilename';
+
+    return await _supabase.storage.from('user-files').download(fullPath);
   }
 
   Stream<AuthState> get authStateChanges => _supabase.auth.onAuthStateChange;

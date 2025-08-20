@@ -1,5 +1,4 @@
 // lib/providers/admin_auth_provider.dart
-
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -7,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/admin_auth_service.dart';
 
 class AdminAuthProvider extends ChangeNotifier {
+  // ... (properties are unchanged) ...
   final AdminAuthService _authService;
   late final StreamSubscription<AuthState> _authStateSubscription;
 
@@ -18,6 +18,7 @@ class AdminAuthProvider extends ChangeNotifier {
   Uint8List? _avatarData;
   Uint8List? get avatarData => _avatarData;
 
+  // ... (constructor and dispose are unchanged) ...
   AdminAuthProvider(this._authService) {
     // This listener remains crucial. It updates the state when sign-in or
     // sign-out is successful.
@@ -38,31 +39,27 @@ class AdminAuthProvider extends ChangeNotifier {
     super.dispose();
   }
 
-  /// Performs login and validates if the user has admin privileges.
+
+  /// --- MODIFIED: Performs login and fetches avatar by searching. ---
   Future<void> signIn(String email, String password) async {
     try {
-      // Step 1: Authenticate with Supabase as usual.
       await _authService.signIn(email, password);
-
-      // Step 2: Post-login validation. Get the user object.
       final currentUser = _authService.currentUser;
       if (currentUser == null) {
         throw const AuthException('Login failed. Please try again.');
       }
 
-      // Step 3: Check the user's metadata for the admin role.
       final userMetadata = currentUser.appMetadata;
       final isAdmin = userMetadata['role'] == 'admin';
 
-      // Step 4: If the user is not an admin, deny access.
       if (!isAdmin) {
         await _authService.signOut();
         throw const AuthException('Access Denied: You do not have admin privileges.');
       }
 
-      // --- NEW: Fetch and set admin avatar data ---
+      // Fetch and set admin avatar data using the search method.
       try {
-        _avatarData = await _authService.downloadAdminAvatar(currentUser.id);
+        _avatarData = await _authService.findAndDownloadAdminAvatar(currentUser.id);
       } on StorageException {
         // Ignore if avatar is not found.
         _avatarData = null;

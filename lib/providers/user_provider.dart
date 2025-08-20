@@ -6,6 +6,7 @@ import '../models/user_profile.dart';
 import '../services/user_management_service.dart';
 
 class UserProvider extends ChangeNotifier {
+  // ... (all properties are unchanged) ...
   final UserManagementService _userService;
 
   UserProvider(this._userService);
@@ -20,11 +21,11 @@ class UserProvider extends ChangeNotifier {
   final Set<String> _selectedUserIds = {};
   Set<String> get selectedUserIds => _selectedUserIds;
 
-  // --- State to manage which view is active (list vs detail) ---
+  // --- NEW: State to manage which view is active (list vs detail) ---
   String? _viewingUserId;
   String? get viewingUserId => _viewingUserId;
 
-  // --- State for the user detail screen ---
+  // --- NEW: State for the user detail screen ---
   UserProfile? _selectedUserDetail;
   UserProfile? get selectedUserDetail => _selectedUserDetail;
 
@@ -40,8 +41,8 @@ class UserProvider extends ChangeNotifier {
 
   bool _isAvatarLoading = false;
   bool get isAvatarLoading => _isAvatarLoading;
-  // --- End of new state ---
 
+  // ... (fetchUsers, viewUser, viewUserList, fetchUserById are unchanged) ...
   Future<void> fetchUsers() async {
     _isLoading = true;
     _error = null;
@@ -56,7 +57,7 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  // --- Methods to control the view state ---
+  // --- NEW: Methods to control the view state ---
   void viewUser(String userId) {
     _viewingUserId = userId;
     notifyListeners();
@@ -69,9 +70,8 @@ class UserProvider extends ChangeNotifier {
     _userDetailAvatar = null; // Clear avatar data
     notifyListeners();
   }
-  // --- End of new methods ---
 
-  // --- Method to fetch a single user for the detail screen ---
+  // --- NEW: Method to fetch a single user for the detail screen ---
   Future<void> fetchUserById(String userId) async {
     // Set the detail screen state to loading
     _isDetailLoading = true;
@@ -89,19 +89,19 @@ class UserProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
-  // --- End of new method ---
-  
-  // --- NEW: Method to download avatar for the detail screen ---
+
+
+  /// --- MODIFIED: Method to download avatar for the detail screen ---
   Future<void> fetchUserAvatar(String userId) async {
     _isAvatarLoading = true;
     notifyListeners();
     try {
-      _userDetailAvatar = await _userService.downloadAvatar(userId);
+      // Call the new service method that handles the search.
+      _userDetailAvatar = await _userService.findAndDownloadAvatar(userId);
     } on StorageException {
       // It's okay if the user has no avatar, just ignore the error.
       _userDetailAvatar = null;
     } catch (e) {
-      // Handle other potential errors if necessary
       _userDetailAvatar = null;
     } finally {
       _isAvatarLoading = false;
@@ -109,6 +109,7 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
+  // ... (deleteSelectedUsers, toggleUserSelection, toggleSelectAll are unchanged) ...
   Future<void> deleteSelectedUsers() async {
      if (_selectedUserIds.isEmpty) return;
     _isLoading = true;

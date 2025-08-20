@@ -3,13 +3,12 @@ import 'package:flutter/material.dart';
 import '../models/feedback_item.dart';
 import '../models/user_profile.dart';
 import '../services/feedback_service.dart';
-import '../services/user_management_service.dart'; // Import the user service
+import '../services/user_management_service.dart'; 
 
 class FeedbackProvider extends ChangeNotifier {
   final FeedbackService _feedbackService;
-  final UserManagementService _userService; // Add the user service dependency
+  final UserManagementService _userService; 
   
-  // Update the constructor to accept both services
   FeedbackProvider(this._feedbackService, this._userService);
 
   // --- State for the list view ---

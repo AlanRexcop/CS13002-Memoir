@@ -1,109 +1,180 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
-class DashboardScreen extends StatelessWidget {
+import '../../models/user_profile.dart';
+import '../../providers/feedback_provider.dart';
+import '../../providers/user_provider.dart';
+
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
   @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Use addPostFrameCallback to ensure context is available
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Fetch initial data without causing a rebuild in initState
+      Provider.of<UserProvider>(context, listen: false).fetchUsers();
+      Provider.of<FeedbackProvider>(context, listen: false).fetchFeedback();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        bool isMobile = constraints.maxWidth < 900; // breakpoint
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Summary cards
-              if (isMobile)
-                Column(
-                  children: [
-                    _buildSummaryCard(
-                      assetPath: 'assets/icons/accounts.png',
-                      title: 'Total accounts',
-                      count: '1,234',
-                    ),
-                    const SizedBox(height: 16),
-                    _buildSummaryCard(
-                      assetPath: 'assets/icons/bugs.png',
-                      title: 'Total bugs',
-                      count: '10',
-                    ),
-                    const SizedBox(height: 16),
-                    _buildSummaryCard(
-                      assetPath: 'assets/icons/feedbacks.png',
-                      title: 'Total feedbacks',
-                      count: '19',
-                    ),
-                  ],
-                )
-              else
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: _buildSummaryCard(
-                        assetPath: 'assets/icons/accounts.png',
-                        title: 'Total accounts',
-                        count: '1,234',
-                      ),
-                    ),
-                    const SizedBox(width: 24),
-                    Expanded(
-                      child: _buildSummaryCard(
-                        assetPath: 'assets/icons/bugs.png',
-                        title: 'Total bugs',
-                        count: '10',
-                      ),
-                    ),
-                    const SizedBox(width: 24),
-                    Expanded(
-                      child: _buildSummaryCard(
-                        assetPath: 'assets/icons/feedbacks.png',
-                        title: 'Total feedbacks',
-                        count: '19',
-                      ),
-                    ),
-                  ],
-                ),
+    return Consumer2<UserProvider, FeedbackProvider>(
+      builder: (context, userProvider, feedbackProvider, child) {
+        if (userProvider.isLoading || feedbackProvider.isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-              const SizedBox(height: 24),
+        // --- Data processing for widgets ---
 
-              // Recent accounts and Pie Chart
-              if (isMobile)
-                Column(
-                  children: [
-                    _buildRecentAccounts(),
-                    const SizedBox(height: 24),
-                    _buildPieChart(),
-                  ],
-                )
-              else
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(flex: 2, child: _buildRecentAccounts()),
-                    const SizedBox(width: 24),
-                    Expanded(child: _buildPieChart()),
-                  ],
-                ),
-              const SizedBox(height: 24),
+        // Summary Cards Data
+        final totalAccounts = userProvider.users.length;
+        final totalBugs = feedbackProvider.feedbackItems
+            .where((fb) => fb.tag == 'bug')
+            .length;
+        final totalFeedbacks = feedbackProvider.feedbackItems
+            .where((fb) => fb.tag == 'feedback')
+            .length;
 
-              // Registration graph
-              const Text(
-                "Registration graph",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        // Recent Accounts Data
+        final recentAccounts = List<UserProfile>.from(userProvider.users);
+        recentAccounts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+        // Pie Chart Data
+        final unresolvedBugs = feedbackProvider.feedbackItems
+            .where((fb) => fb.tag == 'bug' && fb.status == 'unresolved')
+            .length;
+        final unreadFeedbacks = feedbackProvider.feedbackItems
+            .where((fb) => fb.tag == 'feedback' && fb.status == 'unresolved')
+            .length;
+        final resolvedAndRead = feedbackProvider.feedbackItems
+            .where((fb) => fb.status == 'resolved')
+            .length;
+        
+        // Bar Chart Data
+        final registrationData = _generateRegistrationData(userProvider.users);
+
+
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            bool isMobile = constraints.maxWidth < 900; // breakpoint
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Summary cards
+                  if (isMobile)
+                    Column(
+                      children: [
+                        _buildSummaryCard(
+                          assetPath: 'assets/icons/accounts.png',
+                          title: 'Total accounts',
+                          count: totalAccounts.toString(),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildSummaryCard(
+                          assetPath: 'assets/icons/bugs.png',
+                          title: 'Total bugs',
+                          count: totalBugs.toString(),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildSummaryCard(
+                          assetPath: 'assets/icons/feedbacks.png',
+                          title: 'Total feedbacks',
+                          count: totalFeedbacks.toString(),
+                        ),
+                      ],
+                    )
+                  else
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: _buildSummaryCard(
+                            assetPath: 'assets/icons/accounts.png',
+                            title: 'Total accounts',
+                            count: totalAccounts.toString(),
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        Expanded(
+                          child: _buildSummaryCard(
+                            assetPath: 'assets/icons/bugs.png',
+                            title: 'Total bugs',
+                            count: totalBugs.toString(),
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        Expanded(
+                          child: _buildSummaryCard(
+                            assetPath: 'assets/icons/feedbacks.png',
+                            title: 'Total feedbacks',
+                            count: totalFeedbacks.toString(),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                  const SizedBox(height: 24),
+
+                  // Recent accounts and Pie Chart
+                  if (isMobile)
+                    Column(
+                      children: [
+                        _buildRecentAccounts(recentAccounts.take(4).toList()),
+                        const SizedBox(height: 24),
+                        _buildPieChart(
+                            unresolvedBugs, unreadFeedbacks, resolvedAndRead),
+                      ],
+                    )
+                  else
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: _buildRecentAccounts(
+                              recentAccounts.take(4).toList()),
+                        ),
+                        const SizedBox(width: 24),
+                        Expanded(
+                            child: _buildPieChart(unresolvedBugs,
+                                unreadFeedbacks, resolvedAndRead)),
+                      ],
+                    ),
+                  const SizedBox(height: 24),
+
+                  // Registration graph
+                  const Text(
+                    "Registration graph",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildBarChart(
+                    registrationData['labels'] as List<String>,
+                    registrationData['data'] as List<int>,
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              _buildBarChart(),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
 
-  // --- Các hàm cũ giữ nguyên ---
+  // --- Widget build methods ---
+
   Widget _buildSummaryCard({
     required String assetPath,
     required String title,
@@ -162,14 +233,8 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildRecentAccounts() {
-    final accounts = [
-      {'name': 'minhnguyen', 'date': '26/06/2025'},
-      {'name': 'john.smith', 'date': '26/06/2025'},
-      {'name': 'michael.brown', 'date': '26/06/2025'},
-      {'name': 'khanh.vo', 'date': '26/06/2025'},
-    ];
-
+  Widget _buildRecentAccounts(List<UserProfile> accounts) {
+    final DateFormat formatter = DateFormat('dd/MM/yyyy');
     return Card(
       elevation: 3,
       child: Padding(
@@ -207,9 +272,18 @@ class DashboardScreen extends StatelessWidget {
                   final acc = entry.value;
                   return TableRow(
                     children: [
-                      Text("${index + 1}"),
-                      Text(acc['name']!),
-                      Text(acc['date']!),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4.0),
+                        child: Text("${index + 1}"),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4.0),
+                        child: Text(acc.username),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4.0),
+                        child: Text(formatter.format(acc.createdAt)),
+                      ),
                     ],
                   );
                 }),
@@ -221,7 +295,11 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildPieChart() {
+  Widget _buildPieChart(
+    int unresolvedBugs,
+    int unreadFeedbacks,
+    int resolvedAndRead,
+  ) {
     return Card(
       elevation: 3,
       child: Padding(
@@ -239,21 +317,21 @@ class DashboardScreen extends StatelessWidget {
                 PieChartData(
                   sections: [
                     PieChartSectionData(
-                      value: 8,
+                      value: unresolvedBugs.toDouble(),
                       color: Colors.red,
-                      title: '8',
+                      title: unresolvedBugs.toString(),
                       radius: 40,
                     ),
                     PieChartSectionData(
-                      value: 17,
+                      value: unreadFeedbacks.toDouble(),
                       color: Colors.yellow,
-                      title: '17',
+                      title: unreadFeedbacks.toString(),
                       radius: 40,
                     ),
                     PieChartSectionData(
-                      value: 4,
+                      value: resolvedAndRead.toDouble(),
                       color: Colors.green,
-                      title: '4',
+                      title: resolvedAndRead.toString(),
                       radius: 40,
                     ),
                   ],
@@ -296,10 +374,7 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildBarChart() {
-    final registrations = [103, 239, 192, 89, 312, 299];
-    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-
+  Widget _buildBarChart(List<String> months, List<int> registrations) {
     return Card(
       elevation: 3,
       child: Padding(
@@ -325,13 +400,16 @@ class DashboardScreen extends StatelessWidget {
               ),
               titlesData: FlTitlesData(
                 leftTitles: AxisTitles(
-                  sideTitles: SideTitles(showTitles: true),
+                  sideTitles: SideTitles(showTitles: true, reservedSize: 30),
                 ),
                 bottomTitles: AxisTitles(
                   sideTitles: SideTitles(
                     showTitles: true,
                     getTitlesWidget: (value, _) {
-                      return Text(months[value.toInt()]);
+                      if (value.toInt() < months.length) {
+                        return Text(months[value.toInt()]);
+                      }
+                      return const Text('');
                     },
                   ),
                 ),
@@ -349,5 +427,25 @@ class DashboardScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// --- Helper method to process registration data for the bar chart ---
+  Map<String, dynamic> _generateRegistrationData(List<UserProfile> users) {
+    final List<String> monthLabels = [];
+    final List<int> registrationCounts = [];
+    final now = DateTime.now();
+
+    for (int i = 5; i >= 0; i--) {
+      final targetDate = DateTime(now.year, now.month - i, 1);
+      final monthLabel = DateFormat.MMM().format(targetDate);
+      monthLabels.add(monthLabel);
+
+      final count = users.where((user) {
+        return user.createdAt.year == targetDate.year &&
+            user.createdAt.month == targetDate.month;
+      }).length;
+      registrationCounts.add(count);
+    }
+    return {'labels': monthLabels, 'data': registrationCounts};
   }
 }

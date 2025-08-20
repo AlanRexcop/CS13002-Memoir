@@ -15,7 +15,7 @@ class AdminAuthService {
     await _supabase.auth.signOut();
   }
 
-  /// --- MODIFIED: Finds and downloads the admin's avatar. ---
+  /// Finds and downloads the admin's avatar. ---
   Future<Uint8List> findAndDownloadAdminAvatar(String userId) async {
     final String folderPath = '$userId/profile';
 

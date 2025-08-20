@@ -6,14 +6,10 @@ import '../models/user_profile.dart';
 import '../services/user_management_service.dart';
 
 class UserProvider extends ChangeNotifier {
-  // ... (all properties are unchanged) ...
   final UserManagementService _userService;
 
   UserProvider(this._userService);
-
-  // State for the main users list
   List<UserProfile> _users = [];
-  // List<UserProfile> get users => _users;
   bool _isLoading = false;
   bool get isLoading => _isLoading;
   String? _error;
@@ -21,11 +17,9 @@ class UserProvider extends ChangeNotifier {
   final Set<String> _selectedUserIds = {};
   Set<String> get selectedUserIds => _selectedUserIds;
 
-  // --- NEW: State to manage which view is active (list vs detail) ---
   String? _viewingUserId;
   String? get viewingUserId => _viewingUserId;
 
-  // --- NEW: State for the user detail screen ---
   UserProfile? _selectedUserDetail;
   UserProfile? get selectedUserDetail => _selectedUserDetail;
 
@@ -35,14 +29,12 @@ class UserProvider extends ChangeNotifier {
   String? _detailError;
   String? get detailError => _detailError;
   
-  // --- NEW: State for downloaded user avatar ---
   Uint8List? _userDetailAvatar;
   Uint8List? get userDetailAvatar => _userDetailAvatar;
 
   bool _isAvatarLoading = false;
   bool get isAvatarLoading => _isAvatarLoading;
 
-  // --- NEW: Search n filter ----
   String _searchQuery = '';
   DateTime? _filterStartDate;
   DateTime? _filterEndDate;
@@ -92,9 +84,7 @@ class UserProvider extends ChangeNotifier {
     _filterEndDate = end;
     notifyListeners();
   }
-  // --- End of new state ---
 
-  // ... (fetchUsers, viewUser, viewUserList, fetchUserById are unchanged) ...
   Future<void> fetchUsers() async {
     _isLoading = true;
     _error = null;
@@ -109,7 +99,6 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  // --- NEW: Methods to control the view state ---
   void viewUser(String userId) {
     _viewingUserId = userId;
     notifyListeners();
@@ -123,9 +112,7 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- NEW: Method to fetch a single user for the detail screen ---
   Future<void> fetchUserById(String userId) async {
-    // Set the detail screen state to loading
     _isDetailLoading = true;
     _detailError = null;
     _selectedUserDetail = null; // Clear any previously viewed user
@@ -142,8 +129,6 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-
-  /// --- MODIFIED: Method to download avatar for the detail screen ---
   Future<void> fetchUserAvatar(String userId) async {
     _isAvatarLoading = true;
     notifyListeners();
@@ -161,14 +146,12 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  // ... (deleteSelectedUsers, toggleUserSelection, toggleSelectAll are unchanged) ...
   Future<void> deleteSelectedUsers() async {
      if (_selectedUserIds.isEmpty) return;
     _isLoading = true;
     notifyListeners();
     try {
       await _userService.deleteUsers(_selectedUserIds.toList());
-      // Refresh the list after deletion
       await fetchUsers();
       _selectedUserIds.clear();
     } catch (e) {

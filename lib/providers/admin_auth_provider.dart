@@ -6,7 +6,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/admin_auth_service.dart';
 
 class AdminAuthProvider extends ChangeNotifier {
-  // ... (properties are unchanged) ...
   final AdminAuthService _authService;
   late final StreamSubscription<AuthState> _authStateSubscription;
 
@@ -14,18 +13,13 @@ class AdminAuthProvider extends ChangeNotifier {
   User? get user => _user;
   bool get isLoggedIn => _user != null;
 
-  // --- NEW: State for downloaded admin avatar ---
   Uint8List? _avatarData;
   Uint8List? get avatarData => _avatarData;
 
-  // ... (constructor and dispose are unchanged) ...
   AdminAuthProvider(this._authService) {
-    // This listener remains crucial. It updates the state when sign-in or
-    // sign-out is successful.
     _authStateSubscription = _authService.authStateChanges.listen((data) {
       final session = data.session;
       _user = session?.user;
-      // Clear avatar data on logout
       if (_user == null) {
         _avatarData = null;
       }
@@ -40,7 +34,7 @@ class AdminAuthProvider extends ChangeNotifier {
   }
 
 
-  /// --- MODIFIED: Performs login and fetches avatar by searching. ---
+  /// Performs login and fetches avatar by searching. ---
   Future<void> signIn(String email, String password) async {
     try {
       await _authService.signIn(email, password);

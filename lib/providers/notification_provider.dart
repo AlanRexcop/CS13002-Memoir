@@ -43,7 +43,6 @@ class NotificationProvider extends ChangeNotifier {
         title: title,
         body: body,
       );
-      // After sending, refresh the list to show the new notification
       await fetchNotifications();
     } catch (e) {
       // In a real app, you might want to expose this error to the UI

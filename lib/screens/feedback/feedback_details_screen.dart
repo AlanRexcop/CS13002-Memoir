@@ -191,29 +191,35 @@ class _FeedbackDetailsScreenState extends State<FeedbackDetailsScreen> {
                       ),
                     ),
                     const SizedBox(width: 16),
-                    ElevatedButton.icon(
-                      onPressed: feedback.status == 'resolved'
-                          ? null
-                          : () async {
-                              await provider.updateStatus(
-                                feedback.id,
-                                'resolved',
-                              );
-                              // Optionally, navigate back to the list after resolving
-                              provider.viewFeedbackList();
-                            },
-                      icon: const Icon(Icons.check_circle_outline),
-                      label: const Text('Mark as resolved'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 16,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                    const Text(
+                      'Change Status:',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButton<String>(
+                        value: feedback.status,
+                        underline: const SizedBox.shrink(),
+                        items: ['pending', 'in_progress', 'resolved', 'closed']
+                            .map((String value) {
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          );
+                        }).toList(),
+                        onChanged: (String? newValue) {
+                          if (newValue != null && newValue != feedback.status) {
+                            context.read<FeedbackProvider>().updateStatus(
+                                  feedback.id,
+                                  newValue,
+                                );
+                          }
+                        },
                       ),
                     ),
                   ],

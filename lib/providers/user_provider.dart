@@ -13,7 +13,7 @@ class UserProvider extends ChangeNotifier {
 
   // State for the main users list
   List<UserProfile> _users = [];
-  List<UserProfile> get users => _users;
+  // List<UserProfile> get users => _users;
   bool _isLoading = false;
   bool get isLoading => _isLoading;
   String? _error;
@@ -41,6 +41,58 @@ class UserProvider extends ChangeNotifier {
 
   bool _isAvatarLoading = false;
   bool get isAvatarLoading => _isAvatarLoading;
+
+  // --- NEW: Search n filter ----
+  String _searchQuery = '';
+  DateTime? _filterStartDate;
+  DateTime? _filterEndDate;
+
+  bool get isFilterActive => _filterStartDate != null || _filterEndDate != null;
+  DateTime? get filterStartDate => _filterStartDate;
+  DateTime? get filterEndDate => _filterEndDate;
+
+  // getter for filtered users đc chuyển xuống đây 
+  List<UserProfile> get users {
+    List<UserProfile> filteredUsers = List.from(_users);
+
+    // search by name or email
+    if (_searchQuery.isNotEmpty) {
+      final lowerCaseQuery = _searchQuery.toLowerCase();
+      filteredUsers = filteredUsers.where((user) {
+        return user.username.toLowerCase().contains(lowerCaseQuery) ||
+               user.email.toLowerCase().contains(lowerCaseQuery);
+      }).toList();
+    }
+
+    // filter by start date
+    if (_filterStartDate != null) {
+      filteredUsers = filteredUsers.where((user) =>
+        user.createdAt.isAtSameMomentAs(_filterStartDate!) || user.createdAt.isAfter(_filterStartDate!)
+      ).toList();
+    }
+    // filter by end date
+    if (_filterEndDate != null) {
+      // Add 1 day to include the selected date
+      final inclusiveEndDate = _filterEndDate!.add(const Duration(days: 1));
+      filteredUsers = filteredUsers.where((user) =>
+        user.createdAt.isBefore(inclusiveEndDate)
+      ).toList();
+    }
+
+    return filteredUsers;
+  }
+
+  void searchUsers(String query) {
+    _searchQuery = query;
+    notifyListeners();
+  }
+
+  void setDateFilter({DateTime? start, DateTime? end}) {
+    _filterStartDate = start;
+    _filterEndDate = end;
+    notifyListeners();
+  }
+  // --- End of new state ---
 
   // ... (fetchUsers, viewUser, viewUserList, fetchUserById are unchanged) ...
   Future<void> fetchUsers() async {

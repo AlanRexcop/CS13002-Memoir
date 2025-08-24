@@ -196,30 +196,75 @@ class _FeedbackDetailsScreenState extends State<FeedbackDetailsScreen> {
                       style: TextStyle(fontSize: 16),
                     ),
                     const SizedBox(width: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(8),
+                    PopupMenuButton<String>(
+                      initialValue: feedback.status,
+                      onSelected: (String newValue) {
+                        if (newValue != feedback.status) {
+                          context.read<FeedbackProvider>().updateStatus(
+                                feedback.id,
+                                newValue,
+                              );
+                        }
+                      },
+                      position: PopupMenuPosition.under,
+                      offset: const Offset(0, 4),
+                      constraints: const BoxConstraints(
+                        minWidth: 120,
+                        maxHeight: 200,
                       ),
-                      child: DropdownButton<String>(
-                        value: feedback.status,
-                        underline: const SizedBox.shrink(),
-                        items: ['pending', 'in_progress', 'resolved', 'closed']
-                            .map((String value) {
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(value),
-                          );
-                        }).toList(),
-                        onChanged: (String? newValue) {
-                          if (newValue != null && newValue != feedback.status) {
-                            context.read<FeedbackProvider>().updateStatus(
-                                  feedback.id,
-                                  newValue,
-                                );
-                          }
-                        },
+                      itemBuilder: (context) => [
+                        'pending',
+                        'in_progress', 
+                        'resolved',
+                        'closed'
+                      ].map(
+                        (status) => PopupMenuItem(
+                          value: status,
+                          child: Text(
+                            status,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: status == feedback.status
+                                  ? Theme.of(context).primaryColor
+                                  : Colors.black87,
+                              fontWeight: status == feedback.status
+                                  ? FontWeight.w500
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ).toList(),
+                      color: Colors.white,
+                      elevation: 8,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.white,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              feedback.status,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Icons.keyboard_arrow_down,
+                              color: Colors.grey,
+                              size: 20,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],

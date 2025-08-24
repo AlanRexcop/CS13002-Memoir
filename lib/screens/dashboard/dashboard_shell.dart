@@ -4,10 +4,12 @@ import 'package:provider/provider.dart';
 import '../../providers/admin_auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/feedback_provider.dart';
+import '../../providers/notification_provider.dart';
 
 import '../feedback/feedback_details_screen.dart';
 import 'dashboard_screen.dart';
-import '../Notification_screen.dart';
+import '../notification/Notification_screen.dart';
+import '../notification/Notification_details_screen.dart';
 import '../user/users_screen.dart';
 import '../user/user_details_screen.dart';
 import '../feedback/feedback_screen.dart';
@@ -33,6 +35,7 @@ class _DashboardShellState extends State<DashboardShell> {
     int index,
     UserProvider userProvider,
     FeedbackProvider feedbackProvider,
+    NotificationProvider notificationProvider, // Added provider
   ) {
     switch (index) {
       case 0:
@@ -43,6 +46,12 @@ class _DashboardShellState extends State<DashboardShell> {
         }
         return const UsersScreen();
       case 2:
+        // Added logic to switch between list and detail view
+        if (notificationProvider.selectedNotificationId != null) {
+          return NotificationDetailsScreen(
+            notificationId: notificationProvider.selectedNotificationId!,
+          );
+        }
         return const NotificationScreen();
       case 3:
         if (feedbackProvider.viewingFeedbackId != null) {
@@ -242,13 +251,21 @@ class _DashboardShellState extends State<DashboardShell> {
 
                 // ==== CONTENT ====
                 Expanded(
-                  child: Consumer2<UserProvider, FeedbackProvider>(
-                    builder: (context, userProvider, feedbackProvider, _) =>
+                  child: Consumer3<UserProvider, FeedbackProvider,
+                      NotificationProvider>(
+                    builder: (
+                      context,
+                      userProvider,
+                      feedbackProvider,
+                      notificationProvider,
+                      _,
+                    ) =>
                         _getScreen(
-                          _selectedIndex,
-                          userProvider,
-                          feedbackProvider,
-                        ),
+                      _selectedIndex,
+                      userProvider,
+                      feedbackProvider,
+                      notificationProvider,
+                    ),
                   ),
                 ),
               ],

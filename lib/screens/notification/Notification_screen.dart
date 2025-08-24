@@ -1,7 +1,8 @@
+// lib/screens/notification_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../providers/notification_provider.dart';
+import '../../providers/notification_provider.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -14,6 +15,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Global Notifications'),
         backgroundColor: Colors.white,
@@ -51,15 +53,31 @@ class _NotificationScreenState extends State<NotificationScreen> {
               return Card(
                 elevation: 2,
                 margin: const EdgeInsets.symmetric(vertical: 8),
-                child: ListTile(
-                  title: Text(
-                    notification['title'],
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text(notification['body']),
-                  trailing: Text(
-                    formattedDate,
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                child: InkWell(
+                  // UPDATED: Make the card tappable
+                  onTap: () {
+                    // This new method on your provider will handle navigation
+                    // NOTE: Assumes your notification object has an 'id' field.
+                    final notificationId = notification['id'];
+                    context
+                        .read<NotificationProvider>()
+                        .selectNotification(notificationId);
+                  },
+                  child: ListTile(
+                    title: Text(
+                      notification['title'],
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    // UPDATED: Truncate the body text to 2 lines
+                    subtitle: Text(
+                      notification['body'],
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: Text(
+                      formattedDate,
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
                   ),
                 ),
               );

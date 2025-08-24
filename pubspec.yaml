@@ -18,6 +18,7 @@ dependencies:
   go_router: ^14.0.2 # Recommended for web routing
   flutter_dotenv: ^5.1.0
   timeago: ^3.6.1
+  flutter_markdown: ^0.7.7+1
 
 dev_dependencies:
   flutter_test:

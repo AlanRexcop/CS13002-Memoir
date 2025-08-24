@@ -149,6 +149,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                                     text: DateFormat(
                                       'yyyy-MM-dd HH:mm:ss',
                                     ).format(user.createdAt),
+                                    color: Colors.teal,
                                   ),
                                 ),
                                 _buildInfoRow(
@@ -158,6 +159,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                                           text: DateFormat(
                                             'yyyy-MM-dd HH:mm:ss',
                                           ).format(user.lastSignInAt!),
+                                          color: Colors.teal,
                                         )
                                       : const Text("Never"),
                                 ),
@@ -245,9 +247,8 @@ class _InfoPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pillColor = color ?? Colors.grey[300]!;
-    final textColor = (progressBarValue == null && color != null)
-        ? Colors.black87
-        : Colors.white;
+    // UPDATED: Always use a dark color for better readability.
+    const textColor = Colors.black87;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

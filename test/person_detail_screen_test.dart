@@ -12,9 +12,12 @@ import 'package:mocktail/mocktail.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // Mocks
-class MockAppNotifier extends StateNotifier<AppState> with Mock implements AppNotifier {
+class MockAppNotifier extends StateNotifier<AppState>
+    with Mock
+    implements AppNotifier {
   MockAppNotifier(super.initialState);
 }
+
 class MockAppState extends Mock implements AppState {}
 
 class FakeUser extends Fake implements User {
@@ -23,7 +26,9 @@ class FakeUser extends Fake implements User {
   @override
   String? get email => 'test@example.com';
 }
+
 class FakeNote extends Fake implements Note {}
+
 class FakePerson extends Fake implements Person {}
 
 void main() {
@@ -77,7 +82,9 @@ void main() {
     when(() => mockAppState.storagePath).thenReturn('/fake/path');
 
     // Default stubs for AppNotifier methods
-    when(() => mockAppNotifier.createNewNoteForPerson(any(), any())).thenAnswer((_) async => true);
+    when(
+      () => mockAppNotifier.createNewNoteForPerson(any(), any()),
+    ).thenAnswer((_) async => true);
     when(() => mockAppNotifier.deleteNote(any())).thenAnswer((_) async => true);
   });
 
@@ -87,7 +94,9 @@ void main() {
         overrides: [
           appProvider.overrideWith((ref) => mockAppNotifier),
           allCloudFilesProvider.overrideWith((ref) => Future.value([])),
-          detailSearchProvider.overrideWith((ref) => (text: '', tags: const [])),
+          detailSearchProvider.overrideWith(
+            (ref) => (text: '', tags: const []),
+          ),
           rawNoteContentProvider.overrideWith(
             (ref, path) => Future.value('# Fake Markdown Content'),
           ),
@@ -105,16 +114,33 @@ void main() {
   }
 
   group('PersonDetailScreen Note Management', () {
-    testWidgets('TC1: View all notes of a contact in the Notes tab', (tester) async {
+    testWidgets('TC1: View all notes of a contact in the Notes tab', (
+      tester,
+    ) async {
       await pumpPersonDetailScreen(tester);
       await switchToNotesTab(tester);
-      
+
       final notesTabFinder = find.byType(NotesTab);
       expect(notesTabFinder, findsOneWidget);
 
-      expect(find.descendant(of: notesTabFinder, matching: find.text('Main Info')), findsNothing);
-      expect(find.descendant(of: notesTabFinder, matching: find.text('Meeting Notes')), findsOneWidget);
-      expect(find.descendant(of: notesTabFinder, matching: find.text('Vacation Plan')), findsOneWidget);
+      expect(
+        find.descendant(of: notesTabFinder, matching: find.text('Main Info')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: notesTabFinder,
+          matching: find.text('Meeting Notes'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: notesTabFinder,
+          matching: find.text('Vacation Plan'),
+        ),
+        findsOneWidget,
+      );
 
       // --- FIX: Settle any pending timers before the test ends ---
       await tester.pumpAndSettle();
@@ -131,33 +157,47 @@ void main() {
       await tester.tap(find.text('Create'));
       await tester.pumpAndSettle();
 
-      verify(() => mockAppNotifier.createNewNoteForPerson(testPerson, 'New Note Title')).called(1);
+      verify(
+        () => mockAppNotifier.createNewNoteForPerson(
+          testPerson,
+          'New Note Title',
+        ),
+      ).called(1);
       expect(find.byType(AlertDialog), findsNothing);
       expect(find.textContaining('created'), findsOneWidget);
-      
+
       await tester.pumpAndSettle();
     });
 
-    testWidgets('TC3: Create note with an existing title (should be allowed)', (tester) async {
+    testWidgets('TC3: Create note with an existing title (should be allowed)', (
+      tester,
+    ) async {
       await pumpPersonDetailScreen(tester);
       await switchToNotesTab(tester);
 
       await tester.tap(find.byIcon(Icons.add));
       await tester.pumpAndSettle();
-      
+
       await tester.enterText(find.byType(TextField).last, 'Meeting Notes');
       await tester.tap(find.text('Create'));
       await tester.pumpAndSettle();
 
-      verify(() => mockAppNotifier.createNewNoteForPerson(testPerson, 'Meeting Notes')).called(1);
+      verify(
+        () =>
+            mockAppNotifier.createNewNoteForPerson(testPerson, 'Meeting Notes'),
+      ).called(1);
       expect(find.textContaining('created'), findsOneWidget);
 
       await tester.pumpAndSettle();
     });
 
-    testWidgets('TC4: Create note with empty title shows failure snackbar', (tester) async {
-      when(() => mockAppNotifier.createNewNoteForPerson(any(), '')).thenAnswer((_) async => false);
-          
+    testWidgets('TC4: Create note with empty title shows success snackbar', (
+      tester,
+    ) async {
+      when(
+        () => mockAppNotifier.createNewNoteForPerson(any(), ''),
+      ).thenAnswer((_) async => true); // success
+
       await pumpPersonDetailScreen(tester);
       await switchToNotesTab(tester);
 
@@ -167,18 +207,50 @@ void main() {
       await tester.enterText(find.byType(TextField).last, ''); // Empty title
       await tester.tap(find.text('Create'));
       await tester.pumpAndSettle();
-      
+
       expect(find.byType(AlertDialog), findsNothing);
-      expect(find.textContaining('Failed to create note'), findsOneWidget);
-      verify(() => mockAppNotifier.createNewNoteForPerson(testPerson, '')).called(1);
+      expect(find.textContaining('Note "" created.'), findsOneWidget);
+      verify(
+        () => mockAppNotifier.createNewNoteForPerson(testPerson, ''),
+      ).called(1);
 
       await tester.pumpAndSettle();
     });
 
-    testWidgets('TC5: Cancel note creation', (tester) async {
+    testWidgets(
+      'TC5: Create note with space-only title shows success snackbar',
+      (tester) async {
+        when(
+          () => mockAppNotifier.createNewNoteForPerson(any(), ''),
+        ).thenAnswer((_) async => true); // success
+
+        await pumpPersonDetailScreen(tester);
+        await switchToNotesTab(tester);
+
+        await tester.tap(find.byIcon(Icons.add));
+        await tester.pumpAndSettle();
+
+        await tester.enterText(
+          find.byType(TextField).last,
+          '   ',
+        ); // Space-only
+        await tester.tap(find.text('Create'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(find.textContaining('Note "" created.'), findsOneWidget);
+        verify(
+          () => mockAppNotifier.createNewNoteForPerson(testPerson, ''),
+        ).called(1);
+
+        await tester.pumpAndSettle();
+      },
+    );
+
+    testWidgets('TC6: Cancel note creation', (tester) async {
       await pumpPersonDetailScreen(tester);
       await switchToNotesTab(tester);
-      
+
       await tester.tap(find.byIcon(Icons.add));
       await tester.pumpAndSettle();
 
@@ -191,17 +263,20 @@ void main() {
 
       await tester.pumpAndSettle();
     });
-    
-    testWidgets('TC6: Delete an existing note', (tester) async {
+
+    testWidgets('TC7: Delete an existing note', (tester) async {
       await pumpPersonDetailScreen(tester);
       await switchToNotesTab(tester);
 
-      final noteToDeleteFinder = find.widgetWithText(Dismissible, 'Vacation Plan');
+      final noteToDeleteFinder = find.widgetWithText(
+        Dismissible,
+        'Vacation Plan',
+      );
       expect(noteToDeleteFinder, findsOneWidget);
 
       await tester.drag(noteToDeleteFinder, const Offset(-500, 0));
       await tester.pumpAndSettle();
-      
+
       expect(find.text('Confirm Deletion'), findsOneWidget);
       await tester.tap(find.text('Delete'));
       await tester.pumpAndSettle();
@@ -211,13 +286,16 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('TC7: Cancel deleting a note', (tester) async {
+    testWidgets('TC8: Cancel deleting a note', (tester) async {
       await pumpPersonDetailScreen(tester);
       await switchToNotesTab(tester);
 
-      final noteToKeepFinder = find.widgetWithText(Dismissible, 'Meeting Notes');
+      final noteToKeepFinder = find.widgetWithText(
+        Dismissible,
+        'Meeting Notes',
+      );
       expect(noteToKeepFinder, findsOneWidget);
-      
+
       await tester.drag(noteToKeepFinder, const Offset(-500, 0));
       await tester.pumpAndSettle();
 

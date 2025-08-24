@@ -120,12 +120,22 @@ class SyncService {
     if (user == null) return;
 
     try {
-      print('Auto-sync: Uploading note and associated images for ${note.path}');
-      // --- THE FIX ---
-      // Directly use the high-level notifier method from CloudProvider.
-      // This method contains the logic to upload both the note file AND its images.
-      await _ref.read(cloudNotifierProvider.notifier).uploadNote(note, vaultRoot);
-      print('Auto-sync: Upload task complete for ${note.path}');
+      final cloudFile = await _findCloudFileByPath(note.path);
+
+      if (cloudFile != null) {
+        // File exists, compare timestamps to avoid overwriting newer cloud data.
+        final localTimestamp = note.lastModified;
+        final cloudTimestamp = cloudFile.updatedAt;
+        final difference = localTimestamp.difference(cloudTimestamp).inSeconds;
+
+        // Only upload if the local file is significantly newer (e.g., > 2 seconds).
+        if (difference > 2) {
+          print('Auto-sync: Local is newer for "${note.path}". Uploading.');
+          await _ref.read(cloudNotifierProvider.notifier).uploadNote(note, vaultRoot);
+        } else {
+          print('Auto-sync: Skipping upload for "${note.path}", cloud version is same or newer.');
+        }
+      }
     } catch (e) {
       print('Auto-sync: Failed to upload changes for ${note.path}. Error: $e');
     }

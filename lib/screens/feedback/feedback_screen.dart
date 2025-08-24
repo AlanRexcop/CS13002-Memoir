@@ -115,29 +115,67 @@ class _FeedbackListView extends StatelessWidget {
               const Spacer(),
               const Text('Status: '),
               const SizedBox(width: 8),
-              Container(
-                height: 40,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: DropdownButton<String>(
-                  value: provider.selectedStatus,
-                  onChanged: (String? newValue) {
-                    if (newValue != null) {
-                      provider.setStatusFilter(newValue);
-                    }
+              PopupMenuButton<String>(
+                  initialValue: provider.selectedStatus,
+                  onSelected: (String newValue) {
+                    provider.setStatusFilter(newValue);
                   },
-                  items: statusOptions
-                      .map(
-                        (status) => DropdownMenuItem(
-                          value: status,
-                          child: Text(status),
+                  position: PopupMenuPosition.under,
+                  offset: const Offset(0, 4),
+                  constraints: const BoxConstraints(
+                    minWidth: 120,
+                    maxHeight: 200,
+                  ),
+                  itemBuilder: (context) => statusOptions
+                    .map(
+                      (status) => PopupMenuItem(
+                        value: status,
+                        child: Text(
+                          status,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: status == provider.selectedStatus
+                                ? Theme.of(context).primaryColor
+                                : Colors.black87,
+                            fontWeight: status == provider.selectedStatus
+                                ? FontWeight.w500
+                                : FontWeight.normal,
+                          ),
                         ),
-                      )
-                      .toList(),
-                  underline: const SizedBox.shrink(),
+                      ),
+                    )
+                    .toList(),
+                color: Colors.white,
+                elevation: 8,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side: BorderSide(color: Colors.grey.shade300),
+                ),
+                child: Container(
+                  height: 40,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.white,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        provider.selectedStatus,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const Icon(
+                        Icons.keyboard_arrow_down,
+                        color: Colors.grey,
+                        size: 20,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],

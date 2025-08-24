@@ -236,6 +236,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildRecentAccounts(List<UserProfile> accounts) {
     final DateFormat formatter = DateFormat('dd/MM/yyyy');
     return Card(
+      color: Colors.white,
       elevation: 3,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -302,6 +303,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   ) {
     return Card(
       elevation: 3,
+      color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -377,6 +379,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildBarChart(List<String> months, List<int> registrations) {
     return Card(
       elevation: 3,
+      color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: SizedBox(

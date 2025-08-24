@@ -68,9 +68,6 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: Row(
-                spacing: 6.0,
-                // runSpacing: 4.0,
-                // crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   ..._selectedTags.map((tag) => Tag(
                     label: '#$tag',
@@ -441,7 +438,7 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
                 itemCount: filteredPersons.length,
                 itemBuilder: (context, index) {
                   final person = filteredPersons[index];
-                  const int maxTagsToShow = 2;
+                  const int maxTagsToShow = 6;
                   final isSelected = _selectedItems.contains(person.path);
 
                   // --- AVATAR LOGIC ---
@@ -473,6 +470,19 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
                     );
                   }
                   // --- END AVATAR LOGIC ---
+
+                  // --- TAG WIDGET LOGIC ---
+                  final List<Widget> tagWidgets = [];
+                  final tagsToDisplay = person.info.tags.take(maxTagsToShow);
+                  tagWidgets.addAll(tagsToDisplay.map((tag) => Tag(label: _formatTagName(tag))));
+                  final List<Widget> rowChildren = [];
+                  for (int i = 0; i < tagWidgets.length; i++) {
+                    rowChildren.add(tagWidgets[i]);
+                    if (i < tagWidgets.length - 1) {
+                      rowChildren.add(const SizedBox(width: 4.0));
+                    }
+                  }
+                  // --- END TAG WIDGET LOGIC ---
 
                   return Dismissible(
                     key: ValueKey(person.path),
@@ -521,33 +531,36 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
                         },
                       )
                           : avatarWidget,
-                      title: Text(person.info.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Text('${person.notes.length} notes', style: const TextStyle(fontSize: 14),),
-                          const SizedBox(width: 8),
-                          if (person.info.tags.isNotEmpty)
-                            Flexible(
-                              child: Wrap(
-                                spacing: 4.0,
-                                runSpacing: 4.0,
-                                children: [
-                                  ...(person.info.tags.length > maxTagsToShow
-                                      ? person.info.tags.sublist(0, maxTagsToShow)
-                                      : person.info.tags)
-                                      .map((tag) => Tag(label: _formatTagName(tag)))
-                                      ,
-                                  if (person.info.tags.length > maxTagsToShow)
-                                    Tag(label: '+${person.info.tags.length - maxTagsToShow}'),
-                                ],
-                              ),
-                            ),
-                          const SizedBox(width: 8),
-                          const Icon(Icons.chevron_right, color: Colors.deepPurple),
-                        ],
+                      title: Text(
+                        person.info.title,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        softWrap: false,
                       ),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 4.0),
+                        child: Row(
+                          children: [
+                            Text(
+                              '${person.notes.length} notes',
+                              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                            ),
+                            const SizedBox(width: 8),
+                            if (person.info.tags.isNotEmpty)
+                              Expanded(
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: Row(
+                                    children: rowChildren,
+                                  ),
+                                ),
+                              ),
+                            // END OF CHANGE
+                          ],
+                        ),
+                      ),
+                      trailing: const Icon(Icons.chevron_right, color: Colors.deepPurple, size: 30,),
                       onTap: () async {
                         if (_isSelectionMode) {
                           _toggleSelection(person.path);
@@ -567,7 +580,7 @@ class _PersonListScreenState extends ConsumerState<PersonListScreen> {
                           }
                         } else {
                           ref.read(detailSearchProvider.notifier).state = (text: '', tags: const []);
-                        await Future.delayed(const Duration(milliseconds: 1));
+                          await Future.delayed(const Duration(milliseconds: 1));
                           Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (context) => PersonDetailScreen(person: person),

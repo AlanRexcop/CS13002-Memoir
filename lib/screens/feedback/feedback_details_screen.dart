@@ -174,22 +174,22 @@ class _FeedbackDetailsScreenState extends State<FeedbackDetailsScreen> {
                 // Action Buttons
                 Row(
                   children: [
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        /* TODO: Implement Reply Logic */
-                      },
-                      icon: const Icon(Icons.reply),
-                      label: const Text('Reply'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 16,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
+                    // OutlinedButton.icon(
+                    //   onPressed: () {
+                    //     /* TODO: Implement Reply Logic */
+                    //   },
+                    //   icon: const Icon(Icons.reply),
+                    //   label: const Text('Reply'),
+                    //   style: OutlinedButton.styleFrom(
+                    //     padding: const EdgeInsets.symmetric(
+                    //       horizontal: 24,
+                    //       vertical: 16,
+                    //     ),
+                    //     shape: RoundedRectangleBorder(
+                    //       borderRadius: BorderRadius.circular(8),
+                    //     ),
+                    //   ),
+                    // ),
                     const SizedBox(width: 16),
                     const Text(
                       'Change Status:',

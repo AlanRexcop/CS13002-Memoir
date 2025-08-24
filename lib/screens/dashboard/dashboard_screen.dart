@@ -39,7 +39,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         // Summary Cards Data
         final totalAccounts = userProvider.users.length;
         final totalBugs = feedbackProvider.feedbackItems
-            .where((fb) => fb.tag == 'bug')
+            .where((fb) => fb.tag == 'bugs')
             .length;
         final totalFeedbacks = feedbackProvider.feedbackItems
             .where((fb) => fb.tag == 'feedback')
@@ -51,10 +51,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         // Pie Chart Data
         final unresolvedBugs = feedbackProvider.feedbackItems
-            .where((fb) => fb.tag == 'bug' && fb.status == 'unresolved')
+            .where((fb) => fb.tag == 'bugs' && (fb.status == 'pending' || fb.status == 'in_progress'))
             .length;
         final unreadFeedbacks = feedbackProvider.feedbackItems
-            .where((fb) => fb.tag == 'feedback' && fb.status == 'unresolved')
+            .where((fb) => fb.tag == 'feedback' && (fb.status == 'pending' || fb.status == 'in_progress'))
             .length;
         final resolvedAndRead = feedbackProvider.feedbackItems
             .where((fb) => fb.status == 'resolved')

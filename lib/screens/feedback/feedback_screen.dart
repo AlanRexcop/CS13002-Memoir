@@ -57,7 +57,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          _FeedbackListView(tag: 'bug'),
+          _FeedbackListView(tag: 'bugs'),
           _FeedbackListView(tag: 'feedback'),
         ],
       ),

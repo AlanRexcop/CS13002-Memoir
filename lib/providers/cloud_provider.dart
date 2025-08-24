@@ -52,18 +52,27 @@ class CloudState {
 
 class CloudNotifier extends StateNotifier<CloudState> {
   final CloudFileService _cloudService;
-  final User _currentUser;
+  // Made _currentUser nullable to support the unauthenticated state gracefully
+  final User? _currentUser;
   final Ref _ref;
   late final Future<void> initializationComplete;
 
   CloudNotifier(this._cloudService, this._currentUser, this._ref) : super(const CloudState()) {
-    initializationComplete = initialize();
+    // Only initialize if we have a user
+    if (_currentUser != null) {
+      initializationComplete = initialize();
+    } else {
+      // If no user, complete immediately with an empty state
+      initializationComplete = Future.value();
+    }
   }
 
   Future<void> initialize() async {
+    // Guard against running initialization without a user
+    if (_currentUser == null) return;
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      final rootFolder = await _cloudService.getUserRootFolder(_currentUser.id);
+      final rootFolder = await _cloudService.getUserRootFolder(_currentUser!.id);
       final rootFolderId = rootFolder['id'] as String;
       final rootPath = rootFolder['path'] as String; 
       state = state.copyWith(userRootPath: rootPath);
@@ -245,9 +254,16 @@ class CloudNotifier extends StateNotifier<CloudState> {
     }
   }
 
-  Future<bool> uploadNote(Note note, String vaultRoot) async {
+Future<bool> uploadNote(Note note, String vaultRoot) async {
+    // --- ADD THIS DEBUGGING LINE ---
+    print('DEBUG: Attempting upload for user: ${Supabase.instance.client.auth.currentUser?.id}');
+    // ---------------------------------
+
     await initializationComplete; // Wait for initialization
     if (state.userRootPath == null) {
+      // --- ADD THIS DEBUGGING LINE ---
+      print('DEBUG: Upload failed. Reason: User root path is null.');
+      // ---------------------------------
       state = state.copyWith(errorMessage: 'User root path not available. Cannot upload file.');
       return false;
     }
@@ -364,14 +380,8 @@ final cloudNotifierProvider = StateNotifierProvider<CloudNotifier, CloudState>((
   final cloudService = ref.watch(cloudFileServiceProvider);
   final user = ref.watch(appProvider.select((s) => s.currentUser));
 
-  if (user == null) {
-    // This will get temporarily hit during the logout/login transition.
-    // The UI should use .when() or other guards to handle this state.
-    // We create a temporary notifier that won't be able to do anything.
-    // This is better than throwing an exception which would crash the app.
-    return CloudNotifier(cloudService, Supabase.instance.client.auth.currentUser!, ref);
-  }
-  
+  // The notifier is now created correctly whether a user exists or not.
+  // The internal logic of CloudNotifier will handle the unauthenticated state.
   return CloudNotifier(cloudService, user, ref);
 });
 

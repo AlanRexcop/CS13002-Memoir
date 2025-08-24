@@ -2,6 +2,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:memoir/providers/app_provider.dart'; // Import app_provider to access the user state
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 const String supabaseBucket = 'user-files';
@@ -100,5 +101,11 @@ class CloudFileService {
 }
 
 final cloudFileServiceProvider = Provider<CloudFileService>((ref) {
+  // --- THIS IS THE FIX ---
+  // By watching the currentUser, we ensure this provider is invalidated
+  // and recreated whenever the user's authentication state changes.
+  // This guarantees the CloudFileService is always built in the correct auth context.
+  ref.watch(appProvider.select((s) => s.currentUser));
+  
   return CloudFileService(Supabase.instance.client);
 });

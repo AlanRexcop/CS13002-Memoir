@@ -166,10 +166,12 @@ class AppNotifier extends StateNotifier<AppState> {
              await _localStorageService.deleteLocalBackground(state.storagePath!);
            }
            state = state.copyWith(clearCurrentUser: true);
+           // Refresh both providers
            _ref.read(avatarVersionProvider.notifier).update((s) => s + 1);
            _ref.read(backgroundVersionProvider.notifier).update((s) => s + 1);
            _realtimeService.unsubscribe();
          } else {
+           // On login, set user and download assets
            state = state.copyWith(currentUser: user);
            if (state.storagePath != null) {
              await _downloadAndCacheAvatar(user.id, state.storagePath!);

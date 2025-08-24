@@ -362,19 +362,34 @@ class CloudNotifier extends StateNotifier<CloudState> {
 
 final cloudNotifierProvider = StateNotifierProvider<CloudNotifier, CloudState>((ref) {
   final cloudService = ref.watch(cloudFileServiceProvider);
-  final user = Supabase.instance.client.auth.currentUser;
+  final user = ref.watch(appProvider.select((s) => s.currentUser));
 
   if (user == null) {
-    throw Exception("CloudNotifier requires an authenticated user.");
+    // This will get temporarily hit during the logout/login transition.
+    // The UI should use .when() or other guards to handle this state.
+    // We create a temporary notifier that won't be able to do anything.
+    // This is better than throwing an exception which would crash the app.
+    return CloudNotifier(cloudService, Supabase.instance.client.auth.currentUser!, ref);
   }
+  
   return CloudNotifier(cloudService, user, ref);
 });
 
 final allCloudFilesProvider = FutureProvider<List<CloudFile>>((ref) async {
+  final currentUser = ref.watch(appProvider.select((s) => s.currentUser));
+
+  // If there's no user logged in, return an empty list immediately.
+  // This clears the state from the previous user.
+  if (currentUser == null) {
+    return [];
+  }
+
+  // The provider will re-execute this code when currentUser changes.
   final cloudService = ref.read(cloudFileServiceProvider);
   final fileMaps = await cloudService.getAllFiles();
   return fileMaps.map((data) => CloudFile.fromSupabase(data)).toList();
 });
+
 
 /// A simple provider that acts as a version counter or trigger.
 /// When its value changes, dependent providers will refetch.
@@ -405,12 +420,7 @@ final localAvatarProvider = FutureProvider<Uint8List?>((ref) async {
   return null;
 });
 
-/// Fetches the locally cached background image.
-///
-/// This provider re-runs whenever [backgroundVersionProvider] changes,
-/// ensuring the UI can be updated with a new background after an upload.
 final localBackgroundProvider = FutureProvider<Uint8List?>((ref) async {
-  // Depend on the version provider. When it changes, this provider re-runs.
   ref.watch(backgroundVersionProvider);
 
   final appState = ref.watch(appProvider);
